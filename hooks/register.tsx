@@ -1,19 +1,10 @@
 import type { Register } from "claude-code";
 import { parseOptions } from "./config";
-import { enhance } from "./enhance";
-import { cancel, clearHeld, resetStuckPhase, undo } from "./actions";
+import { cancel, clearHeld, resetStuckPhase } from "./actions";
+import { renderBand } from "./band";
+import { runCommand } from "./commands";
 
-export const HINT =
-  "prompt-master: type /prompt-master <your prompt>, press ctrl+x b, or click Enhance";
-
-// Sub-words of /prompt-master (spec C18) whose flows arrive with later tasks.
-const NOT_BUILT_WORDS: ReadonlySet<string> = new Set([
-  "model",
-  "status",
-  "diff",
-  "probe",
-]);
-const NOT_BUILT = "prompt-master: not built yet";
+export { HINT } from "./commands";
 
 export const register: Register = (on, options) => {
   const cfg = parseOptions(options);
@@ -30,10 +21,15 @@ export const register: Register = (on, options) => {
   });
 
   // The last chance to cut a call still running when the session goes (§5.3).
-  on("session.end", ($, e, next) => {
+  // A /clear or a resume also forgets the held pair here, belt and braces for
+  // classic.SessionStart, which an organization-managed install never runs.
+  on("session.end", async ($, e, next) => {
     cancel();
+    if (e.reason === "clear" || e.reason === "resume") {
+      await clearHeld($);
+    }
     return next(e);
-  });
+  }).catch(($, e, next) => next(e));
 
   // /clear, a resume and a fork start with nothing held (§5.3 resets); an
   // observer, so a failure lets the event go on.
@@ -56,21 +52,12 @@ export const register: Register = (on, options) => {
     return next(e);
   }).catch(($, e, next) => next(e));
 
-  on("command.run", { command: "prompt-master" }, async ($, e) => {
-    const args = e.args.trim();
-    if (args === "") {
-      return { text: HINT };
-    }
-    const [first = ""] = args.split(/\s+/);
-    const word = first.toLowerCase();
-    if (word === "undo") {
-      await undo($);
-      return {};
-    }
-    if (NOT_BUILT_WORDS.has(word)) {
-      return { text: NOT_BUILT };
-    }
-    await enhance($, cfg, { kind: "args", text: args });
-    return {};
-  });
+  // The band (§5.1): one row chained above whatever is drawn beneath.
+  on("ui.render", { component: "AbovePrompt" }, ($, e, next) =>
+    renderBand($, e, next, cfg),
+  );
+
+  on("command.run", { command: "prompt-master" }, ($, e) =>
+    runCommand($, cfg, e.args),
+  );
 };

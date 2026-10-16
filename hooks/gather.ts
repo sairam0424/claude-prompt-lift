@@ -66,16 +66,25 @@ export function conversationTail(
     );
 }
 
+/** `$.store` key of the first rung `/prompt-master model` chose (spec §5.2). */
+export const MODEL_STORE_KEY = "model";
+
+/**
+ * The configured chain with the `session` token resolved, led by the stored
+ * choice when there is one, without repeats.
+ */
 export async function resolveChain(
   $: EngineInterface,
   cfg: Config,
 ): Promise<string[]> {
+  const stored = await $.store.get(MODEL_STORE_KEY);
+  const chosen = typeof stored === "string" && stored !== "" ? [stored] : [];
   const needsSession = cfg.models.includes(SESSION_MODEL_TOKEN);
   const sessionModel = needsSession ? await $.session.model() : "";
   const ids = cfg.models
     .map((id) => (id === SESSION_MODEL_TOKEN ? sessionModel : id))
     .filter((id) => id.length > 0);
-  return [...new Set(ids)];
+  return [...new Set([...chosen, ...ids])];
 }
 
 async function readDocuments(

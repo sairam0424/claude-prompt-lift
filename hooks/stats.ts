@@ -1,4 +1,4 @@
-import type { EngineInterface } from "claude-code";
+import type { EngineInterface, ModelUsage } from "claude-code";
 import type { LastUsage } from "../types";
 import { shortModel } from "./config";
 import type { Attempt, ChainOk } from "./chain";
@@ -10,7 +10,8 @@ import type { PostOk } from "./guards";
 export type DayStats = { presses: number; usd: number };
 export type Stats = { byDay: Record<string, DayStats> };
 
-const STORE_KEY = "stats";
+export const STATS_STORE_KEY = "stats";
+export const EMPTY_DAY: DayStats = { presses: 0, usd: 0 };
 
 export function asStats(value: unknown): Stats {
   const byDay = (value as { byDay?: unknown } | null | undefined)?.byDay;
@@ -27,14 +28,22 @@ export async function recordPress(
   usd: number,
 ): Promise<void> {
   const day = dayOf(await $.clock.now());
-  const stats = asStats(await $.store.get(STORE_KEY));
-  const previous = stats.byDay[day] ?? { presses: 0, usd: 0 };
-  await $.store.set(STORE_KEY, {
+  const stats = asStats(await $.store.get(STATS_STORE_KEY));
+  const previous = stats.byDay[day] ?? EMPTY_DAY;
+  await $.store.set(STATS_STORE_KEY, {
     byDay: {
       ...stats.byDay,
       [day]: { presses: previous.presses + 1, usd: previous.usd + usd },
     },
   });
+}
+
+/** A reply that neither read nor wrote the prompt cache (the C19 streak). */
+export function isUncached(usage: ModelUsage): boolean {
+  return (
+    usage.cache_read_input_tokens === 0 &&
+    usage.cache_creation_input_tokens === 0
+  );
 }
 
 export function describeAttempt(attempt: Attempt): string {
@@ -44,6 +53,7 @@ export function describeAttempt(attempt: Attempt): string {
 export function toLastUsage(
   a: { run: ChainOk; post: PostOk; relevantCount: number },
   usd: number,
+  hashChanged: boolean,
 ): LastUsage {
   const usage = a.run.usage;
   return {
@@ -57,5 +67,6 @@ export function toLastUsage(
     why: a.post.why,
     addedWords: a.post.addedWords,
     skills: a.relevantCount,
+    hashChanged,
   };
 }

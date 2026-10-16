@@ -166,14 +166,14 @@ export async function runChain(a: {
   };
 }
 
-function formatTokens(count: number): string {
+export function formatTokens(count: number): string {
   if (count >= 1000) {
     return (count / 1000).toFixed(1) + "k";
   }
   return String(count);
 }
 
-function formatDollars(usd: number): string {
+export function formatDollars(usd: number): string {
   if (usd < 0.01) {
     return "$" + usd.toFixed(3);
   }

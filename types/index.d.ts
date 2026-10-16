@@ -9,6 +9,7 @@ export type LastUsage = {
   why: string
   addedWords: number
   skills: number
+  hashChanged: boolean
 }
 
 declare module 'claude-code' {

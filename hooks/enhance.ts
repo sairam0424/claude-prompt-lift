@@ -19,7 +19,7 @@ import {
   namedPathsExist,
   resolveChain,
 } from "./gather";
-import { describeAttempt, recordPress, toLastUsage } from "./stats";
+import { describeAttempt, isUncached, recordPress, toLastUsage } from "./stats";
 
 // The Enhance flow (spec §5.3 steps 1–9) and the session state it writes.
 // Every atom is declared in this file: `read` and `update` only validate
@@ -352,19 +352,18 @@ async function recordSuccess(
   const usd = estimateUsd(usage, a.run.model, cfg.prices);
   const hash = hashBlock(a.staticBlock);
   const previousHash = await read($, blockHash);
+  const hashChanged = previousHash !== "" && previousHash !== hash;
   const previousEnhanced = await read($, enhanced);
   if (previousEnhanced !== a.draft) {
     await update($, original, () => a.draft);
   }
   await update($, enhanced, () => a.filledText);
   await update($, isUndone, () => false);
-  await update($, lastUsage, () => toLastUsage(a, usd));
+  await update($, lastUsage, () => toLastUsage(a, usd, hashChanged));
   await update($, blockHash, () => hash);
   await update($, staticChars, () => a.staticBlock.length);
-  const isUncached =
-    usage.cache_read_input_tokens === 0 &&
-    usage.cache_creation_input_tokens === 0;
-  await update($, noCacheStreak, (n) => (isUncached ? n + 1 : 0));
+  const uncached = isUncached(usage);
+  await update($, noCacheStreak, (n) => (uncached ? n + 1 : 0));
   await update($, sessionPresses, (n) => n + 1);
   await update($, sessionUsd, (n) => n + usd);
   await update($, phase, () => "done");
@@ -375,7 +374,7 @@ async function recordSuccess(
       usage,
       usd,
       why: a.post.why,
-      hashChanged: previousHash !== "" && previousHash !== hash,
+      hashChanged,
       attempts: a.run.attempts,
     }),
   );

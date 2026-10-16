@@ -1,0 +1,164 @@
+import { atom, read } from "claude-code";
+import type { EngineInterface, RenderElement, RenderInput } from "claude-code";
+import type { LastUsage } from "../types";
+import type { Config } from "./config";
+import { shortModel } from "./config";
+import { formatDollars, formatTokens } from "./chain";
+import { enhance } from "./enhance";
+import { cancel, send, undo } from "./actions";
+import { resolveChain } from "./gather";
+
+// The band (spec §5.1; C12, C17, C19): one row above the prompt, chained
+// above whatever the engine and the plugins beneath draw there. It redraws
+// only when a value it reads changes or the engine redraws the band; it never
+// calls the model. The atoms are declared here as well as in enhance.ts:
+// `read` validates against an atom made in the calling file, and the same
+// plugin and key name the same value.
+
+const phase = atom({ plugin: "prompt-master", key: "phase" } as const, "idle");
+const isUndone = atom(
+  { plugin: "prompt-master", key: "isUndone" } as const,
+  false,
+);
+const model = atom({ plugin: "prompt-master", key: "model" } as const, "");
+const runningModel = atom(
+  { plugin: "prompt-master", key: "runningModel" } as const,
+  "",
+);
+const lastUsage = atom(
+  { plugin: "prompt-master", key: "lastUsage" } as const,
+  null,
+);
+const noCacheStreak = atom(
+  { plugin: "prompt-master", key: "noCacheStreak" } as const,
+  0,
+);
+
+/** Presses without a cache hit before the row suggests a cheaper rung (C19). */
+const NO_CACHE_HINT_AFTER = 3;
+export const RESTORED_ROW = "restored your draft";
+const NO_CACHE_HINT = "cache not hitting — consider /prompt-master model haiku";
+
+export type BandEvent = RenderInput<"AbovePrompt">;
+export type BandNext = (e: BandEvent) => Promise<RenderElement>;
+
+export function idleRowText(firstRung: string): string {
+  return `ctrl+x b · or ctrl+x tab, e · prompt-master: ${shortModel(firstRung)}`;
+}
+
+export function runningRowText(modelId: string): string {
+  return `Enhancing with ${shortModel(modelId)}…`;
+}
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/** The done row: the last call's usage, then what the rewrite added. */
+export function doneRowText(usage: LastUsage, streak: number): string {
+  const hint = streak >= NO_CACHE_HINT_AFTER ? [NO_CACHE_HINT] : [];
+  return [
+    shortModel(usage.model),
+    `${formatTokens(usage.cached)} cached`,
+    `${formatTokens(usage.input + usage.written)} in`,
+    `${usage.output} out`,
+    formatDollars(usage.usd),
+    `+${plural(usage.addedWords, "word")}`,
+    plural(usage.skills, "skill"),
+    ...hint,
+  ].join(" · ");
+}
+
+/** The `ui.render { component: 'AbovePrompt' }` hook's body. */
+export async function renderBand(
+  $: EngineInterface,
+  e: BandEvent,
+  next: BandNext,
+  cfg: Config,
+): Promise<RenderElement> {
+  if (e.props.hasSurvey) {
+    return next(e);
+  }
+  const below = await next(e);
+  const row = await drawRow($, e, cfg);
+  const { Box } = $.ui.resolve(e);
+  return (
+    <Box flexDirection="column">
+      {row}
+      {below}
+    </Box>
+  );
+}
+
+/** The first rung as the last press used it, or as the chain resolves now. */
+async function firstRung($: EngineInterface, cfg: Config): Promise<string> {
+  const used = await read($, model);
+  if (used !== "") {
+    return used;
+  }
+  return (await resolveChain($, cfg))[0] ?? "";
+}
+
+async function drawRow(
+  $: EngineInterface,
+  e: BandEvent,
+  cfg: Config,
+): Promise<RenderElement> {
+  const { Box, Button, Text } = $.ui.resolve(e);
+  const current = await read($, phase);
+  if (current === "running") {
+    const running = await read($, runningModel);
+    return (
+      <Box gap={1}>
+        <Button key="cancel" label="Cancel (c)" hotkey="c" onPress={cancel} />
+        <Text dimColor wrap="truncate-end">
+          {runningRowText(running)}
+        </Text>
+      </Box>
+    );
+  }
+  const action = cfg.enhanceAction === "" ? {} : { action: cfg.enhanceAction };
+  const enhanceButton = (
+    <Button
+      key="enhance"
+      label="Enhance (e)"
+      hotkey="e"
+      {...action}
+      onPress={() => enhance($, cfg, { kind: "box" })}
+    />
+  );
+  if (current === "idle") {
+    return (
+      <Box gap={1}>
+        {enhanceButton}
+        <Text dimColor wrap="truncate-end">
+          {idleRowText(await firstRung($, cfg))}
+        </Text>
+      </Box>
+    );
+  }
+  const undone = await read($, isUndone);
+  const usage = await read($, lastUsage);
+  const streak = await read($, noCacheStreak);
+  const summary = usage === null ? "" : doneRowText(usage, streak);
+  return (
+    <Box gap={1}>
+      {enhanceButton}
+      <Button
+        key="send"
+        label={e.props.isWorking ? "Send (queues)" : "Send (s)"}
+        hotkey="s"
+        onPress={() => send($)}
+      />
+      <Button
+        key="undo"
+        label={undone ? "Redo (u)" : "Undo (u)"}
+        hotkey="u"
+        onPress={() => undo($)}
+      />
+      <Text dimColor wrap="truncate-end">
+        {undone ? RESTORED_ROW : summary}
+      </Text>
+    </Box>
+  );
+}
