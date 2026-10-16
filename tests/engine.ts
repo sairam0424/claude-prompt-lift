@@ -1,4 +1,5 @@
 import { mock } from "claude-code/testing";
+import type { MockClock } from "claude-code/testing";
 import type {
   CommandInfo,
   CommandSource,
@@ -8,6 +9,7 @@ import type {
   ModelUsage,
   On,
   PromptFillArgs,
+  PromptOrigin,
 } from "claude-code";
 import type { CommandEntry, MemoryFile, SkillEntry } from "../hooks/context";
 
@@ -76,6 +78,10 @@ export type EngineOptions = {
   delay?: boolean;
   /** Make `prompt.fill` refuse instead of taking the text. */
   fill?: FillRefusal;
+  /** Make `prompt.submit` refuse with this reason instead of taking the text. */
+  drop?: string;
+  /** Runs once the stub took a submit, before it answers: a person typing on. */
+  onSubmit?: (box: { text: string }) => void;
 };
 
 export type Engine = {
@@ -83,9 +89,11 @@ export type Engine = {
   calls: ModelCompleteInput[];
   toasts: string[];
   logs: string[];
-  submits: { text: string }[];
+  submits: { text: string; origin?: PromptOrigin }[];
   fills: PromptFillArgs[];
   store: Record<string, unknown>;
+  /** The mocked clock every `$.clock` call reads; `advance` moves it. */
+  clock: MockClock;
   /** Resolves once the first model call has arrived at the stub. */
   modelCalled: Promise<void>;
   /** Lets held model replies go (see `delay`). */
@@ -161,7 +169,7 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
   const calls: ModelCompleteInput[] = [];
   const toasts: string[] = [];
   const logs: string[] = [];
-  const submits: { text: string }[] = [];
+  const submits: { text: string; origin?: PromptOrigin }[] = [];
   const fills: PromptFillArgs[] = [];
   const store: Record<string, unknown> = {};
   const replies = [...(opts.replies ?? [])];
@@ -184,6 +192,9 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     signalCalled = resolve;
   });
 
+  on("session.start", ($, e) => ({ cwd: e.cwd }));
+  on("session.end", ($, e) => ({ sessionId: e.sessionId ?? "test-session" }));
+  on("classic.SessionStart", () => ({}));
   on("command.register", ($, e) => ({ value: { command: e.name } }));
   on("command.list", () => ({ value: commands }));
   on("prompt.read", () => ({
@@ -198,7 +209,11 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     return { isFilled: true };
   });
   on("prompt.submit", ($, e) => {
-    submits.push({ text: e.text });
+    submits.push({ text: e.text, origin: e.origin });
+    if (opts.drop !== undefined) {
+      return { drop: opts.drop };
+    }
+    opts.onSubmit?.(box);
     return { text: e.text };
   });
   on("model.complete", async ($, e) => {
@@ -251,7 +266,7 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     store[e.key] = e.value;
     return { value: undefined };
   });
-  mock.clock(on, { now: NOW_MS });
+  const clock = mock.clock(on, { now: NOW_MS });
 
   return {
     box,
@@ -261,6 +276,7 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     submits,
     fills,
     store,
+    clock,
     modelCalled,
     release: () => release(),
   };
