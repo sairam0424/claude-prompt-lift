@@ -1,8 +1,7 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, SessionMessage, StateValue } from "claude-code";
-import type { LastUsage } from "../types";
 import type { Config } from "./config";
-import { estimateUsd, shortModel } from "./config";
+import { estimateUsd } from "./config";
 import { rulesText, SYSTEM } from "./rules";
 import { postProcess, preGuard, type PostOk } from "./guards";
 import {
@@ -11,13 +10,7 @@ import {
   hashBlock,
   matchSkills,
 } from "./context";
-import {
-  runChain,
-  usageText,
-  type Attempt,
-  type ChainFail,
-  type ChainOk,
-} from "./chain";
+import { runChain, usageText, type ChainFail, type ChainOk } from "./chain";
 import {
   basename,
   errorMessage,
@@ -26,7 +19,7 @@ import {
   namedPathsExist,
   resolveChain,
 } from "./gather";
-import { recordPress } from "./stats";
+import { describeAttempt, recordPress, toLastUsage } from "./stats";
 
 // The Enhance flow (spec §5.3 steps 1–9) and the session state it writes.
 // Every atom is declared in this file: `read` and `update` only validate
@@ -276,10 +269,6 @@ function noteRunningModel($: EngineInterface, id: string): void {
     });
 }
 
-function describeAttempt(attempt: Attempt): string {
-  return `${shortModel(attempt.model)}: ${attempt.outcome}`;
-}
-
 function reportFailure($: EngineInterface, run: ChainFail): void {
   if (run.cancelled) {
     $.ui.toast(TOAST_CANCELLED);
@@ -330,22 +319,6 @@ async function verifyAndFill(
     return undefined;
   }
   return filled.text;
-}
-
-function toLastUsage(a: Success, usd: number): LastUsage {
-  const usage = a.run.usage;
-  return {
-    model: a.run.model,
-    input: usage.input_tokens,
-    cached: usage.cache_read_input_tokens,
-    written: usage.cache_creation_input_tokens,
-    output: usage.output_tokens,
-    usd,
-    attempts: a.run.attempts.map(describeAttempt),
-    why: a.post.why,
-    addedWords: a.post.addedWords,
-    skills: a.relevantCount,
-  };
 }
 
 /** Step 9: state, stats and the usage toast. */

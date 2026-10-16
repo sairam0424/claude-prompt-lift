@@ -1,6 +1,11 @@
 import type { EngineInterface } from "claude-code";
+import type { LastUsage } from "../types";
+import { shortModel } from "./config";
+import type { Attempt, ChainOk } from "./chain";
+import type { PostOk } from "./guards";
 
-// Per-day press and dollar totals, kept across sessions in `$.store.stats`.
+// Usage bookkeeping: the record of the last press for the band, and per-day
+// press and dollar totals kept across sessions in `$.store.stats`.
 
 export type DayStats = { presses: number; usd: number };
 export type Stats = { byDay: Record<string, DayStats> };
@@ -30,4 +35,27 @@ export async function recordPress(
       [day]: { presses: previous.presses + 1, usd: previous.usd + usd },
     },
   });
+}
+
+export function describeAttempt(attempt: Attempt): string {
+  return `${shortModel(attempt.model)}: ${attempt.outcome}`;
+}
+
+export function toLastUsage(
+  a: { run: ChainOk; post: PostOk; relevantCount: number },
+  usd: number,
+): LastUsage {
+  const usage = a.run.usage;
+  return {
+    model: a.run.model,
+    input: usage.input_tokens,
+    cached: usage.cache_read_input_tokens,
+    written: usage.cache_creation_input_tokens,
+    output: usage.output_tokens,
+    usd,
+    attempts: a.run.attempts.map(describeAttempt),
+    why: a.post.why,
+    addedWords: a.post.addedWords,
+    skills: a.relevantCount,
+  };
 }
