@@ -41,7 +41,7 @@ const ARM_TOAST =
 const RESTORED = "prompt-master: restored your draft";
 const REAPPLIED = "prompt-master: re-applied the enhanced prompt";
 const NOTHING_TO_UNDO = "prompt-master: nothing to undo";
-const CANCELLED = "prompt-master: cancelled, draft unchanged";
+const CANCELLED = "prompt-master: cancelled, draft unchanged · $0.000";
 const ABORTED: ModelCompleteResult = {
   isAnswered: false,
   reason: "aborted",

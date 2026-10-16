@@ -17,6 +17,8 @@ import {
   runningRowText,
   RESTORED_ROW,
 } from "../hooks/band";
+import { formatDollars } from "../hooks/chain";
+import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 import type { LastUsage } from "../types";
 
 // The band (spec §5.1; C12, C17, C19): one row chained above the engine's own
@@ -38,10 +40,11 @@ type Band = Mounted<typeof SURFACE, "AbovePrompt">;
 
 const ENTER_TOAST =
   "prompt-master: press Enter to send; @files and images only travel with Enter";
-const CANCELLED = "prompt-master: cancelled, draft unchanged";
+const CANCELLED = `prompt-master: cancelled, draft unchanged · ${formatDollars(0)}`;
 const BUSY = "prompt-master: already enhancing";
-const DRAFT_CHANGED =
-  "prompt-master: draft changed while enhancing, left as is";
+const DRAFT_CHANGED = `prompt-master: draft changed while enhancing, left as is · ${formatDollars(
+  estimateUsd(USAGE, FABLE, DEFAULT_PRICES),
+)}`;
 const NO_CACHE_HINT = "cache not hitting — consider /prompt-master model haiku";
 const ABORTED: ModelCompleteResult = {
   isAnswered: false,

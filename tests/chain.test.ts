@@ -32,7 +32,18 @@ test("answered first rung returns with one attempt", async () => {
   if (result.ok) {
     expect(result.text).toBe("enhanced prompt");
     expect(result.model).toBe("us.anthropic.claude-fable-5-1");
-    expect(result.attempts).toEqual([{ model: "us.anthropic.claude-fable-5-1", outcome: "ok" }]);
+    expect(result.attempts).toEqual([
+      {
+        model: "us.anthropic.claude-fable-5-1",
+        outcome: "ok",
+        usage: {
+          input_tokens: 1400,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 6800,
+          output_tokens: 310,
+        },
+      },
+    ]);
   }
 });
 

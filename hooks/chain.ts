@@ -2,9 +2,18 @@ import type { ModelCompleteRequest, ModelCompleteResult, ModelTextBlock, ModelUs
 import type { Config } from "./config";
 import { shortModel, estimateUsd } from "./config";
 
+/** One rung's call: what it answered and what it cost (zeros when nothing arrived). */
 export type Attempt = {
   model: string;
   outcome: string;
+  usage: ModelUsage;
+};
+
+const NO_USAGE: ModelUsage = {
+  input_tokens: 0,
+  output_tokens: 0,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 0,
 };
 
 export type ChainOk = {
@@ -123,7 +132,11 @@ export async function runChain(a: {
       const decision = decide(result, previous, a.isCancelled());
       outcome = decision.outcome;
 
-      const attempt: Attempt = { model, outcome };
+      const attempt: Attempt = {
+        model,
+        outcome,
+        usage: result.usage ?? NO_USAGE,
+      };
       attempts.push(attempt);
 
       if (decision.action === "return") {
@@ -151,7 +164,7 @@ export async function runChain(a: {
     } catch (err) {
       // Thrown complete → attempt outcome 'refused', next
       outcome = "refused";
-      const attempt: Attempt = { model, outcome };
+      const attempt: Attempt = { model, outcome, usage: NO_USAGE };
       attempts.push(attempt);
       previous = attempt;
       // Continue to next model

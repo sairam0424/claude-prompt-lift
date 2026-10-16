@@ -1,16 +1,16 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, SessionMessage, StateValue } from "claude-code";
 import type { Config } from "./config";
-import { estimateUsd } from "./config";
 import { rulesText, SYSTEM } from "./rules";
 import { postProcess, preGuard, type PostOk } from "./guards";
+import { buildDynamicBlock, buildStaticBlock, matchSkills } from "./context";
 import {
-  buildDynamicBlock,
-  buildStaticBlock,
-  hashBlock,
-  matchSkills,
-} from "./context";
-import { runChain, usageText, type ChainFail, type ChainOk } from "./chain";
+  formatDollars,
+  runChain,
+  usageText,
+  type ChainFail,
+  type ChainOk,
+} from "./chain";
 import {
   basename,
   errorMessage,
@@ -19,12 +19,20 @@ import {
   namedPathsExist,
   resolveChain,
 } from "./gather";
-import { describeAttempt, isUncached, recordPress, toLastUsage } from "./stats";
+import {
+  attemptsUsd,
+  describeAttempt,
+  noteRewrite,
+  recordCall,
+  recordSpend,
+  type CallRecord,
+} from "./stats";
 import { disarmUndo } from "./arm";
 
 // The Enhance flow (spec §5.3 steps 1–9) and the session state it writes.
-// Every atom is declared in this file: `read` and `update` only validate
-// against an atom made in the file that calls them.
+// Every atom this file reads or writes is declared here (the usage atoms live
+// in stats.ts): `read` and `update` only validate against an atom made in the
+// file that calls them.
 
 export const phase = atom(
   { plugin: "prompt-master", key: "phase" } as const,
@@ -50,32 +58,8 @@ export const runningModel = atom(
   { plugin: "prompt-master", key: "runningModel" } as const,
   "",
 );
-export const lastUsage = atom(
-  { plugin: "prompt-master", key: "lastUsage" } as const,
-  null,
-);
-export const blockHash = atom(
-  { plugin: "prompt-master", key: "blockHash" } as const,
-  "",
-);
-export const staticChars = atom(
-  { plugin: "prompt-master", key: "staticChars" } as const,
-  0,
-);
 export const requestId = atom(
   { plugin: "prompt-master", key: "requestId" } as const,
-  0,
-);
-export const noCacheStreak = atom(
-  { plugin: "prompt-master", key: "noCacheStreak" } as const,
-  0,
-);
-export const sessionPresses = atom(
-  { plugin: "prompt-master", key: "sessionPresses" } as const,
-  0,
-);
-export const sessionUsd = atom(
-  { plugin: "prompt-master", key: "sessionUsd" } as const,
   0,
 );
 
@@ -108,7 +92,7 @@ type Success = {
   filledText: string;
   run: ChainOk;
   post: PostOk;
-  staticBlock: string;
+  call: CallRecord;
   relevantCount: number;
 };
 
@@ -157,9 +141,15 @@ export async function enhance(
     const prepared = await prepare($, cfg, draft, rows);
     const run = await callChain($, cfg, prepared, abort.signal);
     if (!run.ok) {
-      reportFailure($, run);
+      await reportFailure($, cfg, run);
       return;
     }
+    // Paid for whatever the rewrite comes to (G5, C19): record it first.
+    const call = await recordCall($, cfg, {
+      run,
+      staticBlock: prepared.staticBlock,
+      relevantCount: prepared.relevantCount,
+    });
     const post = postProcess({
       draft,
       reply: run.text,
@@ -170,7 +160,7 @@ export async function enhance(
       documents: prepared.documentsText,
     });
     if (!post.ok) {
-      $.ui.toast("fine" in post ? TOAST_FINE : post.toast);
+      $.ui.toast(withCost("fine" in post ? TOAST_FINE : post.toast, call.usd));
       return;
     }
     const filledText = await verifyAndFill($, {
@@ -180,16 +170,17 @@ export async function enhance(
       rootDirs: prepared.rootDirs,
       post,
       myId,
+      usd: call.usd,
     });
     if (filledText === undefined) {
       return;
     }
-    await recordSuccess($, cfg, {
+    await recordSuccess($, {
       draft,
       filledText,
       run,
       post,
-      staticBlock: prepared.staticBlock,
+      call,
       relevantCount: prepared.relevantCount,
     });
   } catch (err) {
@@ -219,6 +210,11 @@ export async function readDraft(
  */
 export function expectedBoxText(source: EnhanceSource, draft: string): string {
   return source.kind === "box" ? draft : "";
+}
+
+/** C19: a toast that follows a model call ends with what the call cost. */
+function withCost(toast: string, usd: number): string {
+  return `${toast} · ${formatDollars(usd)}`;
 }
 
 async function prepare(
@@ -295,17 +291,24 @@ function noteRunningModel($: EngineInterface, id: string): void {
     });
 }
 
-function reportFailure($: EngineInterface, run: ChainFail): void {
-  if (run.cancelled) {
-    $.ui.toast(TOAST_CANCELLED);
-    return;
-  }
+/** A chain that answered nothing still paid for its rungs (G5): record, say so. */
+async function reportFailure(
+  $: EngineInterface,
+  cfg: Config,
+  run: ChainFail,
+): Promise<void> {
   if (run.attempts.length === 0) {
     $.ui.toast(TOAST_NO_MODELS);
     return;
   }
+  const usd = attemptsUsd(run.attempts, cfg.prices);
+  await recordSpend($, usd);
+  if (run.cancelled) {
+    $.ui.toast(withCost(TOAST_CANCELLED, usd));
+    return;
+  }
   const trail = run.attempts.map(describeAttempt).join(" → ");
-  $.ui.toast(`prompt-master: no model answered · ${trail}`);
+  $.ui.toast(withCost(`prompt-master: no model answered · ${trail}`, usd));
   $.ui.log(`prompt-master: enhance failed: ${trail}`);
 }
 
@@ -319,6 +322,7 @@ async function verifyAndFill(
     rootDirs: readonly string[];
     post: PostOk;
     myId: number;
+    usd: number;
   },
 ): Promise<string | undefined> {
   const hasPaths = await namedPathsExist($, {
@@ -328,14 +332,14 @@ async function verifyAndFill(
     rootDirs: a.rootDirs,
   });
   if (!hasPaths) {
-    $.ui.toast(TOAST_MISSING_PATH);
+    $.ui.toast(withCost(TOAST_MISSING_PATH, a.usd));
     return undefined;
   }
   if ((await read($, requestId)) !== a.myId) {
     return undefined;
   }
   if ((await $.prompt.read()).text !== expectedBoxText(a.source, a.draft)) {
-    $.ui.toast(TOAST_DRAFT_CHANGED);
+    $.ui.toast(withCost(TOAST_DRAFT_CHANGED, a.usd));
     return undefined;
   }
   const filled = await $.prompt.fill({
@@ -346,24 +350,18 @@ async function verifyAndFill(
   if (!filled.isFilled) {
     const cause = filled.refusal ?? "refused";
     $.ui.toast(
-      `prompt-master: the prompt box did not take the text (${cause})`,
+      withCost(
+        `prompt-master: the prompt box did not take the text (${cause})`,
+        a.usd,
+      ),
     );
     return undefined;
   }
   return filled.text;
 }
 
-/** Step 9: state, stats and the usage toast. */
-async function recordSuccess(
-  $: EngineInterface,
-  cfg: Config,
-  a: Success,
-): Promise<void> {
-  const usage = a.run.usage;
-  const usd = estimateUsd(usage, a.run.model, cfg.prices);
-  const hash = hashBlock(a.staticBlock);
-  const previousHash = await read($, blockHash);
-  const hashChanged = previousHash !== "" && previousHash !== hash;
+/** Step 9: the pair, the last-call record, the phase and the usage toast. */
+async function recordSuccess($: EngineInterface, a: Success): Promise<void> {
   const previousEnhanced = await read($, enhanced);
   if (previousEnhanced !== a.draft) {
     await update($, original, () => a.draft);
@@ -372,22 +370,24 @@ async function recordSuccess(
   await update($, isUndone, () => false);
   // A pending Undo confirm referred to the pair this fill replaced (C13).
   disarmUndo();
-  await update($, lastUsage, () => toLastUsage(a, usd, hashChanged));
-  await update($, blockHash, () => hash);
-  await update($, staticChars, () => a.staticBlock.length);
-  const uncached = isUncached(usage);
-  await update($, noCacheStreak, (n) => (uncached ? n + 1 : 0));
-  await update($, sessionPresses, (n) => n + 1);
-  await update($, sessionUsd, (n) => n + usd);
+  await noteRewrite(
+    $,
+    {
+      run: a.run,
+      relevantCount: a.relevantCount,
+      why: a.post.why,
+      addedWords: a.post.addedWords,
+    },
+    a.call,
+  );
   await update($, phase, () => "done");
-  await recordPress($, usd);
   $.ui.toast(
     usageText({
       model: a.run.model,
-      usage,
-      usd,
+      usage: a.run.usage,
+      usd: a.call.usd,
       why: a.post.why,
-      hashChanged,
+      hashChanged: a.call.hashChanged,
       attempts: a.run.attempts,
     }),
   );
