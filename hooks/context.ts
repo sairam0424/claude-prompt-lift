@@ -46,6 +46,20 @@ export function globMatch(pattern: string, value: string): boolean {
   return regex.test(value);
 }
 
+function isExcluded(
+  path: string,
+  patterns: readonly string[],
+  home: string,
+): boolean {
+  for (const pattern of patterns) {
+    const expandedPattern = expandHome(pattern, home);
+    if (globMatch(expandedPattern, path)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function selectInstructionFiles(
   files: readonly MemoryFile[],
   cfg: Config,
@@ -66,16 +80,7 @@ export function selectInstructionFiles(
       file.type === "Local" ||
       file.type === "Managed"
     ) {
-      // Check against instructionExclude
-      let excluded = false;
-      for (const pattern of cfg.instructionExclude) {
-        const expandedPattern = expandHome(pattern, home);
-        if (globMatch(expandedPattern, file.path)) {
-          excluded = true;
-          break;
-        }
-      }
-      if (!excluded) {
+      if (!isExcluded(file.path, cfg.instructionExclude, home)) {
         result.push(file);
       }
       continue;
@@ -84,16 +89,7 @@ export function selectInstructionFiles(
     // Keep User only if under ~/.claude/rules/
     if (file.type === "User") {
       if (file.path.startsWith(rulesPrefix)) {
-        // Check against instructionExclude
-        let excluded = false;
-        for (const pattern of cfg.instructionExclude) {
-          const expandedPattern = expandHome(pattern, home);
-          if (globMatch(expandedPattern, file.path)) {
-            excluded = true;
-            break;
-          }
-        }
-        if (!excluded) {
+        if (!isExcluded(file.path, cfg.instructionExclude, home)) {
           result.push(file);
         }
       }
@@ -136,8 +132,7 @@ export function selectSkillNames(
 
 export function sanitizeDescription(d: string): string | undefined {
   // Check for forbidden patterns
-  const forbidden =
-    /\b(always|never|you must|ignore|instruction)\b/i;
+  const forbidden = /\b(always|never|you must|ignore|instruction)\b/i;
   if (forbidden.test(d)) {
     return undefined;
   }
@@ -209,8 +204,10 @@ export function subprojectDir(
 
   for (const dir of dirs) {
     const lowerDir = dir.toLowerCase();
+    // Escape regex metacharacters in directory name
+    const escaped = lowerDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     // Check if dir name appears as a whole word
-    const regex = new RegExp(`\\b${lowerDir}\\b`, "i");
+    const regex = new RegExp(`\\b${escaped}\\b`, "i");
     if (regex.test(lowerDraft)) {
       return dir;
     }
