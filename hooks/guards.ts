@@ -5,6 +5,7 @@ import {
   protectedTokens as _protectedTokens,
   pathTokens as _pathTokens,
   commandTokens as _commandTokens,
+  stripEdges,
 } from "./tokens";
 import { verbClass as _verbClass, type VerbClass } from "./verb";
 import {
@@ -208,59 +209,42 @@ export const verbClass = _verbClass;
 export const protectedTokens = _protectedTokens;
 export const pathTokens = _pathTokens;
 
+// Spec §9.9: shell, pipe, chaining, network and absolute-path shapes.
+const RISKY_SHAPES = [
+  /\b(rm|curl|wget|sudo|chmod)\s/g,
+  /\|\s*sh\b/g,
+  /&&/g,
+  /https?:\/\/\S+/g,
+  /(^|\s)\/[A-Za-z][^\s]*/g,
+];
+
+/**
+ * Tokens of a risky shape the result carries that neither the draft nor the
+ * selected documents do; a listed skill's `/name` mention never counts
+ * (controller ruling 1). Edge punctuation is stripped before comparing, so
+ * `run /review.` names the skill, not `review.`.
+ */
 export function riskyAdditions(
   result: string,
   known: string,
   knownSkills: ReadonlySet<string>,
 ): string[] {
+  const knownTokens = new Set((known.match(/\S+/g) ?? []).map(stripEdges));
+  const isKnownWord = (token: string): boolean =>
+    /^[a-zA-Z]+$/.test(token) && new RegExp(`\\b${token}\\b`).test(known);
+  const isSkill = (token: string): boolean => {
+    const name = token.startsWith("/") ? token.slice(1) : token;
+    return knownSkills.has(name) || knownSkills.has(`/${name}`);
+  };
   const risky: string[] = [];
-
-  // Pattern: rm|curl|wget|sudo|chmod commands, | sh, &&, http(s) URLs, absolute paths
-  const patterns = [
-    /\b(rm|curl|wget|sudo|chmod)\s/g,
-    /\|\s*sh\b/g,
-    /&&/g,
-    /https?:\/\/\S+/g,
-    /(^|\s)\/[A-Za-z][^\s]*/g,
-  ];
-
-  for (const pattern of patterns) {
-    const matches = result.match(pattern);
-    if (matches) {
-      for (const match of matches) {
-        const token = match.trim();
-        // Skip if it's in known or if it's a skill name (with or without slash)
-
-        // Split known into whitespace-delimited tokens for exact matching
-        const knownTokens = new Set(known.match(/\S+/g) || []);
-
-        // Check for exact token match
-        if (knownTokens.has(token)) {
-          continue;
-        }
-
-        // For word-like tokens (alphanumeric commands), also check with word boundaries
-        // to catch cases like "rm" appearing as a standalone word in a sentence
-        if (/^[a-zA-Z]+$/.test(token)) {
-          const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          const wordBoundaryRegex = new RegExp("\\b" + escapedToken + "\\b");
-          if (wordBoundaryRegex.test(known)) {
-            continue;
-          }
-        }
-
-        // Check if it's a skill name (controller ruling 1)
-        const withSlash = token.startsWith("/") ? token : `/${token}`;
-        const withoutSlash = token.startsWith("/") ? token.slice(1) : token;
-        if (knownSkills.has(withSlash) || knownSkills.has(withoutSlash)) {
-          continue;
-        }
-
+  for (const shape of RISKY_SHAPES) {
+    for (const match of result.match(shape) ?? []) {
+      const token = stripEdges(match.trim());
+      if (!knownTokens.has(token) && !isKnownWord(token) && !isSkill(token)) {
         risky.push(token);
       }
     }
   }
-
   return risky;
 }
 

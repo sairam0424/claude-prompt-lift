@@ -8,7 +8,7 @@ import {
   type CommandEntry,
   type MemoryFile,
 } from "./context";
-import { pathTokens } from "./guards";
+import { pathTokens } from "./tokens";
 
 // Reads what an Enhance press needs from the engine: the instruction files the
 // session loaded, the skill listing, the command list, an optional subproject
@@ -17,7 +17,6 @@ import { pathTokens } from "./guards";
 const SESSION_MODEL_TOKEN = "session";
 const SUBPROJECT_MAX_CHARS = 12_000;
 const CONVERSATION_MESSAGE_MAX_CHARS = 600;
-const EDGE_PUNCTUATION = /^[("'`]+|[.,;:!?)"'`]+$/g;
 
 export type Document = { path: string; text: string };
 
@@ -203,10 +202,6 @@ export async function gatherContext(
   };
 }
 
-function stripEdges(token: string): string {
-  return token.replace(EDGE_PUNCTUATION, "");
-}
-
 /** Spec §9.11: every path the result names that the draft did not must exist. */
 export async function namedPathsExist(
   $: EngineInterface,
@@ -214,9 +209,9 @@ export async function namedPathsExist(
   draft: string,
   result: string,
 ): Promise<boolean> {
-  const inDraft = new Set(pathTokens(draft).map(stripEdges));
-  const fresh = [...new Set(pathTokens(result).map(stripEdges))].filter(
-    (token) => token.length > 0 && !inDraft.has(token),
+  const inDraft = new Set(pathTokens(draft));
+  const fresh = [...new Set(pathTokens(result))].filter(
+    (token) => !inDraft.has(token),
   );
   const found = await Promise.all(
     fresh.map((token) =>

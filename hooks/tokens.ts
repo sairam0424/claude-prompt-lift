@@ -1,56 +1,46 @@
 /**
- * Token extraction utilities for the prompt-master mod.
- * Extracted from guards.ts to maintain file size discipline.
+ * The token shapes the post-processing guards compare (spec §9.8–§9.11):
+ * protected references the draft carries, path-like tokens, command-shaped
+ * tokens. Every token comes back without the punctuation prose wraps it in,
+ * so a sentence that ends with `src/auth.ts.` protects `src/auth.ts`.
  */
 
+const EDGE_PUNCTUATION = /^[("'`]+|[.,;:!?)"'`]+$/g;
+// Path-like: a slash form, or a dot and one of the listed extensions
+// (controller ruling: `e.g.` and `v0.3` are not references).
+const PATH_LIKE =
+  /\S+\/\S+|\S+\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|rb|php|md|json|yaml|yml|toml|sh|sql|css|html|txt)\b/g;
+/** Spec §9.10's command-name shape, case-insensitive (controller ruling 3). */
+export const COMMAND_SHAPE = /^\/[a-z0-9][a-z0-9:_-]*$/i;
+
+/** `(src/auth.ts).` → `src/auth.ts`; a token's own inner punctuation stays. */
+export function stripEdges(token: string): string {
+  return token.replace(EDGE_PUNCTUATION, "");
+}
+
+function matches(s: string, shape: RegExp): string[] {
+  return s.match(shape) ?? [];
+}
+
+/** Spec §9.8: what the draft names and the result must carry verbatim. */
 export function protectedTokens(draft: string): string[] {
-  const tokens: string[] = [];
-
-  // @mentions
-  const mentions = draft.match(/@\S+/g);
-  if (mentions) {
-    tokens.push(...mentions);
-  }
-
-  // [Image #N]
-  const images = draft.match(/\[Image #\d+\]/g);
-  if (images) {
-    tokens.push(...images);
-  }
-
-  // Backticked spans
-  const backticked = draft.match(/`[^`]+`/g);
-  if (backticked) {
-    tokens.push(...backticked);
-  }
-
-  // Path-like tokens (controller ruling: restricted extensions)
-  const pathLike = draft.match(
-    /\S+\/\S+|\S+\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|rb|php|md|json|yaml|yml|toml|sh|sql|css|html|txt)\b/g,
-  );
-  if (pathLike) {
-    tokens.push(...pathLike);
-  }
-
-  return tokens;
+  return [
+    ...matches(draft, /@\S+/g).map(stripEdges),
+    ...matches(draft, /\[Image #\d+\]/g),
+    ...matches(draft, /`[^`]+`/g),
+    ...pathTokens(draft),
+  ];
 }
 
 export function pathTokens(s: string): string[] {
-  const tokens: string[] = [];
-
-  // Path-like tokens (controller ruling: restricted extensions)
-  const pathLike = s.match(
-    /\S+\/\S+|\S+\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|rb|php|md|json|yaml|yml|toml|sh|sql|css|html|txt)\b/g,
-  );
-  if (pathLike) {
-    tokens.push(...pathLike);
-  }
-
-  return tokens;
+  return matches(s, PATH_LIKE)
+    .map(stripEdges)
+    .filter((token) => token.length > 0);
 }
 
 export function commandTokens(result: string): string[] {
-  // Controller ruling 3: case-insensitive
-  const tokens = result.split(/\s+/);
-  return tokens.filter((t) => /^\/[a-z0-9][a-z0-9:_-]*$/i.test(t));
+  return result
+    .split(/\s+/)
+    .map(stripEdges)
+    .filter((token) => COMMAND_SHAPE.test(token));
 }

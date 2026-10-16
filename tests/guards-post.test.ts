@@ -282,3 +282,36 @@ test("postProcess returns decorations and addedWords", () => {
     expect(result.addedWords).toBeGreaterThanOrEqual(0);
   }
 });
+
+test("a draft ending in a path still passes the protected-token check", () => {
+  const cfg = parseOptions({});
+  const result = postProcess({
+    draft: "fix the login bug in src/auth.ts.",
+    reply:
+      '{"verdict":"improve","prompt":"Fix the login bug in src/auth.ts where the session expires after sign-in.","why":"","applied":[]}',
+    outputTokens: 50,
+    cfg,
+    knownSkills: new Set(),
+    descriptions: new Map(),
+    documents: "",
+  });
+  expect(result.ok).toBe(true);
+});
+
+test("a sentence-final skill mention passes the risky-addition check", () => {
+  const cfg = parseOptions({});
+  const result = postProcess({
+    draft: "review the login flow in src/auth.ts please",
+    reply:
+      '{"verdict":"improve","prompt":"Review the login flow in src/auth.ts for session expiry, then run /review.","why":"","applied":[]}',
+    outputTokens: 50,
+    cfg,
+    knownSkills: new Set(["review"]),
+    descriptions: new Map(),
+    documents: "",
+  });
+  expect(result.ok).toBe(true);
+  if (result.ok) {
+    expect(result.text).toContain("then run /review.");
+  }
+});
