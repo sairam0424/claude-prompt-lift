@@ -15,12 +15,8 @@ import type { CommandEntry, MemoryFile, SkillEntry } from "../hooks/context";
 // every noun the mod calls is answered from memory and recorded.
 
 export const DRAFT = "fix the login bug in src/auth.ts please";
-// The brief's longer BETTER ("...where the session expires after sign-in; add
-// a regression test first.") keeps only 2 of its 10 content words from the
-// draft, which guards.ts's keptShare (kept / result words) refuses at the 0.5
-// floor. This variant keeps 3 of 5 and passes the guard as it stands.
 export const BETTER =
-  "Fix the login bug in src/auth.ts please and add a regression test for it";
+  "Fix the login bug in src/auth.ts where the session expires after sign-in; add a regression test first.";
 export const GOOD = JSON.stringify({
   verdict: "improve",
   prompt: BETTER,

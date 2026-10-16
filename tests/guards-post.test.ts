@@ -89,6 +89,18 @@ test("keptShare floor refuses an unrelated rewrite", () => {
   }
 });
 
+test("keptShare measures deletions only, so an enrichment keeps its share", () => {
+  const draft = "fix the login bug in src/auth.ts please";
+  const enriched =
+    "Fix the login bug in src/auth.ts where the session expires after sign-in; add a regression test first.";
+  // Two of the draft's three stems (login, src/auth.ts) survive; the new words
+  // do not count against the share.
+  expect(keptShare(draft, enriched)).toBeGreaterThan(0.66);
+  expect(keptShare(draft, enriched)).toBeLessThan(0.67);
+  expect(keptShare(draft, `${draft} and add a regression test for it`)).toBe(1);
+  expect(keptShare(draft, "Write a README")).toBe(0);
+});
+
 test("verb class refuses suggest→change", () => {
   const cfg = parseOptions({});
   const draft = "can you suggest some changes to this function";

@@ -191,15 +191,13 @@ export function keptShare(draft: string, result: string): number {
     return 1;
   }
 
-  const resultWords = words(result).map(stem);
-  let kept = 0;
-  for (const w of resultWords) {
-    if (draftWords.has(w)) {
-      kept++;
-    }
-  }
+  // Spec C16: the share measures deletions only, so it is the draft's distinct
+  // stems the result still carries over the draft's stems. Additions never
+  // lower it; growth is bounded separately (§9.5).
+  const resultWords = new Set(words(result).map(stem));
+  const kept = [...draftWords].filter((w) => resultWords.has(w)).length;
 
-  return resultWords.length > 0 ? kept / resultWords.length : 1;
+  return kept / draftWords.size;
 }
 
 // Re-exported from verb.ts to maintain backward compatibility
