@@ -1,4 +1,8 @@
 import type { Config } from "./config";
+import type { PromptDecoration } from "claude-code";
+import { wordDiffInsertions } from "./diff";
+
+// Pre-call guards
 
 export const REPLY_PREFIX =
   /^\s*(y|yes|no|n|ok|okay|sure|go ahead|proceed|continue|do it|use|option\s+\w+)\b/i;
@@ -65,4 +69,516 @@ export function preGuard(
   }
 
   return { ok: true };
+}
+
+// Post-processing
+
+export function cleanReply(text: string): string {
+  let cleaned = text.trim();
+
+  // Strip one outer fence when the whole reply is fenced and the inside has no fence
+  const fenceMatch = cleaned.match(/^```[\s\S]*?```$/);
+  if (fenceMatch) {
+    const inner = cleaned.slice(3, -3);
+    if (!inner.includes("```")) {
+      cleaned = inner.trim();
+    }
+  }
+
+  // Collapse 3+ newlines to 2
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+
+  return cleaned;
+}
+
+export type Verdict =
+  | { verdict: "fine" }
+  | { verdict: "improve"; prompt: string; why: string; applied: string[] };
+
+export function parseVerdict(text: string): Verdict {
+  // Try to find first {...} block
+  const jsonMatch = text.match(/\{[^{}]*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.verdict === "fine") {
+        return { verdict: "fine" };
+      }
+      if (
+        parsed.verdict === "improve" &&
+        typeof parsed.prompt === "string" &&
+        parsed.prompt.trim().length > 0
+      ) {
+        return {
+          verdict: "improve",
+          prompt: parsed.prompt,
+          why: typeof parsed.why === "string" ? parsed.why : "",
+          applied: Array.isArray(parsed.applied) ? parsed.applied : [],
+        };
+      }
+    } catch {
+      // Fall through to plain text handling
+    }
+  }
+
+  // Unparseable or invalid → improve with cleaned text
+  return {
+    verdict: "improve",
+    prompt: cleanReply(text),
+    why: "",
+    applied: [],
+  };
+}
+
+export function isTruncated(
+  outputTokens: number,
+  maxTokens: number,
+  text: string,
+): boolean {
+  if (outputTokens >= maxTokens - 8) {
+    return true;
+  }
+  if (outputTokens > 0.9 * maxTokens) {
+    const trimmed = text.trim();
+    return !/[.!?)"'\]]$/.test(trimmed);
+  }
+  return false;
+}
+
+export function growthAllowed(
+  draftLen: number,
+  maxGrowthChars: number,
+): number {
+  return draftLen + Math.min(maxGrowthChars, 150 + 3 * draftLen);
+}
+
+export function sentenceCount(s: string): number {
+  const parts = s.split(/[.!?]+\s|\n/);
+  return parts.filter((p) => p.trim().length > 0).length;
+}
+
+export function keptShare(draft: string, result: string): number {
+  // Extract words of 4+ letters
+  const words = (s: string) =>
+    Array.from(s.matchAll(/[\p{L}\p{N}_./-]{4,}/gu), (m) => m[0]);
+
+  // Light stem: strip one trailing ing/ed/s, then lowercase
+  const stem = (w: string) => {
+    let stemmed = w;
+    if (stemmed.endsWith("ing")) {
+      stemmed = stemmed.slice(0, -3);
+    } else if (stemmed.endsWith("ed")) {
+      stemmed = stemmed.slice(0, -2);
+    } else if (stemmed.endsWith("s")) {
+      stemmed = stemmed.slice(0, -1);
+    }
+    return stemmed.toLowerCase();
+  };
+
+  const draftWords = new Set(words(draft).map(stem));
+
+  if (draftWords.size < 3) {
+    return 1;
+  }
+
+  const resultWords = words(result).map(stem);
+  let kept = 0;
+  for (const w of resultWords) {
+    if (draftWords.has(w)) {
+      kept++;
+    }
+  }
+
+  return resultWords.length > 0 ? kept / resultWords.length : 1;
+}
+
+export type VerbClass = "info" | "action" | "other";
+
+export function verbClass(s: string): VerbClass {
+  const INFO = new Set([
+    "suggest",
+    "explain",
+    "review",
+    "list",
+    "show",
+    "describe",
+    "compare",
+    "what",
+    "why",
+    "how",
+    "is",
+    "are",
+    "does",
+    "should",
+  ]);
+  const ACTION = new Set([
+    "fix",
+    "add",
+    "change",
+    "implement",
+    "refactor",
+    "remove",
+    "write",
+    "create",
+    "update",
+    "make",
+    "delete",
+    "rename",
+    "move",
+    "build",
+  ]);
+
+  let text = s.trim().toLowerCase();
+
+  // Drop leading politeness
+  text = text.replace(/^(can you|could you|please)\s+/i, "");
+
+  const firstWord = text.split(/\s+/)[0];
+  if (INFO.has(firstWord)) {
+    return "info";
+  }
+  if (ACTION.has(firstWord)) {
+    return "action";
+  }
+  return "other";
+}
+
+export function protectedTokens(draft: string): string[] {
+  const tokens: string[] = [];
+
+  // @mentions
+  const mentions = draft.match(/@\S+/g);
+  if (mentions) {
+    tokens.push(...mentions);
+  }
+
+  // [Image #N]
+  const images = draft.match(/\[Image #\d+\]/g);
+  if (images) {
+    tokens.push(...images);
+  }
+
+  // Backticked spans
+  const backticked = draft.match(/`[^`]+`/g);
+  if (backticked) {
+    tokens.push(...backticked);
+  }
+
+  // Path-like tokens (controller ruling: restricted extensions)
+  const pathLike = draft.match(
+    /\S+\/\S+|\S+\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|rb|php|md|json|yaml|yml|toml|sh|sql|css|html|txt)\b/g,
+  );
+  if (pathLike) {
+    tokens.push(...pathLike);
+  }
+
+  return tokens;
+}
+
+export function pathTokens(s: string): string[] {
+  const tokens: string[] = [];
+
+  // Path-like tokens (controller ruling: restricted extensions)
+  const pathLike = s.match(
+    /\S+\/\S+|\S+\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|rb|php|md|json|yaml|yml|toml|sh|sql|css|html|txt)\b/g,
+  );
+  if (pathLike) {
+    tokens.push(...pathLike);
+  }
+
+  return tokens;
+}
+
+export function riskyAdditions(
+  result: string,
+  known: string,
+  knownSkills: ReadonlySet<string>,
+): string[] {
+  const risky: string[] = [];
+
+  // Pattern: rm|curl|wget|sudo|chmod commands, | sh, &&, http(s) URLs, absolute paths
+  const patterns = [
+    /\b(rm|curl|wget|sudo|chmod)\s/g,
+    /\|\s*sh\b/g,
+    /&&/g,
+    /https?:\/\/\S+/g,
+    /(^|\s)\/[A-Za-z][^\s]*/g,
+  ];
+
+  for (const pattern of patterns) {
+    const matches = result.match(pattern);
+    if (matches) {
+      for (const match of matches) {
+        const token = match.trim();
+        // Skip if it's in known or if it's a skill name (with or without slash)
+        if (known.includes(token)) {
+          continue;
+        }
+
+        // Check if it's a skill name (controller ruling 1)
+        const withSlash = token.startsWith("/") ? token : `/${token}`;
+        const withoutSlash = token.startsWith("/") ? token.slice(1) : token;
+        if (knownSkills.has(withSlash) || knownSkills.has(withoutSlash)) {
+          continue;
+        }
+
+        risky.push(token);
+      }
+    }
+  }
+
+  return risky;
+}
+
+export function commandTokens(result: string): string[] {
+  // Controller ruling 3: case-insensitive
+  const tokens = result.split(/\s+/);
+  return tokens.filter((t) => /^\/[a-z0-9][a-z0-9:_-]*$/i.test(t));
+}
+
+export function stripUnknownSkills(
+  result: string,
+  known: ReadonlySet<string>,
+): string {
+  const commands = commandTokens(result);
+  let stripped = result;
+
+  for (const cmd of commands) {
+    const name = cmd.slice(1); // Remove leading slash
+    if (!known.has(cmd) && !known.has(name)) {
+      // Strip the slash
+      stripped = stripped.replace(cmd, name);
+    }
+  }
+
+  return stripped;
+}
+
+export const DANGEROUS_SKILL_WORDS =
+  /\b(push|deploy|merge|ship|delete|publish|release)\b/i;
+
+export function demoteLeadingSkill(
+  result: string,
+  a: {
+    draft: string;
+    cfg: Config;
+    descriptions: ReadonlyMap<string, string>;
+  },
+): string {
+  const tokens = result.split(/\s+/);
+  if (tokens.length === 0) {
+    return result;
+  }
+
+  const first = tokens[0];
+  if (!first.startsWith("/")) {
+    return result;
+  }
+
+  const skillName = first.slice(1);
+  const description =
+    a.descriptions.get(skillName) || a.descriptions.get(first);
+
+  // Check conditions for keeping at the front
+  const runAllowed =
+    a.cfg.skillPlacement === "run" &&
+    (a.cfg.skillPrefixAllow.includes(skillName) ||
+      a.cfg.skillPrefixAllow.includes(first));
+
+  // Check for dangerous words in description
+  const isDangerous = description && DANGEROUS_SKILL_WORDS.test(description);
+
+  // Check for overlapping words in draft
+  let hasOverlap = false;
+  if (description) {
+    const descWords =
+      description.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || [];
+    const draftWords = new Set(
+      (a.draft.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || []).map((w) => {
+        // Light stem
+        if (w.endsWith("ing")) return w.slice(0, -3);
+        if (w.endsWith("ed")) return w.slice(0, -2);
+        if (w.endsWith("s")) return w.slice(0, -1);
+        return w;
+      }),
+    );
+
+    const distinctMatches = new Set(
+      descWords
+        .map((w) => {
+          // Light stem
+          if (w.endsWith("ing")) return w.slice(0, -3);
+          if (w.endsWith("ed")) return w.slice(0, -2);
+          if (w.endsWith("s")) return w.slice(0, -1);
+          return w;
+        })
+        .filter((w) => draftWords.has(w)),
+    );
+
+    hasOverlap = distinctMatches.size >= 2;
+  }
+
+  // If conditions met and not dangerous, keep at front
+  if (runAllowed && hasOverlap && !isDangerous) {
+    return result;
+  }
+
+  // Otherwise, move to end as a mention
+  const rest = tokens.slice(1).join(" ");
+  if (rest.length === 0) {
+    return result;
+  }
+
+  // Capitalize first word of rest
+  const capitalized = rest.charAt(0).toUpperCase() + rest.slice(1);
+  return `${capitalized}, using the ${first} skill`;
+}
+
+// Re-exported from diff.ts
+export { wordDiffInsertions };
+
+export type PostOk = {
+  ok: true;
+  text: string;
+  why: string;
+  applied: string[];
+  decorations: PromptDecoration[];
+  addedWords: number;
+};
+
+export type PostResult =
+  PostOk | { ok: false; fine: true } | { ok: false; toast: string };
+
+export function postProcess(a: {
+  draft: string;
+  reply: string;
+  outputTokens: number;
+  cfg: Config;
+  knownSkills: ReadonlySet<string>;
+  descriptions: ReadonlyMap<string, string>;
+  documents: string;
+}): PostResult {
+  // Step 2: Parse verdict
+  const verdict = parseVerdict(a.reply);
+
+  // Step 3: Fine?
+  if (verdict.verdict === "fine") {
+    return { ok: false, fine: true };
+  }
+
+  const result = verdict.prompt;
+
+  // Step 4: Truncated?
+  if (isTruncated(a.outputTokens, a.cfg.maxTokens, a.reply)) {
+    return {
+      ok: false,
+      toast: "prompt-master: reply hit the token cap, kept your prompt",
+    };
+  }
+
+  // Step 5: Empty?
+  if (result.trim().length === 0) {
+    return { ok: false, toast: "prompt-master: the model returned nothing" };
+  }
+
+  // Step 6: Growth (chars AND sentences)
+  const allowed = growthAllowed(a.draft.length, a.cfg.maxGrowthChars);
+  if (result.length > allowed) {
+    return {
+      ok: false,
+      toast: "prompt-master: rewrite too long, kept your prompt",
+    };
+  }
+
+  const draftSentences = sentenceCount(a.draft);
+  const resultSentences = sentenceCount(result);
+  if (resultSentences > draftSentences + 3) {
+    return {
+      ok: false,
+      toast: "prompt-master: rewrite too long, kept your prompt",
+    };
+  }
+
+  // Step 7: KeptShare
+  const share = keptShare(a.draft, result);
+  if (share < a.cfg.keptShareFloor) {
+    return {
+      ok: false,
+      toast: "prompt-master: rewrite dropped too much of your prompt, kept it",
+    };
+  }
+
+  // Step 8: Verb class
+  const draftClass = verbClass(a.draft);
+  const resultClass = verbClass(result);
+  if (draftClass === "info" && resultClass === "action") {
+    return {
+      ok: false,
+      toast: "prompt-master: changed a question into a task, kept your prompt",
+    };
+  }
+  if (draftClass === "action" && resultClass === "info") {
+    return {
+      ok: false,
+      toast: "prompt-master: changed a task into a question, kept your prompt",
+    };
+  }
+
+  // Step 9: Protected tokens
+  const protectedToks = protectedTokens(a.draft);
+  for (const token of protectedToks) {
+    if (!result.includes(token)) {
+      return {
+        ok: false,
+        toast:
+          "prompt-master: lost a file or code reference from your draft, kept it",
+      };
+    }
+  }
+
+  // Step 10: Risky additions
+  const known = a.draft + "\n" + a.documents;
+  const risky = riskyAdditions(result, known, a.knownSkills);
+  if (risky.length > 0) {
+    return {
+      ok: false,
+      toast:
+        "prompt-master: added a command or link you did not write, kept your prompt",
+    };
+  }
+
+  // Step 12: Strip unknown skills
+  let processed = stripUnknownSkills(result, a.knownSkills);
+
+  // Step 13: Demote leading skill
+  processed = demoteLeadingSkill(processed, {
+    draft: a.draft,
+    cfg: a.cfg,
+    descriptions: a.descriptions,
+  });
+
+  // Unchanged?
+  if (processed === a.draft) {
+    return { ok: false, fine: true };
+  }
+
+  // Decorations via wordDiffInsertions
+  const runs = wordDiffInsertions(a.draft, processed);
+  const decorations: PromptDecoration[] = runs.map((r) => ({
+    start: r.start,
+    end: r.end,
+    bold: true,
+    underline: true,
+  }));
+
+  const addedWords = Math.max(0, wordCount(processed) - wordCount(a.draft));
+
+  return {
+    ok: true,
+    text: processed,
+    why: verdict.why,
+    applied: verdict.applied,
+    decorations,
+    addedWords,
+  };
 }
