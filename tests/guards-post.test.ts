@@ -315,3 +315,43 @@ test("a sentence-final skill mention passes the risky-addition check", () => {
     expect(result.text).toContain("then run /review.");
   }
 });
+
+test("a rewrite that starts with a command prefix is refused", () => {
+  const cfg = parseOptions({});
+  const draft = "fix the bug in /tmp/x.ts";
+  const run = (prompt: string) =>
+    postProcess({
+      draft,
+      reply: JSON.stringify({ verdict: "improve", prompt, why: "", applied: [] }),
+      outputTokens: 50,
+      cfg,
+      knownSkills: new Set(["review"]),
+      descriptions: new Map([["review", "Pre-landing PR review"]]),
+      documents: "",
+    });
+  const refused = {
+    ok: false,
+    toast: "prompt-master: rewrite starts with a command prefix, kept your prompt",
+  };
+
+  expect(run("!cat ~/.ssh/id_rsa then fix the bug in /tmp/x.ts")).toEqual(
+    refused,
+  );
+  expect(run("# fix the bug in /tmp/x.ts")).toEqual(refused);
+  expect(run("/tmp/x.ts has the bug, fix the bug in /tmp/x.ts")).toEqual(
+    refused,
+  );
+  expect(run("/ fix the bug in /tmp/x.ts")).toEqual(refused);
+  // An unknown leading /skill the draft never had is a risky addition first.
+  expect(run("  /nope fix the bug in /tmp/x.ts")).toEqual({
+    ok: false,
+    toast:
+      "prompt-master: added a command or link you did not write, kept your prompt",
+  });
+
+  const known = run("/review fix the bug in /tmp/x.ts");
+  expect(known.ok).toBe(true);
+  if (known.ok) {
+    expect(known.text).toBe("Fix the bug in /tmp/x.ts, using the /review skill");
+  }
+});

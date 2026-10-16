@@ -8,6 +8,29 @@ import { COMMAND_SHAPE, stripEdges } from "./tokens";
 
 export const DANGEROUS_SKILL_WORDS =
   /\b(push|deploy|merge|ship|delete|publish|release)\b/i;
+/** Spec §5.4's shell and memory prefixes: Enter runs such a line. */
+const SHELL_OR_MEMORY = /^[!#]/;
+
+/**
+ * A rewrite Enter would run instead of send (the §2 anti-goal): a leading
+ * `!` (bash) or `#` (memory), or a leading `/` naming anything but a listed
+ * skill — a path, a bare slash. A listed skill's `/name` is left to
+ * `demoteLeadingSkill`.
+ */
+export function startsWithCommandPrefix(
+  result: string,
+  known: ReadonlySet<string>,
+): boolean {
+  const first = result.trimStart().split(/\s+/)[0] ?? "";
+  if (SHELL_OR_MEMORY.test(first)) {
+    return true;
+  }
+  if (!first.startsWith("/")) {
+    return false;
+  }
+  const name = stripEdges(first).slice(1);
+  return !(known.has(name) || known.has(`/${name}`));
+}
 
 /**
  * Spec §9.10: a command-shaped token whose name is not in the listing loses

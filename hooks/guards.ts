@@ -11,6 +11,7 @@ import { verbClass as _verbClass, type VerbClass } from "./verb";
 import {
   demoteLeadingSkill as _demoteLeadingSkill,
   DANGEROUS_SKILL_WORDS as _DANGEROUS_SKILL_WORDS,
+  startsWithCommandPrefix,
   stripUnknownSkills as _stripUnknownSkills,
 } from "./skills";
 
@@ -372,6 +373,15 @@ export function postProcess(a: {
 
   // Step 12: Strip unknown skills
   let processed = stripUnknownSkills(result, a.knownSkills);
+
+  // §5.4's prefixes: a line Enter would run instead of send (§2 anti-goal)
+  if (startsWithCommandPrefix(processed, a.knownSkills)) {
+    return {
+      ok: false,
+      toast:
+        "prompt-master: rewrite starts with a command prefix, kept your prompt",
+    };
+  }
 
   // Step 13: Demote leading skill
   processed = demoteLeadingSkill(processed, {
