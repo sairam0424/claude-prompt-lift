@@ -1,0 +1,8 @@
+{
+  "name": "prompt-master-local",
+  "owner": { "name": "Sairam Ugge" },
+  "metadata": { "description": "prompt-master: enhance a vague prompt from the project's loaded instructions and the skill listing, then Send." },
+  "plugins": [
+    { "name": "prompt-master", "source": "./", "description": "Enhance / Send / Undo band above the prompt; /prompt-master command." }
+  ]
+}
