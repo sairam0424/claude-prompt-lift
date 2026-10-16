@@ -1,5 +1,5 @@
 import { mock } from "claude-code/testing";
-import type { MockClock } from "claude-code/testing";
+import type { Engine as Harness, MockClock } from "claude-code/testing";
 import type {
   CommandInfo,
   CommandSource,
@@ -291,4 +291,24 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     modelCalled,
     release: () => release(),
   };
+}
+
+/** `/prompt-master <args>` through the registered command; the whole result. */
+export function press($: Harness, args: string): Promise<unknown> {
+  return $.command.run({ command: "prompt-master", args } as never);
+}
+
+/** Prompt block `index` of model call `call`, or "" when there is none. */
+export function block(e: Engine, call: number, index: number): string {
+  return e.calls[call]?.promptBlocks?.[index]?.text ?? "";
+}
+
+/** An `improve` reply that carries `prompt`. */
+export function improve(prompt: string): string {
+  return JSON.stringify({
+    verdict: "improve",
+    prompt,
+    why: "test",
+    applied: [],
+  });
 }
