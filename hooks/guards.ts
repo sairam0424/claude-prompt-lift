@@ -1,6 +1,16 @@
 import type { Config } from "./config";
 import type { PromptDecoration } from "claude-code";
 import { wordDiffInsertions } from "./diff";
+import {
+  protectedTokens as _protectedTokens,
+  pathTokens as _pathTokens,
+  commandTokens as _commandTokens,
+} from "./tokens";
+import { verbClass as _verbClass, type VerbClass } from "./verb";
+import {
+  demoteLeadingSkill as _demoteLeadingSkill,
+  DANGEROUS_SKILL_WORDS as _DANGEROUS_SKILL_WORDS,
+} from "./skills";
 
 // Pre-call guards
 
@@ -192,102 +202,13 @@ export function keptShare(draft: string, result: string): number {
   return resultWords.length > 0 ? kept / resultWords.length : 1;
 }
 
-export type VerbClass = "info" | "action" | "other";
+// Re-exported from verb.ts to maintain backward compatibility
+export type { VerbClass };
+export const verbClass = _verbClass;
 
-export function verbClass(s: string): VerbClass {
-  const INFO = new Set([
-    "suggest",
-    "explain",
-    "review",
-    "list",
-    "show",
-    "describe",
-    "compare",
-    "what",
-    "why",
-    "how",
-    "is",
-    "are",
-    "does",
-    "should",
-  ]);
-  const ACTION = new Set([
-    "fix",
-    "add",
-    "change",
-    "implement",
-    "refactor",
-    "remove",
-    "write",
-    "create",
-    "update",
-    "make",
-    "delete",
-    "rename",
-    "move",
-    "build",
-  ]);
-
-  let text = s.trim().toLowerCase();
-
-  // Drop leading politeness
-  text = text.replace(/^(can you|could you|please)\s+/i, "");
-
-  const firstWord = text.split(/\s+/)[0];
-  if (INFO.has(firstWord)) {
-    return "info";
-  }
-  if (ACTION.has(firstWord)) {
-    return "action";
-  }
-  return "other";
-}
-
-export function protectedTokens(draft: string): string[] {
-  const tokens: string[] = [];
-
-  // @mentions
-  const mentions = draft.match(/@\S+/g);
-  if (mentions) {
-    tokens.push(...mentions);
-  }
-
-  // [Image #N]
-  const images = draft.match(/\[Image #\d+\]/g);
-  if (images) {
-    tokens.push(...images);
-  }
-
-  // Backticked spans
-  const backticked = draft.match(/`[^`]+`/g);
-  if (backticked) {
-    tokens.push(...backticked);
-  }
-
-  // Path-like tokens (controller ruling: restricted extensions)
-  const pathLike = draft.match(
-    /\S+\/\S+|\S+\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|rb|php|md|json|yaml|yml|toml|sh|sql|css|html|txt)\b/g,
-  );
-  if (pathLike) {
-    tokens.push(...pathLike);
-  }
-
-  return tokens;
-}
-
-export function pathTokens(s: string): string[] {
-  const tokens: string[] = [];
-
-  // Path-like tokens (controller ruling: restricted extensions)
-  const pathLike = s.match(
-    /\S+\/\S+|\S+\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|rb|php|md|json|yaml|yml|toml|sh|sql|css|html|txt)\b/g,
-  );
-  if (pathLike) {
-    tokens.push(...pathLike);
-  }
-
-  return tokens;
-}
+// Re-exported from tokens.ts to maintain backward compatibility
+export const protectedTokens = _protectedTokens;
+export const pathTokens = _pathTokens;
 
 export function riskyAdditions(
   result: string,
@@ -311,8 +232,23 @@ export function riskyAdditions(
       for (const match of matches) {
         const token = match.trim();
         // Skip if it's in known or if it's a skill name (with or without slash)
-        if (known.includes(token)) {
+
+        // Split known into whitespace-delimited tokens for exact matching
+        const knownTokens = new Set(known.match(/\S+/g) || []);
+
+        // Check for exact token match
+        if (knownTokens.has(token)) {
           continue;
+        }
+
+        // For word-like tokens (alphanumeric commands), also check with word boundaries
+        // to catch cases like "rm" appearing as a standalone word in a sentence
+        if (/^[a-zA-Z]+$/.test(token)) {
+          const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const wordBoundaryRegex = new RegExp("\\b" + escapedToken + "\\b");
+          if (wordBoundaryRegex.test(known)) {
+            continue;
+          }
         }
 
         // Check if it's a skill name (controller ruling 1)
@@ -330,11 +266,8 @@ export function riskyAdditions(
   return risky;
 }
 
-export function commandTokens(result: string): string[] {
-  // Controller ruling 3: case-insensitive
-  const tokens = result.split(/\s+/);
-  return tokens.filter((t) => /^\/[a-z0-9][a-z0-9:_-]*$/i.test(t));
-}
+// Re-exported from tokens.ts to maintain backward compatibility
+export const commandTokens = _commandTokens;
 
 export function stripUnknownSkills(
   result: string,
@@ -354,85 +287,9 @@ export function stripUnknownSkills(
   return stripped;
 }
 
-export const DANGEROUS_SKILL_WORDS =
-  /\b(push|deploy|merge|ship|delete|publish|release)\b/i;
-
-export function demoteLeadingSkill(
-  result: string,
-  a: {
-    draft: string;
-    cfg: Config;
-    descriptions: ReadonlyMap<string, string>;
-  },
-): string {
-  const tokens = result.split(/\s+/);
-  if (tokens.length === 0) {
-    return result;
-  }
-
-  const first = tokens[0];
-  if (!first.startsWith("/")) {
-    return result;
-  }
-
-  const skillName = first.slice(1);
-  const description =
-    a.descriptions.get(skillName) || a.descriptions.get(first);
-
-  // Check conditions for keeping at the front
-  const runAllowed =
-    a.cfg.skillPlacement === "run" &&
-    (a.cfg.skillPrefixAllow.includes(skillName) ||
-      a.cfg.skillPrefixAllow.includes(first));
-
-  // Check for dangerous words in description
-  const isDangerous = description && DANGEROUS_SKILL_WORDS.test(description);
-
-  // Check for overlapping words in draft
-  let hasOverlap = false;
-  if (description) {
-    const descWords =
-      description.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || [];
-    const draftWords = new Set(
-      (a.draft.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || []).map((w) => {
-        // Light stem
-        if (w.endsWith("ing")) return w.slice(0, -3);
-        if (w.endsWith("ed")) return w.slice(0, -2);
-        if (w.endsWith("s")) return w.slice(0, -1);
-        return w;
-      }),
-    );
-
-    const distinctMatches = new Set(
-      descWords
-        .map((w) => {
-          // Light stem
-          if (w.endsWith("ing")) return w.slice(0, -3);
-          if (w.endsWith("ed")) return w.slice(0, -2);
-          if (w.endsWith("s")) return w.slice(0, -1);
-          return w;
-        })
-        .filter((w) => draftWords.has(w)),
-    );
-
-    hasOverlap = distinctMatches.size >= 2;
-  }
-
-  // If conditions met and not dangerous, keep at front
-  if (runAllowed && hasOverlap && !isDangerous) {
-    return result;
-  }
-
-  // Otherwise, move to end as a mention
-  const rest = tokens.slice(1).join(" ");
-  if (rest.length === 0) {
-    return result;
-  }
-
-  // Capitalize first word of rest
-  const capitalized = rest.charAt(0).toUpperCase() + rest.slice(1);
-  return `${capitalized}, using the ${first} skill`;
-}
+// Re-exported from skills.ts to maintain backward compatibility
+export const DANGEROUS_SKILL_WORDS = _DANGEROUS_SKILL_WORDS;
+export const demoteLeadingSkill = _demoteLeadingSkill;
 
 // Re-exported from diff.ts
 export { wordDiffInsertions };
