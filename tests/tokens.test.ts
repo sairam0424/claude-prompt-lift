@@ -5,7 +5,7 @@ import {
   protectedTokens,
   stripEdges,
 } from "../hooks/tokens";
-import { riskyAdditions } from "../hooks/guards";
+import { riskyAdditions, stripUnknownSkills } from "../hooks/guards";
 
 // The token shapes the post-processing guards compare (spec §9.8–§9.11), with
 // the punctuation prose wraps them in stripped off, and the file-looking test
@@ -54,4 +54,18 @@ test("a sentence-final skill mention is not a risky addition", () => {
   expect(riskyAdditions("see /etc/hosts.", "edit /etc/hosts.", known)).toEqual(
     [],
   );
+});
+
+test("stripUnknownSkills strips per token and leaves paths alone", () => {
+  const known = new Set(["review"]);
+  expect(stripUnknownSkills("see /src/foo and /foo", known)).toBe(
+    "see /src/foo and foo",
+  );
+  expect(stripUnknownSkills("run /review. then /nope.", known)).toBe(
+    "run /review. then nope.",
+  );
+  expect(stripUnknownSkills("(/nope) and /review", known)).toBe(
+    "(nope) and /review",
+  );
+  expect(stripUnknownSkills("/foo\n/foo", new Set())).toBe("foo\nfoo");
 });

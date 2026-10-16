@@ -11,6 +11,7 @@ import { verbClass as _verbClass, type VerbClass } from "./verb";
 import {
   demoteLeadingSkill as _demoteLeadingSkill,
   DANGEROUS_SKILL_WORDS as _DANGEROUS_SKILL_WORDS,
+  stripUnknownSkills as _stripUnknownSkills,
 } from "./skills";
 
 // Pre-call guards
@@ -251,27 +252,10 @@ export function riskyAdditions(
 // Re-exported from tokens.ts to maintain backward compatibility
 export const commandTokens = _commandTokens;
 
-export function stripUnknownSkills(
-  result: string,
-  known: ReadonlySet<string>,
-): string {
-  const commands = commandTokens(result);
-  let stripped = result;
-
-  for (const cmd of commands) {
-    const name = cmd.slice(1); // Remove leading slash
-    if (!known.has(cmd) && !known.has(name)) {
-      // Strip the slash
-      stripped = stripped.replace(cmd, name);
-    }
-  }
-
-  return stripped;
-}
-
 // Re-exported from skills.ts to maintain backward compatibility
 export const DANGEROUS_SKILL_WORDS = _DANGEROUS_SKILL_WORDS;
 export const demoteLeadingSkill = _demoteLeadingSkill;
+export const stripUnknownSkills = _stripUnknownSkills;
 
 // Re-exported from diff.ts
 export { wordDiffInsertions };
