@@ -1,9 +1,9 @@
 import { atom, read, update } from "claude-code";
-import type { EngineInterface, SessionMessage, StateValue } from "claude-code";
+import type { EngineInterface, StateValue } from "claude-code";
 import type { Config } from "./config";
-import { rulesText, SYSTEM } from "./rules";
+import { SYSTEM } from "./rules";
 import { postProcess, preGuard, type PostOk } from "./guards";
-import { buildDynamicBlock, buildStaticBlock, matchSkills } from "./context";
+import { prepare, type Prepared } from "./prepare";
 import {
   formatDollars,
   runChain,
@@ -12,9 +12,7 @@ import {
   type ChainOk,
 } from "./chain";
 import {
-  basename,
   errorMessage,
-  gatherContext,
   lastAssistantText,
   namedPathsExist,
   resolveChain,
@@ -75,17 +73,6 @@ const TOAST_NO_MODELS = "prompt-master: no models configured";
 export type EnhanceSource = { kind: "box" } | { kind: "args"; text: string };
 
 type Phase = StateValue<"prompt-master", "phase">;
-
-type Prepared = {
-  root: string;
-  rootDirs: string[];
-  staticBlock: string;
-  dynamicBlock: string;
-  relevantCount: number;
-  knownSkills: Set<string>;
-  descriptions: Map<string, string>;
-  documentsText: string;
-};
 
 type Success = {
   draft: string;
@@ -215,46 +202,6 @@ export function expectedBoxText(source: EnhanceSource, draft: string): string {
 /** C19: a toast that follows a model call ends with what the call cost. */
 function withCost(toast: string, usd: number): string {
   return `${toast} · ${formatDollars(usd)}`;
-}
-
-async function prepare(
-  $: EngineInterface,
-  cfg: Config,
-  draft: string,
-  rows: readonly SessionMessage[],
-): Promise<Prepared> {
-  const ctx = await gatherContext($, cfg, draft, rows);
-  const staticBlock = buildStaticBlock({
-    rules: rulesText(cfg.filePrefix),
-    project: basename(ctx.root),
-    documents: ctx.documents,
-    skillNames: ctx.skillNames,
-  });
-  const relevant = matchSkills(
-    draft,
-    ctx.commands,
-    new Set(ctx.skillNames),
-    cfg.relevantSkills,
-  );
-  const dynamicBlock = buildDynamicBlock({
-    relevant,
-    subproject: ctx.subproject,
-    conversation: ctx.conversation,
-    draft,
-  });
-  return {
-    root: ctx.root,
-    rootDirs: ctx.rootDirs,
-    staticBlock,
-    dynamicBlock,
-    relevantCount: relevant.length,
-    knownSkills: new Set([
-      ...ctx.skillNames,
-      ...ctx.commands.map((c) => c.name),
-    ]),
-    descriptions: ctx.descriptions,
-    documentsText: ctx.documentsText,
-  };
 }
 
 async function callChain(
