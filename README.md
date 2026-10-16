@@ -97,21 +97,7 @@ claude plugin install prompt-master@prompt-master-local --scope user
 
 ## Updating
 
-The install is a copy, not a reference: `claude plugin install` records the repo's commit and copies the tree into `~/.claude/plugins/cache/prompt-master-local/prompt-master/<version>/`, and that copy is what a running session loads. Editing `~/src/prompt-master` and running `/reload-plugins` reloads the unchanged copy. After a change:
-
-```bash
-git -C ~/src/prompt-master commit -am "fix(prompt-master): …"
-claude plugin update prompt-master@prompt-master-local
-```
-
-then restart Claude Code (`claude plugin update` says "restart required to apply"). The cache directory is named after `version` in `.claude-plugin/plugin.json`; bump it when a change must be told apart from the previous install, or uninstall and install again:
-
-```bash
-claude plugin uninstall prompt-master@prompt-master-local
-claude plugin install prompt-master@prompt-master-local --scope user
-```
-
-The repo has no remote, so there is nothing to pull.
+Claude Code reads this plugin straight from `/Users/sairamugge/src/prompt-master` (the install is a folder marketplace; `claude plugin update` reports "read from its folder"). After editing or committing there, run `/reload-plugins` in a session, or start a new session. A version bump in `.claude-plugin/plugin.json` followed by `claude plugin update prompt-master@prompt-master-local` only refreshes the recorded version; it is not needed to pick up changes.
 
 ## First-Run Checklist
 
