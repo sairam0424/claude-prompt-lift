@@ -80,7 +80,8 @@ test("matchSkills ranks commit-commands:commit first for a commit draft and caps
     },
     {
       name: "ship",
-      description: "Release workflow: sync, test, changelog, message updates, PR",
+      description:
+        "Release workflow: sync, test, changelog, message updates, PR",
       source: "builtin",
     },
   ];
@@ -141,9 +142,9 @@ test("buildDynamicBlock puts the draft last", async () => {
   const block = buildDynamicBlock({ relevant, draft });
 
   expect(block.includes("/review")).toBe(true);
-  expect(block.endsWith(
-    "Answer with the JSON object described in the rules.",
-  )).toBe(true);
+  expect(
+    block.endsWith("Answer with the JSON object described in the rules."),
+  ).toBe(true);
   expect(block.indexOf("<draft>") < block.indexOf("Answer with")).toBe(true);
 });
 
