@@ -1,5 +1,5 @@
 import { expect, test } from "claude-code/testing";
-import { preGuard, wordCount, REPLY_PREFIX } from "../hooks/guards";
+import { preGuard } from "../hooks/guards";
 import { parseOptions } from "../hooks/config";
 
 const cfg = parseOptions({});
