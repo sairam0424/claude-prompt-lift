@@ -20,6 +20,7 @@ import {
   resolveChain,
 } from "./gather";
 import { describeAttempt, isUncached, recordPress, toLastUsage } from "./stats";
+import { disarmUndo } from "./arm";
 
 // The Enhance flow (spec §5.3 steps 1–9) and the session state it writes.
 // Every atom is declared in this file: `read` and `update` only validate
@@ -369,6 +370,8 @@ async function recordSuccess(
   }
   await update($, enhanced, () => a.filledText);
   await update($, isUndone, () => false);
+  // A pending Undo confirm referred to the pair this fill replaced (C13).
+  disarmUndo();
   await update($, lastUsage, () => toLastUsage(a, usd, hashChanged));
   await update($, blockHash, () => hash);
   await update($, staticChars, () => a.staticBlock.length);

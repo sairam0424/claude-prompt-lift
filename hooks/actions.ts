@@ -1,5 +1,6 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface } from "claude-code";
+import { armUndo, disarmUndo, undoArmedAt } from "./arm";
 import { cancel, type DraftReader } from "./enhance";
 
 // Send, Undo/Redo, Cancel and the resets (spec §5.3; C3, C11, C13, C14).
@@ -37,9 +38,6 @@ const TOAST_REAPPLIED = "prompt-master: re-applied the enhanced prompt";
 
 /** `@file` mentions and pasted images travel only with Enter (C10, C11). */
 const ENTER_ONLY = /@\S+|\[Image #\d+\]/;
-
-/** When the last Undo press armed the confirm window; module state (§10). */
-let undoArmedAt: number | undefined;
 
 /**
  * The prompt noun as Send drives it before it touches state, so a test's `$`
@@ -151,7 +149,7 @@ export async function undo($: EngineInterface): Promise<void> {
     original: await read($, original),
     enhanced: await read($, enhanced),
     isUndone: await read($, isUndone),
-    armedAt: undoArmedAt,
+    armedAt: undoArmedAt(),
     now,
   });
   if (decision.kind === "nothing") {
@@ -159,11 +157,11 @@ export async function undo($: EngineInterface): Promise<void> {
     return;
   }
   if (decision.kind === "arm") {
-    undoArmedAt = now;
+    armUndo(now);
     $.ui.toast(TOAST_UNDO_ARM);
     return;
   }
-  undoArmedAt = undefined;
+  disarmUndo();
   const filled = await $.prompt.fill({ text: decision.text, mode: "replace" });
   if (!filled.isFilled) {
     const cause = filled.refusal ?? "refused";
@@ -182,7 +180,7 @@ export async function undo($: EngineInterface): Promise<void> {
  * Enter comes through here, so nothing held and an idle phase write nothing.
  */
 export async function clearHeld($: EngineInterface): Promise<void> {
-  undoArmedAt = undefined;
+  disarmUndo();
   const isHeld = (await read($, original)) !== null;
   const isIdle = (await read($, phase)) === "idle";
   if (!isHeld && isIdle) {

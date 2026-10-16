@@ -263,6 +263,27 @@ test("Redo guards an edited box the same way", async ($, on) => {
   expect(e.toasts[3]).toBe(REAPPLIED);
 });
 
+test("a new Enhance disarms a pending Undo confirm", async ($, on) => {
+  const e = engine(on, {
+    replies: [answered(GOOD), answered(improve(BETTER_2))],
+  });
+  await press($, DRAFT);
+  e.box.text = EDITED;
+  await undoCmd($);
+  expect(e.toasts.at(-1)).toBe(ARM_TOAST);
+
+  e.box.text = "";
+  await press($, `${DRAFT} now`);
+  expect(e.box.text).toBe(BETTER_2);
+  e.box.text = `${BETTER_2} and the logout path`;
+
+  await undoCmd($);
+
+  expect(e.box.text).toBe(`${BETTER_2} and the logout path`);
+  expect(e.toasts.at(-1)).toBe(ARM_TOAST);
+  expect(e.fills).toHaveLength(2);
+});
+
 test("decideUndo covers the table", () => {
   const held = {
     original: DRAFT,
