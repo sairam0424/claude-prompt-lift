@@ -43,13 +43,16 @@ export const register: Register = (on, options) => {
   ).catch(($, e, next) => next(e));
 
   // C14: the one prompt.* hook, a passthrough observer. The person's own Enter
-  // ends what Undo could restore; the prompt always goes on, clearing or not.
-  // An engine-made submit can arrive with no origin stamped, so read it softly.
+  // ends what Undo could restore, but only once the prompt entered: a drop by
+  // a lower hook or the engine leaves the text in the box, so the pair stays
+  // and Undo still restores the pre-enhance words (G6). An engine-made submit
+  // can arrive with no origin stamped, so read it softly.
   on("prompt.submit", async ($, e, next) => {
-    if (e.origin?.kind === "composer") {
+    const r = await next(e);
+    if (r.drop === undefined && e.origin?.kind === "composer") {
       await clearHeld($);
     }
-    return next(e);
+    return r;
   }).catch(($, e, next) => next(e));
 
   // The band (§5.1): one row chained above whatever is drawn beneath.

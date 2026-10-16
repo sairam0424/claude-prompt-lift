@@ -338,6 +338,25 @@ test("composer submit clears original and enhanced", async ($, on) => {
   expect(e.toasts[1]).toBe(NOTHING_TO_UNDO);
 });
 
+test("a composer submit a lower hook drops keeps the held pair", async ($, on) => {
+  const e = engine(on, { drop: "a hook said no" });
+  const originals = watch(on, "original");
+  await press($, DRAFT);
+
+  const r = await $.prompt.submit({
+    text: BETTER,
+    wait: false,
+    origin: { kind: "composer" },
+  } as never);
+
+  expect((r as { drop?: string }).drop).toBe("a hook said no");
+  expect(e.submits.map((s) => s.text)).toEqual([BETTER]);
+  expect(originals).toEqual([DRAFT]);
+  await undoCmd($);
+  expect(e.box.text).toBe(DRAFT);
+  expect(e.toasts[1]).toBe(RESTORED);
+});
+
 test("composer submit with nothing held writes no state", async ($, on) => {
   const e = engine(on);
   const originals = watch(on, "original");
