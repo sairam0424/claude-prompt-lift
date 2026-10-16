@@ -14,12 +14,13 @@ import {
 } from "./gather";
 import { status } from "./status";
 
-// The one registered command's sub-words (spec §5.2, C18): bare → the hint,
-// `undo`, `model`, `status`, `diff`, `probe`, anything else → Enhance the
-// text. There is no `send` sub-word: a slash command replaces the box, so it
-// can never see the draft. The atoms are declared here as well as in
-// enhance.ts: `read` and `update` validate against an atom made in the
-// calling file.
+// The one registered command's sub-words (spec §5.2, C18): bare → the hint;
+// `undo`, `status`, `diff`, `probe` when the whole argument is that word
+// (any case); `model <id|alias|reset>`; anything else → Enhance the text, so
+// "diff the two configs" is a draft, not the diff. There is no `send`
+// sub-word: a slash command replaces the box, so it can never see the draft.
+// The atoms are declared here as well as in enhance.ts: `read` and `update`
+// validate against an atom made in the calling file.
 
 const model = atom({ plugin: "prompt-master", key: "model" } as const, "");
 const original = atom(
@@ -140,7 +141,7 @@ export async function runCommand(
     return { text: await chooseModel($, cfg, modelParse.model) };
   }
 
-  switch (first.toLowerCase()) {
+  switch (args.toLowerCase()) {
     case "undo":
       await undo($);
       return {};

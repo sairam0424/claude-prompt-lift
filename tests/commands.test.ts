@@ -41,6 +41,10 @@ async function press($: Harness, args: string): Promise<string | undefined> {
   return (r as { text?: string }).text;
 }
 
+function improve(prompt: string): string {
+  return JSON.stringify({ verdict: "improve", prompt, why: "", applied: [] });
+}
+
 // --- model ---
 
 test("/prompt-master model sonnet changes the first rung and reset restores it", async ($, on) => {
@@ -429,5 +433,43 @@ test("/prompt-master model with an invalid token answers the reason and writes n
 
   expect(text).toBe('prompt-master: "\"x\"" is not a model id or alias');
   expect(e.store.model).toBeUndefined();
+  expect(e.calls).toHaveLength(0);
+});
+
+test("a draft that merely starts with a sub-word is enhanced", async ($, on) => {
+  const drafts = [
+    "undo the last migration",
+    "status of the nightly build",
+    "diff the two configs and explain",
+    "probe the API for rate limits",
+  ];
+  const e = engine(on, {
+    replies: drafts.map((d) => answered(improve(`${d} carefully`))),
+  });
+
+  for (const draft of drafts) {
+    e.box.text = "";
+    expect(await press($, draft)).toBeUndefined();
+    expect(e.box.text).toBe(`${draft} carefully`);
+  }
+
+  expect(e.calls).toHaveLength(4);
+  for (const call of e.calls) {
+    expect(call.promptBlocks).toHaveLength(2);
+    expect(call.maxTokens).toBe(2000);
+  }
+  expect(e.toasts).not.toContain(NOTHING_TO_UNDO);
+  expect(e.toasts.every((t) => t.startsWith("prompt-master: fable 5.1 ·"))).toBe(
+    true,
+  );
+});
+
+test("sub-words match whatever the case and spacing", async ($, on) => {
+  const e = engine(on);
+
+  expect(await press($, "  Undo ")).toBeUndefined();
+  expect(e.toasts).toEqual([NOTHING_TO_UNDO]);
+  expect(await press($, "STATUS")).toContain("prompt-master status");
+  expect(await press($, "Diff")).toBe("prompt-master: nothing to diff");
   expect(e.calls).toHaveLength(0);
 });
