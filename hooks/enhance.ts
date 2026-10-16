@@ -115,6 +115,16 @@ let cancelled = false;
 let controller: AbortController | undefined;
 let pendingNote: Promise<void> = Promise.resolve();
 
+// Cancel (spec §5.3, C3): the flag tells an `aborted` reply from a Cancel
+// apart from a timeout, so the chain stops instead of falling back.
+export function cancel(): void {
+  if (controller === undefined) {
+    return;
+  }
+  cancelled = true;
+  controller.abort();
+}
+
 export async function enhance(
   $: EngineInterface,
   cfg: Config,
