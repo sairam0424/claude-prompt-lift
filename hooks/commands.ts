@@ -41,8 +41,68 @@ const PROBE_MAX_TOKENS = 8;
 // optional dotted provider prefix (`us.anthropic.`, `anthropic.`). An alias
 // (`sonnet`, `haiku`, `opus`) never does; it must name a configured rung.
 const MODEL_ID_PATTERN = /^(?:[\w-]+\.)*claude-/i;
+// Alias pattern: fable, sonnet, haiku, opus (case-insensitive)
+const ALIAS_PATTERN = /^(fable|sonnet|haiku|opus)$/i;
+// Valid model id pattern: starts with letter/digit, then letters/digits/.:_-
+const VALID_ID_PATTERN = /^[a-z0-9][a-z0-9.:_-]*$/i;
 
 export type ProbeResult = { model: string; outcome: string };
+
+export type ParseModelResult =
+  | { kind: "reset" }
+  | { kind: "set"; model: string }
+  | { kind: "invalid"; reason: string }
+  | { kind: "not-a-model-command" };
+
+/**
+ * Parse a `/prompt-master` command to check if it's a model command.
+ * Rules:
+ * - First token must be "model"
+ * - Exactly one further token → set/reset/invalid
+ * - Zero further tokens → invalid (usage)
+ * - Three or more tokens → not-a-model-command (prose/draft)
+ */
+export function parseModelArg(args: string): ParseModelResult {
+  const tokens = args.trim().split(/\s+/);
+  const [first = "", second = ""] = tokens;
+
+  // First token must be "model"
+  if (first.toLowerCase() !== "model") {
+    return { kind: "not-a-model-command" };
+  }
+
+  // Zero further tokens → invalid (usage)
+  if (tokens.length === 1) {
+    return {
+      kind: "invalid",
+      reason: "prompt-master: usage: /prompt-master model <id|alias|reset>",
+    };
+  }
+
+  // Three or more tokens → not-a-model-command (prose)
+  if (tokens.length >= 3) {
+    return { kind: "not-a-model-command" };
+  }
+
+  // Exactly two tokens: "model <token>"
+  const token = tokens[1]!;
+
+  // Check if it's "reset"
+  if (token.toLowerCase() === "reset") {
+    return { kind: "reset" };
+  }
+
+  // Check if it's a valid alias or id
+  if (ALIAS_PATTERN.test(token) || VALID_ID_PATTERN.test(token)) {
+    return { kind: "set", model: token };
+  }
+
+  // Invalid token
+  return {
+    kind: "invalid",
+    reason: `prompt-master: "${token}" is not a model id or alias`,
+  };
+}
 
 export async function runCommand(
   $: EngineInterface,
@@ -53,13 +113,37 @@ export async function runCommand(
   if (args === "") {
     return { text: HINT };
   }
-  const [first = "", second = ""] = args.split(/\s+/);
+
+  // Check if this is a model command before other routing (Task 10b)
+  const [first = ""] = args.split(/\s+/);
+  if (first.toLowerCase() === "model") {
+    const modelParse = parseModelArg(args);
+    if (modelParse.kind === "invalid") {
+      // For "model" alone, show the current first rung along with usage
+      // (keep existing test behavior); for invalid tokens, show the reason
+      const tokens = args.trim().split(/\s+/);
+      if (tokens.length === 1) {
+        return { text: await chooseModel($, cfg, "") };
+      }
+      return { text: modelParse.reason };
+    }
+    if (modelParse.kind === "not-a-model-command") {
+      // Prose starting with "model" → enhance the full args string
+      await enhance($, cfg, { kind: "args", text: args });
+      return {};
+    }
+    if (modelParse.kind === "reset") {
+      await $.store.delete(MODEL_STORE_KEY);
+      return { text: await chainText($, cfg) };
+    }
+    // modelParse.kind === "set"
+    return { text: await chooseModel($, cfg, modelParse.model) };
+  }
+
   switch (first.toLowerCase()) {
     case "undo":
       await undo($);
       return {};
-    case "model":
-      return { text: await chooseModel($, cfg, second) };
     case "status":
       return { text: await status($, cfg) };
     case "diff":
