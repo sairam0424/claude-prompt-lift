@@ -3,6 +3,14 @@ import type { ModelCompleteRequest, ModelCompleteResult, ModelTextBlock, ModelUs
 import { runChain, decide, usageText, type Attempt, type Complete } from "../hooks/chain";
 import { parseOptions } from "../hooks/config";
 
+/** What a rung that answered nothing cost: the shape every Attempt carries. */
+const NO_USAGE: ModelUsage = {
+  input_tokens: 0,
+  output_tokens: 0,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 0,
+};
+
 test("answered first rung returns with one attempt", async () => {
   const cfg = parseOptions({});
   const fakeComplete: Complete = async (req) => {
@@ -295,7 +303,7 @@ test("usageText formats tokens, dollars and attempts", async () => {
     why: "",
     hashChanged: false,
     attempts: [
-      { model: "us.anthropic.claude-fable-5-1", outcome: "ok" },
+      { model: "us.anthropic.claude-fable-5-1", outcome: "ok", usage: NO_USAGE },
     ],
   });
 
@@ -317,8 +325,8 @@ test("usageText includes optional suffixes", async () => {
     why: "context grew",
     hashChanged: true,
     attempts: [
-      { model: "us.anthropic.claude-sonnet-5-5", outcome: "rate_limit" },
-      { model: "us.anthropic.claude-fable-5-1", outcome: "ok" },
+      { model: "us.anthropic.claude-sonnet-5-5", outcome: "rate_limit", usage: NO_USAGE },
+      { model: "us.anthropic.claude-fable-5-1", outcome: "ok", usage: NO_USAGE },
     ],
   });
 
@@ -339,7 +347,7 @@ test("usageText handles no cache and low amounts", async () => {
     model: "us.anthropic.claude-haiku-5-5",
     usage,
     usd: 0.006,
-    attempts: [{ model: "us.anthropic.claude-haiku-5-5", outcome: "ok" }],
+    attempts: [{ model: "us.anthropic.claude-haiku-5-5", outcome: "ok", usage: NO_USAGE }],
   });
 
   expect(text).toBe("prompt-master: haiku 5.5 · 0 cached · 500 in · 50 out · $0.006 · (no cache)");
@@ -397,7 +405,7 @@ test("decide rules", async () => {
   // Second consecutive authentication_failed stops
   decision = decide(
     { isAnswered: false, reason: "api-error", error: "authentication_failed", status: 401 } as never,
-    { model: "x", outcome: "authentication_failed" },
+    { model: "x", outcome: "authentication_failed", usage: NO_USAGE },
     false
   );
   expect(decision).toEqual({ action: "stop", outcome: "authentication_failed" });
