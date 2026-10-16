@@ -77,13 +77,9 @@ export function splitList(value: unknown): string[] {
 }
 
 export function parseOptions(options: PluginOptions): Config {
-  const models = splitList(
-    typeof options.models === "string" ? options.models : DEFAULT_MODEL_CHAIN,
-  );
+  const models = splitList(options.models ?? DEFAULT_MODEL_CHAIN);
   const effortModelsArr = splitList(
-    typeof options.effortModels === "string"
-      ? options.effortModels
-      : models.slice(0, 2).join(","),
+    options.effortModels ?? models.slice(0, 2).join(","),
   );
 
   return {
@@ -108,30 +104,20 @@ export function parseOptions(options: PluginOptions): Config {
         ? options.conversationMessages
         : 6,
     instructionExclude: splitList(
-      typeof options.instructionExclude === "string"
-        ? options.instructionExclude
-        : DEFAULT_INSTRUCTION_EXCLUDE,
+      options.instructionExclude ?? DEFAULT_INSTRUCTION_EXCLUDE,
     ),
     instructionFileMaxChars:
       typeof options.instructionFileMaxChars === "number"
         ? options.instructionFileMaxChars
         : 40000,
-    skillExclude: splitList(
-      typeof options.skillExclude === "string"
-        ? options.skillExclude
-        : DEFAULT_SKILL_EXCLUDE,
-    ),
+    skillExclude: splitList(options.skillExclude ?? DEFAULT_SKILL_EXCLUDE),
     relevantSkills:
       typeof options.relevantSkills === "number" ? options.relevantSkills : 8,
     skillPlacement:
       options.skillPlacement === "mention" || options.skillPlacement === "run"
         ? options.skillPlacement
         : "mention",
-    skillPrefixAllow: splitList(
-      typeof options.skillPrefixAllow === "string"
-        ? options.skillPrefixAllow
-        : "",
-    ),
+    skillPrefixAllow: splitList(options.skillPrefixAllow ?? ""),
     filePrefix:
       options.filePrefix === "plain" || options.filePrefix === "at"
         ? options.filePrefix

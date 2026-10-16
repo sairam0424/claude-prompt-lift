@@ -63,6 +63,21 @@ test("parseOptions ignores wrong types", async () => {
   expect(c.skillPlacement).toBe("mention"); // falls back to default
 });
 
+test("parseOptions accepts array inputs for list fields", async () => {
+  const c = parseOptions({
+    models: ["a", "b"],
+    effortModels: ["a"],
+    instructionExclude: ["~/x", "~/y"],
+    skillExclude: ["foo:*", "bar:*"],
+    skillPrefixAllow: ["baz", "qux"],
+  });
+  expect(c.models).toEqual(["a", "b"]);
+  expect(Array.from(c.effortModels)).toEqual(["a"]);
+  expect(c.instructionExclude).toEqual(["~/x", "~/y"]);
+  expect(c.skillExclude).toEqual(["foo:*", "bar:*"]);
+  expect(c.skillPrefixAllow).toEqual(["baz", "qux"]);
+});
+
 test("priceFor finds model by substring", async () => {
   const price = priceFor("us.anthropic.claude-fable-5-1", DEFAULT_PRICES);
   expect(price).toEqual({
