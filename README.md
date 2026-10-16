@@ -22,9 +22,11 @@ The original is kept until you submit or `/clear`. Undo acts only when the box s
 - `/prompt-master <text>` — enhance the text
 - `/prompt-master undo` — restore the original draft
 - `/prompt-master model <id|alias|reset>` — switch model or reset to chain
-- `/prompt-master status` — show last press metrics
+- `/prompt-master status` — show the last call, the session and per-day totals, the block size and hash
 - `/prompt-master diff` — show word-level diff of last enhancement
 - `/prompt-master probe` — test each model in chain
+
+A sub-word is recognised only when it is the whole argument (any case): `/prompt-master diff the two configs and explain` is a draft to enhance, not the diff. `model` takes exactly one token; `model the auth flow as a state machine` is a draft too.
 
 ## What Goes to the Model
 
@@ -45,7 +47,11 @@ Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 - Sonnet: ≈ $0.027 / ≈ $0.009
 - Haiku: ≈ $0.0015 / ≈ $0.0006
 
-The cache lives 5 minutes. Toasts show the real dollars. `/prompt-master model haiku` switches to Haiku.
+The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars — a successful rewrite, "already specific, left as is", every refusal, and a chain that failed after a paid rung — and `status` counts them all (a refused press cost the same as an accepted one). `/prompt-master model haiku` switches to Haiku.
+
+## What Is Refused
+
+Each refusal is one toast and leaves the box untouched. Beyond the pre-call guards (commands and shell lines, replies, too short, too long), a rewrite is refused when it hits the token cap, grows too much, drops too much of the draft, turns a question into a task or back, loses a path or `@mention` the draft had, adds a command or link you did not write, or starts with a command prefix — `!`, `#`, or a `/` that is not a listed skill — because Enter would run it. Paths and prose are told apart: a sentence may end with `src/auth.ts.` and still carry `src/auth.ts`, and only tokens that look like files (rooted, carrying an extension, or under a directory of the project root) must exist, so `CI/CD` and `and/or` pass.
 
 ## Configuration
 
@@ -91,10 +97,21 @@ claude plugin install prompt-master@prompt-master-local --scope user
 
 ## Updating
 
+The install is a copy, not a reference: `claude plugin install` records the repo's commit and copies the tree into `~/.claude/plugins/cache/prompt-master-local/prompt-master/<version>/`, and that copy is what a running session loads. Editing `~/src/prompt-master` and running `/reload-plugins` reloads the unchanged copy. After a change:
+
 ```bash
-git -C ~/src/prompt-master pull
-/reload-plugins
+git -C ~/src/prompt-master commit -am "fix(prompt-master): …"
+claude plugin update prompt-master@prompt-master-local
 ```
+
+then restart Claude Code (`claude plugin update` says "restart required to apply"). The cache directory is named after `version` in `.claude-plugin/plugin.json`; bump it when a change must be told apart from the previous install, or uninstall and install again:
+
+```bash
+claude plugin uninstall prompt-master@prompt-master-local
+claude plugin install prompt-master@prompt-master-local --scope user
+```
+
+The repo has no remote, so there is nothing to pull.
 
 ## First-Run Checklist
 
@@ -102,7 +119,7 @@ After installation, in a live Claude session:
 
 1. `/reload-plugins`, then `/plugin` should list prompt-master as an active mod
 2. `/prompt-master probe` → three `ok` lines; if a Sonnet or Haiku id is refused, set `models` in `/config` (pluginConfigs) to the ids your account enables
-3. Type a vague draft, `ctrl+x tab`, `e` (or `ctrl+x b`) → the box is replaced, inserted words are underlined, a toast shows tokens and dollars
+3. Type a vague draft, `ctrl+x tab`, `e` (or `ctrl+x b`) → the box is replaced, inserted words are underlined, a toast shows tokens and dollars (a refusal toast ends with dollars too)
 4. Press Enhance again within five minutes → the toast shows a non-zero `cached` count; if it stays `(no cache)` three times the row says so
 5. Press Send on a plain draft → it submits and the box clears; Undo then Redo
 6. `/prompt-master status`
