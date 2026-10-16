@@ -1,6 +1,6 @@
 {
   "name": "prompt-master",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Enhance your prompts using project instructions and skills",
   "author": {
     "name": "Sairam Ugge"
@@ -84,14 +84,20 @@
       "title": "File Prefix Style",
       "description": "How to prefix file paths in prompts",
       "default": "plain",
-      "options": ["plain", "at"]
+      "options": [
+        "plain",
+        "at"
+      ]
     },
     "skillPlacement": {
       "type": "string",
       "title": "Skill Placement",
       "description": "How to include skills in prompts",
       "default": "mention",
-      "options": ["mention", "run"]
+      "options": [
+        "mention",
+        "run"
+      ]
     },
     "includeConversation": {
       "type": "boolean",
