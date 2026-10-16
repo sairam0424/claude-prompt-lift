@@ -2,7 +2,10 @@ import type { ModelCompleteRequest, ModelCompleteResult, ModelTextBlock, ModelUs
 import type { Config } from "./config";
 import { shortModel, estimateUsd } from "./config";
 
-/** One rung's call: what it answered and what it cost (zeros when nothing arrived). */
+/**
+ * One rung's call: what it answered and what it cost (zeros when nothing
+ * arrived).
+ */
 export type Attempt = {
   model: string;
   outcome: string;

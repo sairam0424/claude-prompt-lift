@@ -120,10 +120,14 @@ export async function noteRewrite(
   facts: CallFacts,
   call: CallRecord,
 ): Promise<void> {
-  await update($, lastUsage, () => toLastUsage(facts, call.usd, call.hashChanged));
+  await update($, lastUsage, () =>
+    toLastUsage(facts, call.usd, call.hashChanged),
+  );
 }
 
-/** What a chain that answered nothing still paid: each rung at its own price. */
+/**
+ * What a chain that answered nothing still paid: each rung at its own price.
+ */
 export function attemptsUsd(
   attempts: readonly Attempt[],
   prices: Readonly<Record<string, Price>>,

@@ -238,7 +238,10 @@ function noteRunningModel($: EngineInterface, id: string): void {
     });
 }
 
-/** A chain that answered nothing still paid for its rungs (G5): record, say so. */
+/**
+ * A chain that answered nothing still paid for its rungs (G5): record that,
+ * then say so.
+ */
 async function reportFailure(
   $: EngineInterface,
   cfg: Config,
