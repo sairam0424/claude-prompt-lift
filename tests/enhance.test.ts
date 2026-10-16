@@ -19,7 +19,7 @@ import {
   type Engine,
 } from "./engine";
 import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
-import { expectedBoxText } from "../hooks/enhance";
+import { expectedBoxText, readDraft, type DraftReader } from "../hooks/enhance";
 import { SYSTEM } from "../hooks/rules";
 
 const DRAFT_2 = "fix the login bug in src/auth.ts please now";
@@ -130,10 +130,30 @@ test("command path refuses to fill when the box is no longer empty", async ($, o
   ]);
 });
 
-// The button path itself (`enhance($, cfg, { kind: "box" })`) runs only with
-// the mod's own `$`: a test's `$` carries the engine nouns alone (no fs,
-// state, store, model), so the band button (Task 10) drives it end to end.
-// This pins the contract the box re-read applies to each source.
+// The button path end to end (`enhance($, cfg, { kind: "box" })`) runs only
+// with the mod's own `$`: a test's `$` carries the engine nouns alone (no fs,
+// state, store, model), and an inline plugin may not hand its `$` to a function
+// of the test file, so the band button (Task 10) drives it through `ui.press`.
+// These two pin what the box source does at step 2 (read) and step 7 (re-read).
+test("the draft is the prompt box for the button and the args for the command", async () => {
+  const reads: string[] = [];
+  const reader: DraftReader = {
+    prompt: {
+      read: async () => {
+        reads.push("read");
+        return { text: DRAFT, cursor: DRAFT.length };
+      },
+    },
+  };
+
+  expect(await readDraft(reader, { kind: "box" })).toBe(DRAFT);
+  expect(reads).toHaveLength(1);
+  expect(await readDraft(reader, { kind: "args", text: DRAFT_2 })).toBe(
+    DRAFT_2,
+  );
+  expect(reads).toHaveLength(1);
+});
+
 test("the box re-read expects the draft for the button and nothing for the command", () => {
   expect(expectedBoxText({ kind: "box" }, DRAFT)).toBe(DRAFT);
   expect(expectedBoxText({ kind: "args", text: DRAFT }, DRAFT)).toBe("");

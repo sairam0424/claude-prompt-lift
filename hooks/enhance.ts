@@ -189,8 +189,12 @@ export async function enhance(
   }
 }
 
-async function readDraft(
-  $: EngineInterface,
+/** The one engine noun step 2 reads, so a test can hand it a stub box. */
+export type DraftReader = { prompt: Pick<EngineInterface["prompt"], "read"> };
+
+/** Step 2: the draft is the prompt box for the button, the args for the command. */
+export async function readDraft(
+  $: DraftReader,
   source: EnhanceSource,
 ): Promise<string> {
   return source.kind === "box" ? (await $.prompt.read()).text : source.text;
