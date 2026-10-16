@@ -141,6 +141,36 @@ export function sanitizeDescription(d: string): string | undefined {
   return d.slice(0, 160);
 }
 
+export function neutralizeTags(text: string): string {
+  // List of envelope tag names to neutralize
+  const envelopeTags = [
+    "enhancer_rules",
+    "examples",
+    "example",
+    "draft",
+    "answer",
+    "project",
+    "documents",
+    "document",
+    "source",
+    "document_content",
+    "skill_names",
+    "relevant_skills",
+    "subproject_instructions",
+    "recent_conversation",
+  ];
+
+  // Build pattern for closing tags: </name> with optional whitespace, case-insensitive
+  // Capture tag name and trailing whitespace separately to preserve trailing space
+  const tagPattern = envelopeTags.join("|");
+  const regex = new RegExp(`</\\s*(${tagPattern})(\\s*)>`, "gi");
+
+  // Replace with escaped version: <\/name>, preserving trailing whitespace
+  return text.replace(regex, (match, tagName, trailingWS) => {
+    return `<\\/${tagName}${trailingWS}>`;
+  });
+}
+
 export function matchSkills(
   draft: string,
   commands: readonly CommandEntry[],
@@ -206,8 +236,9 @@ export function subprojectDir(
     const lowerDir = dir.toLowerCase();
     // Escape regex metacharacters in directory name
     const escaped = lowerDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Check if dir name appears as a whole word
-    const regex = new RegExp(`\\b${escaped}\\b`, "i");
+    // Check if dir name appears as a separate token (surrounded by non-word chars or boundaries)
+    // Using (?:^|\\W) and (?:$|\\W) instead of \\b to handle non-word chars in dir names
+    const regex = new RegExp(`(?:^|\\W)${escaped}(?:$|\\W)`, "i");
     if (regex.test(lowerDraft)) {
       return dir;
     }
@@ -231,15 +262,15 @@ export function buildStaticBlock(a: {
   block += EXAMPLES + "\n\n";
 
   // 3. Project
-  block += `<project>${a.project}</project>\n\n`;
+  block += `<project>${neutralizeTags(a.project)}</project>\n\n`;
 
   // 4. Documents
   if (a.documents.length > 0) {
     block += "<documents>\n";
     for (const doc of a.documents) {
       block += "<document>";
-      block += `<source>${doc.path}</source>`;
-      block += `<document_content>${doc.text}</document_content>`;
+      block += `<source>${neutralizeTags(doc.path)}</source>`;
+      block += `<document_content>${neutralizeTags(doc.text)}</document_content>`;
       block += "</document>\n";
     }
     block += "</documents>\n\n";
@@ -249,7 +280,7 @@ export function buildStaticBlock(a: {
   if (a.skillNames.length > 0) {
     block += "<skill_names>\n";
     for (const name of a.skillNames) {
-      block += name + "\n";
+      block += neutralizeTags(name) + "\n";
     }
     block += "</skill_names>\n";
   }
@@ -269,8 +300,15 @@ export function buildDynamicBlock(a: {
   if (a.relevant.length > 0) {
     block += "<relevant_skills>\n";
     for (const cmd of a.relevant) {
-      const desc = cmd.description.slice(0, 160);
-      block += `/${cmd.name} — ${desc}\n`;
+      const sanitized = sanitizeDescription(cmd.description);
+      const neutralizedName = neutralizeTags(cmd.name);
+      if (sanitized === undefined) {
+        // Description is forbidden, use name only
+        block += `/${neutralizedName}\n`;
+      } else {
+        const neutralizedDesc = neutralizeTags(sanitized);
+        block += `/${neutralizedName} — ${neutralizedDesc}\n`;
+      }
     }
     block += "</relevant_skills>\n\n";
   }
@@ -279,8 +317,8 @@ export function buildDynamicBlock(a: {
   if (a.subproject) {
     block += "<subproject_instructions>\n";
     block += "<document>";
-    block += `<source>${a.subproject.path}</source>`;
-    block += `<document_content>${a.subproject.text}</document_content>`;
+    block += `<source>${neutralizeTags(a.subproject.path)}</source>`;
+    block += `<document_content>${neutralizeTags(a.subproject.text)}</document_content>`;
     block += "</document>\n";
     block += "</subproject_instructions>\n\n";
   }
@@ -289,13 +327,13 @@ export function buildDynamicBlock(a: {
   if (a.conversation && a.conversation.length > 0) {
     block += "<recent_conversation>\n";
     for (const msg of a.conversation) {
-      block += msg + "\n";
+      block += neutralizeTags(msg) + "\n";
     }
     block += "</recent_conversation>\n\n";
   }
 
   // 4. Draft
-  block += `<draft>${a.draft}</draft>\n\n`;
+  block += `<draft>${neutralizeTags(a.draft)}</draft>\n\n`;
 
   // 5. Final instruction
   block += "Answer with the JSON object described in the rules.";
