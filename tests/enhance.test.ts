@@ -216,6 +216,39 @@ test("a fine verdict toasts and does not fill", async ($, on) => {
   expect(e.toasts).toEqual(["prompt-master: already specific, left as is"]);
 });
 
+test("a fine verdict after a success keeps the phase at done", async ($, on) => {
+  const e = engine(on, {
+    replies: [answered(GOOD), answered(JSON.stringify({ verdict: "fine" }))],
+  });
+  const phases: unknown[] = [];
+  on("state.set", { plugin: "prompt-master", key: "phase" }, ($, ev, next) => {
+    phases.push(ev.value);
+    return next(ev);
+  });
+
+  await press($, DRAFT);
+  e.box.text = "";
+  await press($, DRAFT_2);
+
+  expect(e.fills).toHaveLength(1);
+  expect(e.toasts[1]).toBe("prompt-master: already specific, left as is");
+  expect(phases).toEqual(["running", "done", "running", "done"]);
+});
+
+test("a refused first press settles the phase back to idle", async ($, on) => {
+  const e = engine(on);
+  const phases: unknown[] = [];
+  on("state.set", { plugin: "prompt-master", key: "phase" }, ($, ev, next) => {
+    phases.push(ev.value);
+    return next(ev);
+  });
+
+  await press($, "ok do it now");
+
+  expect(e.calls).toHaveLength(0);
+  expect(phases).toEqual(["running", "idle"]);
+});
+
 test("plain prose reply is filled", async ($, on) => {
   const e = engine(on, { replies: [answered(BETTER)] });
 

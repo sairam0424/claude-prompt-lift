@@ -1,5 +1,5 @@
 import { atom, read, update } from "claude-code";
-import type { EngineInterface, SessionMessage } from "claude-code";
+import type { EngineInterface, SessionMessage, StateValue } from "claude-code";
 import type { LastUsage } from "../types";
 import type { Config } from "./config";
 import { estimateUsd, shortModel } from "./config";
@@ -96,6 +96,8 @@ const TOAST_NO_MODELS = "prompt-master: no models configured";
 
 export type EnhanceSource = { kind: "box" } | { kind: "args"; text: string };
 
+type Phase = StateValue<"prompt-master", "phase">;
+
 type Prepared = {
   root: string;
   staticBlock: string;
@@ -133,7 +135,11 @@ export async function enhance(
   cancelled = false;
   const abort = new AbortController();
   controller = abort;
+  // Where the phase stood before this press: a refused or failed press goes
+  // back there, so a held result keeps its Send and Undo (§5.1, C13).
+  let before: Phase = "idle";
   try {
+    before = await read($, phase);
     const myId = await update($, requestId, (n) => n + 1);
     await update($, phase, () => "running");
     const draft = await readDraft($, source);
@@ -186,7 +192,7 @@ export async function enhance(
   } finally {
     busy = false;
     controller = undefined;
-    await settle($);
+    await settle($, before);
   }
 }
 
@@ -381,13 +387,16 @@ async function recordSuccess(
   );
 }
 
-/** Never leaves the phase at `running` once a press has settled. */
-async function settle($: EngineInterface): Promise<void> {
+/**
+ * Never leaves the phase at `running` once a press has settled: `done` stays
+ * `done` when a later press is refused, anything else returns to `idle`.
+ */
+async function settle($: EngineInterface, before: Phase): Promise<void> {
   try {
     await pendingNote;
     await update($, runningModel, () => "");
     if ((await read($, phase)) === "running") {
-      await update($, phase, () => "idle");
+      await update($, phase, () => (before === "done" ? "done" : "idle"));
     }
   } catch (err) {
     $.ui.log(`prompt-master: could not reset the phase: ${errorMessage(err)}`, {
