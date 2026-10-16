@@ -339,6 +339,39 @@ test("a path that exists in the project passes the path guard", async ($, on) =>
   expect(e.box.text).toContain("src/session.ts");
 });
 
+test("prose with a slash such as CI/CD is not checked as a path", async ($, on) => {
+  const e = engine(on, {
+    replies: [
+      answered(
+        improve(
+          "Fix the CI/CD pipeline and the and/or logic for the login flow please",
+        ),
+      ),
+    ],
+  });
+
+  await press($, "fix the ci pipeline for the login flow please");
+
+  expect(e.fills).toHaveLength(1);
+  expect(e.box.text).toContain("CI/CD");
+  expect(e.toasts[0]?.startsWith("prompt-master: fable 5.1 ·")).toBe(true);
+});
+
+test("a path under a root directory that does not exist is refused", async ($, on) => {
+  const e = engine(on, {
+    replies: [
+      answered(improve("Fix the login bug in src/auth.ts and src/session please")),
+    ],
+  });
+
+  await press($, DRAFT);
+
+  expect(e.fills).toHaveLength(0);
+  expect(e.toasts[0]).toContain(
+    "prompt-master: named a file that does not exist, kept your prompt",
+  );
+});
+
 test("AutoMem and excluded globals never enter block 0", async ($, on) => {
   const globalFile = `${HOME}/.claude/CLAUDE.md`;
   const homeFile = `${HOME}/CLAUDE.md`;

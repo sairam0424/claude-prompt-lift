@@ -12,6 +12,8 @@ const PATH_LIKE =
   /\S+\/\S+|\S+\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|kt|rb|php|md|json|yaml|yml|toml|sh|sql|css|html|txt)\b/g;
 /** Spec §9.10's command-name shape, case-insensitive (controller ruling 3). */
 export const COMMAND_SHAPE = /^\/[a-z0-9][a-z0-9:_-]*$/i;
+const ROOTED = /^(\/|\.\/|\.\.\/|~\/)/;
+const DOT_EXTENSION = /\.\w{1,5}$/;
 
 /** `(src/auth.ts).` → `src/auth.ts`; a token's own inner punctuation stays. */
 export function stripEdges(token: string): string {
@@ -43,4 +45,24 @@ export function commandTokens(result: string): string[] {
     .split(/\s+/)
     .map(stripEdges)
     .filter((token) => COMMAND_SHAPE.test(token));
+}
+
+/**
+ * Spec §9.11 names files, but prose has the same `a/b` shape (`CI/CD`,
+ * `and/or`, `client/server`). A token looks like a file when it is rooted
+ * (`/`, `./`, `../`, `~/`), its last segment carries an extension, or its
+ * first segment is a directory of the project root.
+ */
+export function isFileLike(
+  token: string,
+  rootDirs: ReadonlySet<string>,
+): boolean {
+  if (ROOTED.test(token)) {
+    return true;
+  }
+  const segments = token.split("/");
+  if (DOT_EXTENSION.test(segments.at(-1) ?? "")) {
+    return true;
+  }
+  return rootDirs.has(segments[0] ?? "");
 }

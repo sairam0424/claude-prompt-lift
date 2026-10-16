@@ -93,6 +93,7 @@ type Phase = StateValue<"prompt-master", "phase">;
 
 type Prepared = {
   root: string;
+  rootDirs: string[];
   staticBlock: string;
   dynamicBlock: string;
   relevantCount: number;
@@ -175,6 +176,7 @@ export async function enhance(
       source,
       draft,
       root: prepared.root,
+      rootDirs: prepared.rootDirs,
       post,
       myId,
     });
@@ -245,6 +247,7 @@ async function prepare(
   });
   return {
     root: ctx.root,
+    rootDirs: ctx.rootDirs,
     staticBlock,
     dynamicBlock,
     relevantCount: relevant.length,
@@ -312,11 +315,18 @@ async function verifyAndFill(
     source: EnhanceSource;
     draft: string;
     root: string;
+    rootDirs: readonly string[];
     post: PostOk;
     myId: number;
   },
 ): Promise<string | undefined> {
-  if (!(await namedPathsExist($, a.root, a.draft, a.post.text))) {
+  const hasPaths = await namedPathsExist($, {
+    root: a.root,
+    draft: a.draft,
+    result: a.post.text,
+    rootDirs: a.rootDirs,
+  });
+  if (!hasPaths) {
     $.ui.toast(TOAST_MISSING_PATH);
     return undefined;
   }

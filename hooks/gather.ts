@@ -8,11 +8,12 @@ import {
   type CommandEntry,
   type MemoryFile,
 } from "./context";
-import { pathTokens } from "./tokens";
+import { isFileLike, pathTokens } from "./tokens";
 
 // Reads what an Enhance press needs from the engine: the instruction files the
-// session loaded, the skill listing, the command list, an optional subproject
-// CLAUDE.md and the conversation tail. No state lives here.
+// session loaded, the skill listing, the command list, the root's directories,
+// an optional subproject CLAUDE.md and the conversation tail. No state lives
+// here.
 
 const SESSION_MODEL_TOKEN = "session";
 const SUBPROJECT_MAX_CHARS = 12_000;
@@ -27,6 +28,8 @@ export type Gathered = {
   skillNames: string[];
   commands: CommandEntry[];
   descriptions: Map<string, string>;
+  /** The project root's directories, for the subproject and path guards. */
+  rootDirs: string[];
   subproject: Document | undefined;
   conversation: string[] | undefined;
 };
@@ -137,21 +140,35 @@ async function readDocuments(
   return docs.filter((doc): doc is Document => doc !== undefined);
 }
 
+async function listRootDirs(
+  $: EngineInterface,
+  root: string,
+): Promise<string[]> {
+  try {
+    const entries = await $.fs.list(root);
+    return entries
+      .filter((entry) => entry.kind === "dir")
+      .map((entry) => entry.name);
+  } catch (err) {
+    $.ui.log(`prompt-master: could not list ${root}: ${errorMessage(err)}`, {
+      to: "debug",
+    });
+    return [];
+  }
+}
+
 async function readSubproject(
   $: EngineInterface,
   root: string,
   draft: string,
+  dirs: readonly string[],
 ): Promise<Document | undefined> {
+  const dir = subprojectDir(draft, dirs);
+  if (dir === undefined) {
+    return undefined;
+  }
+  const path = `${root}/${dir}/CLAUDE.md`;
   try {
-    const entries = await $.fs.list(root);
-    const dirs = entries
-      .filter((entry) => entry.kind === "dir")
-      .map((entry) => entry.name);
-    const dir = subprojectDir(draft, dirs);
-    if (dir === undefined) {
-      return undefined;
-    }
-    const path = `${root}/${dir}/CLAUDE.md`;
     if (!(await $.fs.exists(path))) {
       return undefined;
     }
@@ -186,7 +203,8 @@ export async function gatherContext(
     source: c.source,
   }));
   const root = await $.session.root();
-  const subproject = await readSubproject($, root, draft);
+  const rootDirs = await listRootDirs($, root);
+  const subproject = await readSubproject($, root, draft, rootDirs);
   const conversation = cfg.includeConversation
     ? conversationTail(rows, cfg.conversationMessages)
     : undefined;
@@ -197,25 +215,34 @@ export async function gatherContext(
     skillNames,
     commands,
     descriptions: new Map(commands.map((c) => [c.name, c.description])),
+    rootDirs,
     subproject,
     conversation,
   };
 }
 
-/** Spec §9.11: every path the result names that the draft did not must exist. */
+/**
+ * Spec §9.11: every file the result names that the draft did not must exist.
+ * Only file-looking tokens are asked of the filesystem (`isFileLike`), so
+ * prose such as `CI/CD` or `and/or` is not refused as a missing file.
+ */
 export async function namedPathsExist(
   $: EngineInterface,
-  root: string,
-  draft: string,
-  result: string,
+  a: {
+    root: string;
+    draft: string;
+    result: string;
+    rootDirs: readonly string[];
+  },
 ): Promise<boolean> {
-  const inDraft = new Set(pathTokens(draft));
-  const fresh = [...new Set(pathTokens(result))].filter(
-    (token) => !inDraft.has(token),
+  const dirs = new Set(a.rootDirs);
+  const inDraft = new Set(pathTokens(a.draft));
+  const fresh = [...new Set(pathTokens(a.result))].filter(
+    (token) => !inDraft.has(token) && isFileLike(token, dirs),
   );
   const found = await Promise.all(
     fresh.map((token) =>
-      $.fs.exists(token.startsWith("/") ? token : `${root}/${token}`),
+      $.fs.exists(token.startsWith("/") ? token : `${a.root}/${token}`),
     ),
   );
   return found.every((exists) => exists);

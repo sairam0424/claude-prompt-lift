@@ -1,6 +1,7 @@
 import { expect, test } from "claude-code/testing";
 import {
   commandTokens,
+  isFileLike,
   pathTokens,
   protectedTokens,
   stripEdges,
@@ -10,6 +11,8 @@ import { riskyAdditions, stripUnknownSkills } from "../hooks/guards";
 // The token shapes the post-processing guards compare (spec §9.8–§9.11), with
 // the punctuation prose wraps them in stripped off, and the file-looking test
 // the path guard applies before it asks the filesystem.
+
+const DIRS = new Set(["src", "docs"]);
 
 test("stripEdges drops wrapping punctuation and keeps the token's own", () => {
   expect(stripEdges("src/auth.ts.")).toBe("src/auth.ts");
@@ -54,6 +57,32 @@ test("a sentence-final skill mention is not a risky addition", () => {
   expect(riskyAdditions("see /etc/hosts.", "edit /etc/hosts.", known)).toEqual(
     [],
   );
+});
+
+test("isFileLike takes rooted paths, extensions and root directories only", () => {
+  for (const token of [
+    "/etc/hosts",
+    "./run.sh",
+    "../lib/x",
+    "~/.claude/CLAUDE.md",
+    "src/nope.ts",
+    "src/utils",
+    "docs/guide",
+    "auth.ts",
+    "a/b/c.json",
+  ]) {
+    expect(isFileLike(token, DIRS)).toBe(true);
+  }
+  for (const token of [
+    "CI/CD",
+    "and/or",
+    "client/server",
+    "read/write",
+    "I/O",
+    "feat/thing",
+  ]) {
+    expect(isFileLike(token, DIRS)).toBe(false);
+  }
 });
 
 test("stripUnknownSkills strips per token and leaves paths alone", () => {
