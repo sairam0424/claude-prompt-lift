@@ -59,13 +59,16 @@ export function answered(
 
 export type Message = { role: "user" | "assistant"; text: string };
 
+/** A model reply, or a refusal that makes `$.model.complete` reject. */
+export type Reply = ModelCompleteResult | { deny: string };
+
 export type FillRefusal = {
   isFilled: false;
   refusal?: "dialog" | "no_composer";
 };
 
 export type EngineOptions = {
-  replies?: ModelCompleteResult[];
+  replies?: Reply[];
   memoryFiles?: MemoryFile[];
   skills?: SkillEntry[];
   commands?: CommandEntry[];
@@ -82,6 +85,8 @@ export type EngineOptions = {
   drop?: string;
   /** Runs once the stub took a submit, before it answers: a person typing on. */
   onSubmit?: (box: { text: string }) => void;
+  /** What `session.usage` counts as the skills included and in all. */
+  skillCounts?: { included: number; total: number };
 };
 
 export type Engine = {
@@ -89,7 +94,7 @@ export type Engine = {
   calls: ModelCompleteInput[];
   toasts: string[];
   logs: string[];
-  submits: { text: string; origin?: PromptOrigin }[];
+  submits: { text: string; asUser?: true; origin?: PromptOrigin }[];
   fills: PromptFillArgs[];
   store: Record<string, unknown>;
   /** The mocked clock every `$.clock` call reads; `advance` moves it. */
@@ -169,7 +174,7 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
   const calls: ModelCompleteInput[] = [];
   const toasts: string[] = [];
   const logs: string[] = [];
-  const submits: { text: string; origin?: PromptOrigin }[] = [];
+  const submits: { text: string; asUser?: true; origin?: PromptOrigin }[] = [];
   const fills: PromptFillArgs[] = [];
   const store: Record<string, unknown> = {};
   const replies = [...(opts.replies ?? [])];
@@ -209,7 +214,8 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     return { isFilled: true };
   });
   on("prompt.submit", ($, e) => {
-    submits.push({ text: e.text, origin: e.origin });
+    const origin = e.origin as { asUser?: true } | undefined;
+    submits.push({ text: e.text, asUser: origin?.asUser, origin: e.origin });
     if (opts.drop !== undefined) {
       return { drop: opts.drop };
     }
@@ -222,7 +228,8 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     if (opts.delay) {
       await gate;
     }
-    return { value: replies.shift() ?? answered(GOOD) };
+    const reply = replies.shift() ?? answered(GOOD);
+    return "deny" in reply ? reply : { value: reply };
   });
   on("session.usage", () => ({
     value: {
@@ -230,8 +237,8 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
         breakdown: {
           memoryFiles,
           skills: {
-            totalSkills: skills.length,
-            includedSkills: skills.length,
+            totalSkills: opts.skillCounts?.total ?? skills.length,
+            includedSkills: opts.skillCounts?.included ?? skills.length,
             tokens: 0,
             skillFrontmatter: skills.map((s) => ({ ...s, tokens: 0 })),
           },
@@ -264,6 +271,10 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
   on("store.get", ($, e) => ({ value: store[e.key] }));
   on("store.set", ($, e) => {
     store[e.key] = e.value;
+    return { value: undefined };
+  });
+  on("store.delete", ($, e) => {
+    delete store[e.key];
     return { value: undefined };
   });
   const clock = mock.clock(on, { now: NOW_MS });
