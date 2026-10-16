@@ -1,0 +1,127 @@
+{
+  "name": "prompt-master",
+  "version": "0.1.0",
+  "description": "Enhance your prompts using project instructions and skills",
+  "author": {
+    "name": "Sairam Ugge"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "models": {
+      "type": "string",
+      "title": "Model Chain",
+      "description": "Comma-separated list of model IDs to try in order",
+      "default": "us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5,us.anthropic.claude-haiku-5-5"
+    },
+    "effortModels": {
+      "type": "string",
+      "title": "Effort Models",
+      "description": "Comma-separated list of models for high-effort prompts",
+      "default": "us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5"
+    },
+    "maxTokens": {
+      "type": "number",
+      "title": "Max Tokens",
+      "description": "Maximum tokens per model completion",
+      "default": 2000
+    },
+    "timeoutMsFirst": {
+      "type": "number",
+      "title": "First Attempt Timeout (ms)",
+      "description": "Timeout for the first model attempt",
+      "default": 30000
+    },
+    "timeoutMsNext": {
+      "type": "number",
+      "title": "Subsequent Timeout (ms)",
+      "description": "Timeout for fallback model attempts",
+      "default": 15000
+    },
+    "minWords": {
+      "type": "number",
+      "title": "Minimum Words",
+      "description": "Minimum word count to trigger enhancement",
+      "default": 3
+    },
+    "maxDraftChars": {
+      "type": "number",
+      "title": "Max Draft Characters",
+      "description": "Maximum characters in the draft prompt",
+      "default": 4000
+    },
+    "keptShareFloor": {
+      "type": "number",
+      "title": "Kept Share Floor",
+      "description": "Minimum fraction of original words to keep",
+      "default": 0.5
+    },
+    "maxGrowthChars": {
+      "type": "number",
+      "title": "Max Growth Characters",
+      "description": "Maximum character growth allowed",
+      "default": 1200
+    },
+    "relevantSkills": {
+      "type": "number",
+      "title": "Relevant Skills",
+      "description": "Number of relevant skills to include",
+      "default": 8
+    },
+    "instructionFileMaxChars": {
+      "type": "number",
+      "title": "Instruction File Max Characters",
+      "description": "Maximum characters to read from instruction files",
+      "default": 40000
+    },
+    "enhanceAction": {
+      "type": "string",
+      "title": "Enhance Action",
+      "description": "Action to trigger after enhancement",
+      "default": "app:cycleDiffBase"
+    },
+    "filePrefix": {
+      "type": "string",
+      "title": "File Prefix Style",
+      "description": "How to prefix file paths in prompts",
+      "default": "plain",
+      "options": ["plain", "at"]
+    },
+    "skillPlacement": {
+      "type": "string",
+      "title": "Skill Placement",
+      "description": "How to include skills in prompts",
+      "default": "mention",
+      "options": ["mention", "run"]
+    },
+    "includeConversation": {
+      "type": "boolean",
+      "title": "Include Conversation",
+      "description": "Include recent conversation history in prompts",
+      "default": false
+    },
+    "conversationMessages": {
+      "type": "number",
+      "title": "Conversation Messages",
+      "description": "Number of recent messages to include",
+      "default": 6
+    },
+    "skillPrefixAllow": {
+      "type": "string",
+      "title": "Skill Prefix Allow",
+      "description": "Comma-separated list of allowed skill prefixes (empty for none)",
+      "default": ""
+    },
+    "instructionExclude": {
+      "type": "string",
+      "title": "Instruction Exclude",
+      "description": "Comma-separated list of instruction files to exclude",
+      "default": "~/.claude/CLAUDE.md,~/CLAUDE.md"
+    },
+    "skillExclude": {
+      "type": "string",
+      "title": "Skill Exclude",
+      "description": "Comma-separated list of skill patterns to exclude",
+      "default": "sparc:*,swarm:*,hive-mind:*,coordination:*,hooks:*,monitoring:*,optimization:*,analysis:*,automation:*,memory:*,expo:*,render:*,claude-seo:*,gws-*"
+    }
+  }
+}
