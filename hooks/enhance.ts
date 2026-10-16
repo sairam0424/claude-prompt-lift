@@ -196,6 +196,14 @@ async function readDraft(
   return source.kind === "box" ? (await $.prompt.read()).text : source.text;
 }
 
+/**
+ * Step 7's box re-read: the button path must still show the draft, the
+ * command path an empty box; anything else means the person kept typing.
+ */
+export function expectedBoxText(source: EnhanceSource, draft: string): string {
+  return source.kind === "box" ? draft : "";
+}
+
 async function prepare(
   $: EngineInterface,
   cfg: Config,
@@ -301,8 +309,7 @@ async function verifyAndFill(
   if ((await read($, requestId)) !== a.myId) {
     return undefined;
   }
-  const expected = a.source.kind === "box" ? a.draft : "";
-  if ((await $.prompt.read()).text !== expected) {
+  if ((await $.prompt.read()).text !== expectedBoxText(a.source, a.draft)) {
     $.ui.toast(TOAST_DRAFT_CHANGED);
     return undefined;
   }

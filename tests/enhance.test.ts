@@ -19,6 +19,7 @@ import {
   type Engine,
 } from "./engine";
 import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
+import { expectedBoxText } from "../hooks/enhance";
 import { SYSTEM } from "../hooks/rules";
 
 const DRAFT_2 = "fix the login bug in src/auth.ts please now";
@@ -127,6 +128,15 @@ test("command path refuses to fill when the box is no longer empty", async ($, o
   expect(e.toasts).toEqual([
     "prompt-master: draft changed while enhancing, left as is",
   ]);
+});
+
+// The button path itself (`enhance($, cfg, { kind: "box" })`) runs only with
+// the mod's own `$`: a test's `$` carries the engine nouns alone (no fs,
+// state, store, model), so the band button (Task 10) drives it end to end.
+// This pins the contract the box re-read applies to each source.
+test("the box re-read expects the draft for the button and nothing for the command", () => {
+  expect(expectedBoxText({ kind: "box" }, DRAFT)).toBe(DRAFT);
+  expect(expectedBoxText({ kind: "args", text: DRAFT }, DRAFT)).toBe("");
 });
 
 test("two presses in one tick make one call", async ($, on) => {
