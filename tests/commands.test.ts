@@ -14,6 +14,7 @@ import {
 } from "./engine";
 import { wordDiffLines } from "../hooks/diff";
 import { probeText } from "../hooks/commands";
+import { matchRungs } from "../hooks/gather";
 import { statusText, type StatusInput } from "../hooks/status";
 import { HINT } from "../hooks/register";
 
@@ -23,6 +24,8 @@ import { HINT } from "../hooks/register";
 const COMMAND = "prompt-master";
 const SONNET = "us.anthropic.claude-sonnet-5-5";
 const HAIKU = "us.anthropic.claude-haiku-5-5";
+const OPUS = "us.anthropic.claude-opus-4-1";
+const MODEL_USAGE = "model <id|alias|reset>";
 const MEMORY_FILE = `${HOME}/.claude/projects/x/memory/MEMORY.md`;
 const NOTHING_TO_UNDO = "prompt-master: nothing to undo";
 const RATE_LIMITED: ModelCompleteResult = {
@@ -44,17 +47,99 @@ test("/prompt-master model sonnet changes the first rung and reset restores it",
   const e = engine(on);
 
   const set = await press($, "model sonnet");
-  expect(set).toContain("sonnet");
-  expect(e.store.model).toBe("sonnet");
+  expect(set).toBe(
+    `prompt-master: first rung ${SONNET} · chain ${SONNET} → ${FABLE} → ${HAIKU}`,
+  );
+  expect(e.store.model).toBe(SONNET);
   await press($, DRAFT);
-  expect(e.calls[0]?.model).toBe("sonnet");
+  expect(e.calls[0]?.model).toBe(SONNET);
+  expect(e.calls[0]?.effort).toBe("low");
+  expect(e.toasts[0]).toContain("prompt-master: sonnet 5.5");
+  expect(e.toasts[0]).toContain("$0.007");
 
   const reset = await press($, "model reset");
-  expect(reset).toContain(FABLE);
+  expect(reset).toBe(
+    `prompt-master: first rung ${FABLE} · chain ${FABLE} → ${SONNET} → ${HAIKU}`,
+  );
   expect(e.store.model).toBeUndefined();
   e.box.text = "";
   await press($, DRAFT);
   expect(e.calls[1]?.model).toBe(FABLE);
+});
+
+test("model Haiku names its rung whatever the case", async ($, on) => {
+  const e = engine(on);
+
+  const text = await press($, "model Haiku");
+
+  expect(text).toBe(
+    `prompt-master: first rung ${HAIKU} · chain ${HAIKU} → ${FABLE} → ${SONNET}`,
+  );
+  expect(e.store.model).toBe(HAIKU);
+});
+
+test("model with a word no rung carries stores nothing and says so", async ($, on) => {
+  const e = engine(on);
+
+  const text = await press($, "model sonet");
+
+  expect(text).toBe(
+    `prompt-master: sonet is neither a rung of ${FABLE} → ${SONNET} → ${HAIKU} nor a full model id · use /prompt-master ${MODEL_USAGE}`,
+  );
+  expect(e.store.model).toBeUndefined();
+  await press($, DRAFT);
+  expect(e.calls[0]?.model).toBe(FABLE);
+});
+
+test("model with a word several rungs carry stores nothing", async ($, on) => {
+  const e = engine(on);
+
+  const text = await press($, "model claude");
+
+  expect(text).toBe(
+    `prompt-master: claude names several rungs (${FABLE}, ${SONNET}, ${HAIKU}) · use /prompt-master ${MODEL_USAGE}`,
+  );
+  expect(e.store.model).toBeUndefined();
+  expect(e.calls).toHaveLength(0);
+});
+
+test("model with a full id outside the chain pins it as given", async ($, on) => {
+  const e = engine(on);
+
+  const text = await press($, `model ${OPUS}`);
+
+  expect(text).toBe(
+    `prompt-master: first rung ${OPUS} · chain ${OPUS} → ${FABLE} → ${SONNET} → ${HAIKU}`,
+  );
+  expect(e.store.model).toBe(OPUS);
+  await press($, DRAFT);
+  expect(e.calls[0]?.model).toBe(OPUS);
+});
+
+test("an alias left in the store leads the chain as the rung it names", async ($, on) => {
+  const e = engine(on);
+  e.store.model = "haiku";
+
+  await press($, DRAFT);
+
+  expect(e.calls[0]?.model).toBe(HAIKU);
+  expect(e.toasts[0]).toContain("prompt-master: haiku 5.5");
+});
+
+test("matchRungs takes the id spelled in full, else every id containing the word", () => {
+  const ids = [FABLE, SONNET, HAIKU];
+
+  expect(matchRungs("sonnet", ids)).toEqual([SONNET]);
+  expect(matchRungs("HAIKU", ids)).toEqual([HAIKU]);
+  expect(matchRungs(SONNET.toUpperCase(), ids)).toEqual([SONNET]);
+  expect(matchRungs("5-5", ids)).toEqual([SONNET, HAIKU]);
+  expect(matchRungs("opus", ids)).toEqual([]);
+  expect(
+    matchRungs("claude-sonnet-4-5", [
+      "claude-sonnet-4-5-20250929",
+      "claude-sonnet-4-5",
+    ]),
+  ).toEqual(["claude-sonnet-4-5"]);
 });
 
 test("a stored model that is already a rung is not repeated", async ($, on) => {

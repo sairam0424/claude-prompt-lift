@@ -5,7 +5,13 @@ import { decide } from "./chain";
 import { wordDiffLines } from "./diff";
 import { enhance } from "./enhance";
 import { undo } from "./actions";
-import { errorMessage, MODEL_STORE_KEY, resolveChain } from "./gather";
+import {
+  configuredIds,
+  errorMessage,
+  matchRungs,
+  MODEL_STORE_KEY,
+  resolveChain,
+} from "./gather";
 import { status } from "./status";
 
 // The one registered command's sub-words (spec §5.2, C18): bare → the hint,
@@ -31,6 +37,10 @@ const MODEL_USAGE = "use /prompt-master model <id|alias|reset>";
 const NOTHING_TO_DIFF = "prompt-master: nothing to diff";
 const PROBE_PROMPT = "ping";
 const PROBE_MAX_TOKENS = 8;
+// A full model id as every Claude surface spells one: `claude-…` after an
+// optional dotted provider prefix (`us.anthropic.`, `anthropic.`). An alias
+// (`sonnet`, `haiku`, `opus`) never does; it must name a configured rung.
+const MODEL_ID_PATTERN = /^(?:[\w-]+\.)*claude-/i;
 
 export type ProbeResult = { model: string; outcome: string };
 
@@ -65,7 +75,9 @@ export async function runCommand(
 /**
  * `model <id|alias|reset>`: the choice is kept in `$.store` for this machine
  * and leads the chain (`resolveChain`); `reset` returns to the configured
- * chain. The `model` atom follows, so the band redraws with the new rung.
+ * chain. An alias is stored as the configured id it names (spec C1 pins ids;
+ * pricing, `effort` and the dedupe all go by the id); a choice that names no
+ * rung and is not a full id is refused and nothing is stored.
  */
 async function chooseModel(
   $: EngineInterface,
@@ -78,9 +90,24 @@ async function chooseModel(
   }
   if (choice.toLowerCase() === "reset") {
     await $.store.delete(MODEL_STORE_KEY);
-  } else {
-    await $.store.set(MODEL_STORE_KEY, choice);
+    return chainText($, cfg);
   }
+  const ids = await configuredIds($, cfg);
+  const matched = matchRungs(choice, ids);
+  if (matched.length > 1) {
+    return `prompt-master: ${choice} names several rungs (${matched.join(", ")}) · ${MODEL_USAGE}`;
+  }
+  const pinned =
+    matched[0] ?? (MODEL_ID_PATTERN.test(choice) ? choice : undefined);
+  if (pinned === undefined) {
+    return `prompt-master: ${choice} is neither a rung of ${ids.join(" → ")} nor a full model id · ${MODEL_USAGE}`;
+  }
+  await $.store.set(MODEL_STORE_KEY, pinned);
+  return chainText($, cfg);
+}
+
+/** The chain as it now resolves; the `model` atom follows, so the band redraws. */
+async function chainText($: EngineInterface, cfg: Config): Promise<string> {
   const chain = await resolveChain($, cfg);
   const first = chain[0] ?? "";
   await update($, model, () => first);

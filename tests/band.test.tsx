@@ -142,6 +142,18 @@ test("yields to a survey", async ($, on) => {
   expect(await ui.find({ type: "Text", text: "lower" })).toBeDefined();
 });
 
+test("the idle row follows /prompt-master model haiku as its hint says", async ($, on) => {
+  const e = engine(on);
+  const ui = await mount($);
+
+  await $.command.run({ command: PLUGIN, args: "model haiku" } as never);
+
+  expect(await rowText(ui)).toBe(idleRowText("us.anthropic.claude-haiku-5-5"));
+  expect(await rowText(ui)).toContain("prompt-master: haiku 5.5");
+  expect(e.store.model).toBe("us.anthropic.claude-haiku-5-5");
+  expect(e.calls).toHaveLength(0);
+});
+
 test(
   "Enhance button carries no action when the option is empty",
   { options: { enhanceAction: "" } },

@@ -69,22 +69,51 @@ export function conversationTail(
 /** `$.store` key of the first rung `/prompt-master model` chose (spec §5.2). */
 export const MODEL_STORE_KEY = "model";
 
+/** The configured ids with the `session` token resolved, in order. */
+export async function configuredIds(
+  $: EngineInterface,
+  cfg: Config,
+): Promise<string[]> {
+  const needsSession = cfg.models.includes(SESSION_MODEL_TOKEN);
+  const sessionModel = needsSession ? await $.session.model() : "";
+  return cfg.models
+    .map((id) => (id === SESSION_MODEL_TOKEN ? sessionModel : id))
+    .filter((id) => id.length > 0);
+}
+
+/**
+ * The configured ids a choice names, case-insensitively: the id spelled in
+ * full when there is one, else every id containing the choice (`sonnet` →
+ * `us.anthropic.claude-sonnet-5-5`). The engine takes an alias, but the mod
+ * prices, dedupes and picks `effort` by the pinned id, so the pinned id is
+ * what gets stored and called.
+ */
+export function matchRungs(choice: string, ids: readonly string[]): string[] {
+  const wanted = choice.toLowerCase();
+  const exact = ids.filter((id) => id.toLowerCase() === wanted);
+  if (exact.length > 0) {
+    return exact;
+  }
+  return ids.filter((id) => id.toLowerCase().includes(wanted));
+}
+
 /**
  * The configured chain with the `session` token resolved, led by the stored
- * choice when there is one, without repeats.
+ * choice when there is one, without repeats. A stored alias (an older store)
+ * leads as the rung it names when it names exactly one.
  */
 export async function resolveChain(
   $: EngineInterface,
   cfg: Config,
 ): Promise<string[]> {
+  const ids = await configuredIds($, cfg);
   const stored = await $.store.get(MODEL_STORE_KEY);
-  const chosen = typeof stored === "string" && stored !== "" ? [stored] : [];
-  const needsSession = cfg.models.includes(SESSION_MODEL_TOKEN);
-  const sessionModel = needsSession ? await $.session.model() : "";
-  const ids = cfg.models
-    .map((id) => (id === SESSION_MODEL_TOKEN ? sessionModel : id))
-    .filter((id) => id.length > 0);
-  return [...new Set([...chosen, ...ids])];
+  if (typeof stored !== "string" || stored === "") {
+    return [...new Set(ids)];
+  }
+  const matched = matchRungs(stored, ids);
+  const lead = matched.length === 1 ? (matched[0] ?? stored) : stored;
+  return [...new Set([lead, ...ids])];
 }
 
 async function readDocuments(
