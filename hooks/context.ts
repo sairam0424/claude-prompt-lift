@@ -141,34 +141,43 @@ export function sanitizeDescription(d: string): string | undefined {
   return d.slice(0, 160);
 }
 
+// Envelope tag names to neutralize
+const ENVELOPE_TAGS = [
+  "enhancer_rules",
+  "examples",
+  "example",
+  "draft",
+  "answer",
+  "project",
+  "documents",
+  "document",
+  "source",
+  "document_content",
+  "skill_names",
+  "relevant_skills",
+  "subproject_instructions",
+  "recent_conversation",
+];
+
+// Precompiled regexes for tag neutralization
+const tagPattern = ENVELOPE_TAGS.join("|");
+const CLOSE_TAG_RE = new RegExp(`</\\s*(${tagPattern})(\\s*)>`, "gi");
+const OPEN_TAG_RE = new RegExp(`<(${tagPattern})((?:\\s[^>]*)?)>`, "gi");
+
 export function neutralizeTags(text: string): string {
-  // List of envelope tag names to neutralize
-  const envelopeTags = [
-    "enhancer_rules",
-    "examples",
-    "example",
-    "draft",
-    "answer",
-    "project",
-    "documents",
-    "document",
-    "source",
-    "document_content",
-    "skill_names",
-    "relevant_skills",
-    "subproject_instructions",
-    "recent_conversation",
-  ];
-
-  // Build pattern for closing tags: </name> with optional whitespace, case-insensitive
+  // Neutralize closing tags first: </name> → <\/name>
   // Capture tag name and trailing whitespace separately to preserve trailing space
-  const tagPattern = envelopeTags.join("|");
-  const regex = new RegExp(`</\\s*(${tagPattern})(\\s*)>`, "gi");
-
-  // Replace with escaped version: <\/name>, preserving trailing whitespace
-  return text.replace(regex, (match, tagName, trailingWS) => {
+  let result = text.replace(CLOSE_TAG_RE, (match, tagName, trailingWS) => {
     return `<\\/${tagName}${trailingWS}>`;
   });
+
+  // Then neutralize opening tags: <name> or <name attrs> → <\name> or <\name attrs>
+  // Capture tag name and any attributes separately to preserve them
+  result = result.replace(OPEN_TAG_RE, (match, tagName, attrs) => {
+    return `<\\${tagName}${attrs}>`;
+  });
+
+  return result;
 }
 
 export function matchSkills(
