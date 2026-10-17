@@ -1,5 +1,5 @@
 {
-  "name": "prompt-master-local",
+  "name": "claude-prompt-master",
   "owner": { "name": "Sairam Ugge" },
   "metadata": { "description": "prompt-master: enhance a vague prompt from the project's loaded instructions and the skill listing, then Send." },
   "plugins": [
