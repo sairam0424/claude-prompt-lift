@@ -51,11 +51,24 @@ export type Config = {
   prices: Readonly<Record<string, Price>>;
 };
 
-const DEFAULT_MODEL_CHAIN =
-  "us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5,us.anthropic.claude-haiku-5-5";
+// The defaults are the engine's own aliases, so a fresh install works on every
+// Claude surface; a Bedrock account pins its `us.*` ids in `pluginConfigs`
+// instead (README, "Bedrock users"). They mirror plugin.json.
+const DEFAULT_MODEL_CHAIN = "fable,sonnet,haiku";
 const DEFAULT_INSTRUCTION_EXCLUDE = "~/.claude/CLAUDE.md,~/CLAUDE.md";
-const DEFAULT_SKILL_EXCLUDE =
-  "sparc:*,swarm:*,hive-mind:*,coordination:*,hooks:*,monitoring:*,optimization:*,analysis:*,automation:*,memory:*,expo:*,render:*,claude-seo:*,gws-*";
+// Empty: every skill Claude lists goes to the model. A person leaves out their
+// own noisy namespaces (`sparc:*,gws-*`) in `pluginConfigs`.
+const DEFAULT_SKILL_EXCLUDE = "";
+
+/**
+ * An alias prices as the current generation of its family: the price-table
+ * key `priceFor` reads when the model is exactly the alias, in any case.
+ */
+export const ALIAS_PRICE_KEYS: Readonly<Record<string, string>> = {
+  fable: "fable-5-1",
+  sonnet: "sonnet-5-5",
+  haiku: "haiku-5-5",
+};
 
 export function splitList(value: unknown): string[] {
   // If value is already an array, join it with commas first
@@ -140,7 +153,15 @@ export function priceFor(
   model: string,
   prices: Readonly<Record<string, Price>>,
 ): Price | undefined {
-  // Return the first key that is a substring of the model
+  // An alias on its own prices as its family's current generation
+  const alias = model.toLowerCase();
+  if (Object.hasOwn(ALIAS_PRICE_KEYS, alias)) {
+    const aliased = prices[ALIAS_PRICE_KEYS[alias]!];
+    if (aliased !== undefined) {
+      return aliased;
+    }
+  }
+  // Else the first key that is a substring of the model
   for (const key of Object.keys(prices)) {
     if (model.includes(key)) {
       return prices[key];

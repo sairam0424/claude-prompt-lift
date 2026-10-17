@@ -39,10 +39,10 @@ test("answered first rung returns with one attempt", async () => {
   expect(result.ok).toBe(true);
   if (result.ok) {
     expect(result.text).toBe("enhanced prompt");
-    expect(result.model).toBe("us.anthropic.claude-fable-5-1");
+    expect(result.model).toBe(cfg.models[0]);
     expect(result.attempts).toEqual([
       {
-        model: "us.anthropic.claude-fable-5-1",
+        model: cfg.models[0],
         outcome: "ok",
         usage: {
           input_tokens: 1400,

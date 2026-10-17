@@ -4,9 +4,11 @@ import {
   engine,
   block,
   press,
+  BEDROCK,
   DRAFT,
   FABLE,
   GOOD,
+  SONNET,
   TODAY,
   USAGE,
   ZERO_USAGE,
@@ -19,13 +21,15 @@ import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 // success.
 
 const DRAFT_2 = "fix the login bug in src/auth.ts please now";
-const SONNET = "us.anthropic.claude-sonnet-5-5";
-/** What a Fable press that answers with USAGE costs: on every toast (C19). */
+/**
+ * What a Fable press that answers with USAGE costs: on every toast (C19). The
+ * alias `fable` prices as this id, so it holds for the default chain too.
+ */
 const COST = formatDollars(estimateUsd(USAGE, FABLE, DEFAULT_PRICES));
 const FINE = "prompt-master: already specific, left as is";
 type Stats = { byDay: Record<string, { presses: number; usd: number }> };
 
-test("model failure leaves the draft and names the attempts", async ($, on) => {
+test("model failure leaves the draft and names the attempts", { options: BEDROCK }, async ($, on) => {
   const e = engine(on, {
     replies: [
       {
@@ -106,7 +110,7 @@ test("a fine verdict toasts and does not fill", async ($, on) => {
 });
 
 
-test("a fine verdict is paid for: stats, session totals and status say so", async ($, on) => {
+test("a fine verdict is paid for: stats, session totals and status say so", { options: BEDROCK }, async ($, on) => {
   const e = engine(on, {
     replies: [answered(JSON.stringify({ verdict: "fine" }))],
   });
@@ -136,7 +140,7 @@ test("a fine verdict is paid for: stats, session totals and status say so", asyn
 });
 
 
-test("status shows the last call, not the last success", async ($, on) => {
+test("status shows the last call, not the last success", { options: BEDROCK }, async ($, on) => {
   const e = engine(on, {
     replies: [
       answered(GOOD),

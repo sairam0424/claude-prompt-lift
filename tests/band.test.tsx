@@ -4,6 +4,7 @@ import type { ModelCompleteResult, ModelUsage } from "claude-code";
 import {
   answered,
   engine,
+  BEDROCK,
   BETTER,
   DRAFT,
   FABLE,
@@ -121,7 +122,7 @@ test("done row shows the usage, the added words and the skills", () => {
 
 // --- the drawing ---
 
-test("idle band shows Enhance only and keeps the lower drawing", async ($, on) => {
+test("idle band shows Enhance only and keeps the lower drawing", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
 
   const ui = await mount($);
@@ -145,7 +146,7 @@ test("yields to a survey", async ($, on) => {
   expect(await ui.find({ type: "Text", text: "lower" })).toBeDefined();
 });
 
-test("the idle row follows /prompt-master model haiku as its hint says", async ($, on) => {
+test("the idle row follows /prompt-master model haiku as its hint says", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
   const ui = await mount($);
 
@@ -172,7 +173,7 @@ test(
   },
 );
 
-test("Enhance fills the box; Send and Undo follow; Undo turns to Redo", async ($, on) => {
+test("Enhance fills the box; Send and Undo follow; Undo turns to Redo", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
   e.box.text = DRAFT;
   const ui = await mount($);
@@ -267,7 +268,7 @@ test("Send refuses a box with an @file", async ($, on) => {
   expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
 });
 
-test("Cancel while running stops the call and tries no fallback", async ($, on) => {
+test("Cancel while running stops the call and tries no fallback", { options: BEDROCK }, async ($, on) => {
   const e = engine(on, { delay: true, replies: [ABORTED, answered(GOOD)] });
   e.box.text = DRAFT;
   const ui = await mount($);

@@ -6,10 +6,13 @@ import {
   engine,
   BETTER,
   DRAFT,
+  BEDROCK,
   FABLE,
+  HAIKU,
   HOME,
   PROJECT_FILE,
   RULES_FILE,
+  SONNET,
   ZERO_USAGE,
 } from "./engine";
 import { wordDiffLines } from "../hooks/diff";
@@ -22,8 +25,6 @@ import { HINT } from "../hooks/register";
 // model, status, diff and probe. None of them but probe calls a model.
 
 const COMMAND = "prompt-master";
-const SONNET = "us.anthropic.claude-sonnet-5-5";
-const HAIKU = "us.anthropic.claude-haiku-5-5";
 const OPUS = "us.anthropic.claude-opus-4-1";
 const MODEL_USAGE = "model <id|alias|reset>";
 const MEMORY_FILE = `${HOME}/.claude/projects/x/memory/MEMORY.md`;
@@ -47,7 +48,7 @@ function improve(prompt: string): string {
 
 // --- model ---
 
-test("/prompt-master model sonnet changes the first rung and reset restores it", async ($, on) => {
+test("/prompt-master model sonnet changes the first rung and reset restores it", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
 
   const set = await press($, "model sonnet");
@@ -71,7 +72,7 @@ test("/prompt-master model sonnet changes the first rung and reset restores it",
   expect(e.calls[1]?.model).toBe(FABLE);
 });
 
-test("model Haiku names its rung whatever the case", async ($, on) => {
+test("model Haiku names its rung whatever the case", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
 
   const text = await press($, "model Haiku");
@@ -82,7 +83,7 @@ test("model Haiku names its rung whatever the case", async ($, on) => {
   expect(e.store.model).toBe(HAIKU);
 });
 
-test("model with a word no rung carries stores nothing and says so", async ($, on) => {
+test("model with a word no rung carries stores nothing and says so", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
 
   const text = await press($, "model sonet");
@@ -95,7 +96,7 @@ test("model with a word no rung carries stores nothing and says so", async ($, o
   expect(e.calls[0]?.model).toBe(FABLE);
 });
 
-test("model with a word several rungs carry stores nothing", async ($, on) => {
+test("model with a word several rungs carry stores nothing", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
 
   const text = await press($, "model claude");
@@ -107,7 +108,7 @@ test("model with a word several rungs carry stores nothing", async ($, on) => {
   expect(e.calls).toHaveLength(0);
 });
 
-test("model with a full id outside the chain pins it as given", async ($, on) => {
+test("model with a full id outside the chain pins it as given", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
 
   const text = await press($, `model ${OPUS}`);
@@ -120,7 +121,7 @@ test("model with a full id outside the chain pins it as given", async ($, on) =>
   expect(e.calls[0]?.model).toBe(OPUS);
 });
 
-test("an alias left in the store leads the chain as the rung it names", async ($, on) => {
+test("an alias left in the store leads the chain as the rung it names", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
   e.store.model = "haiku";
 
@@ -146,7 +147,7 @@ test("matchRungs takes the id spelled in full, else every id containing the word
   ).toEqual(["claude-sonnet-4-5"]);
 });
 
-test("a stored model that is already a rung is not repeated", async ($, on) => {
+test("a stored model that is already a rung is not repeated", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
 
   const text = await press($, `model ${SONNET}`);
@@ -157,7 +158,7 @@ test("a stored model that is already a rung is not repeated", async ($, on) => {
   expect(e.calls).toHaveLength(0);
 });
 
-test("/prompt-master model alone names the first rung", async ($, on) => {
+test("/prompt-master model alone names the first rung", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
 
   const text = await press($, "model");
@@ -199,7 +200,7 @@ test("parseModelArg classifies reset, aliases, ids, junk and prose", () => {
 
 // --- status ---
 
-test("/prompt-master status lists chain, last call and skills included", async ($, on) => {
+test("/prompt-master status lists chain, last call and skills included", { options: BEDROCK }, async ($, on) => {
   const e = engine(on, {
     skillCounts: { included: 2, total: 3 },
     memoryFiles: [
@@ -334,7 +335,7 @@ test("probeText lists one line per rung", () => {
   ).toBe(`prompt-master probe\n${FABLE}: ok\n${SONNET}: timeout`);
 });
 
-test("/prompt-master probe calls each rung once with 8 tokens and reports", async ($, on) => {
+test("/prompt-master probe calls each rung once with 8 tokens and reports", { options: BEDROCK }, async ($, on) => {
   const e = engine(on, {
     replies: [answered("pong"), RATE_LIMITED, answered("pong")],
   });
@@ -359,7 +360,7 @@ test("/prompt-master probe calls each rung once with 8 tokens and reports", asyn
   expect(e.toasts).toHaveLength(0);
 });
 
-test("probe reports a rung whose call is refused", async ($, on) => {
+test("probe reports a rung whose call is refused", { options: BEDROCK }, async ($, on) => {
   const e = engine(on, {
     replies: [
       answered("pong"),
@@ -436,7 +437,7 @@ test("/prompt-master model with an invalid token answers the reason and writes n
   expect(e.calls).toHaveLength(0);
 });
 
-test("a draft that merely starts with a sub-word is enhanced", async ($, on) => {
+test("a draft that merely starts with a sub-word is enhanced", { options: BEDROCK }, async ($, on) => {
   const drafts = [
     "undo the last migration",
     "status of the nightly build",

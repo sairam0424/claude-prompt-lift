@@ -10,14 +10,14 @@
     "models": {
       "type": "string",
       "title": "Model Chain",
-      "description": "Comma-separated list of model IDs to try in order",
-      "default": "us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5,us.anthropic.claude-haiku-5-5"
+      "description": "Comma-separated models to try in order: an alias (fable, sonnet, haiku), a full model id, or session for the session's model",
+      "default": "fable,sonnet,haiku"
     },
     "effortModels": {
       "type": "string",
       "title": "Effort Models",
-      "description": "Comma-separated list of models for high-effort prompts",
-      "default": "us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5"
+      "description": "Comma-separated models that receive effort: low; others get no effort parameter",
+      "default": "fable,sonnet"
     },
     "maxTokens": {
       "type": "number",
@@ -126,8 +126,8 @@
     "skillExclude": {
       "type": "string",
       "title": "Skill Exclude",
-      "description": "Comma-separated list of skill patterns to exclude",
-      "default": "sparc:*,swarm:*,hive-mind:*,coordination:*,hooks:*,monitoring:*,optimization:*,analysis:*,automation:*,memory:*,expo:*,render:*,claude-seo:*,gws-*"
+      "description": "Comma-separated skill name patterns left out of the listing sent to the model (* and ? wildcards, e.g. sparc:*,gws-*); empty sends every skill Claude lists",
+      "default": ""
     }
   }
 }

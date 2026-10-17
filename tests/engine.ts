@@ -33,6 +33,18 @@ export const RULES_FILE = `${HOME}/.claude/rules/testing.md`;
 export const PROJECT_TEXT = "Project rules: write the regression test first.";
 export const RULES_TEXT = "Testing rules: cover the error path.";
 export const FABLE = "us.anthropic.claude-fable-5-1";
+export const SONNET = "us.anthropic.claude-sonnet-5-5";
+export const HAIKU = "us.anthropic.claude-haiku-5-5";
+/**
+ * The Bedrock chain the mod shipped with before 0.2.0, for the tests that
+ * assert full ids or the names `shortModel` gives them. The defaults are now
+ * the aliases `fable,sonnet,haiku`; a Bedrock user pins these ids the same
+ * way in `pluginConfigs` (README, "Bedrock users").
+ */
+export const BEDROCK = {
+  models: `${FABLE},${SONNET},${HAIKU}`,
+  effortModels: `${FABLE},${SONNET}`,
+};
 export const NOW_MS = Date.UTC(2026, 9, 16, 12, 0, 0);
 export const TODAY = "2026-10-16";
 

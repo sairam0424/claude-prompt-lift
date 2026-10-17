@@ -7,6 +7,7 @@ import {
   press,
   BETTER,
   DRAFT,
+  BEDROCK,
   FABLE,
   GOOD,
   PROJECT_FILE,
@@ -29,7 +30,7 @@ const DRAFT_2 = "fix the login bug in src/auth.ts please now";
 /** What a Fable press that answers with USAGE costs: on every toast (C19). */
 const COST = formatDollars(estimateUsd(USAGE, FABLE, DEFAULT_PRICES));
 
-test("Enhance replaces the draft, caches the static block first, and toasts dollars", async ($, on) => {
+test("Enhance replaces the draft, caches the static block first, and toasts dollars", { options: BEDROCK }, async ($, on) => {
   const e = engine(on);
   const phases: unknown[] = [];
   on("state.set", { plugin: "prompt-master", key: "phase" }, ($, ev, next) => {
@@ -219,7 +220,7 @@ test("a refused first press settles the phase back to idle", async ($, on) => {
 });
 
 
-test("plain prose reply is filled", async ($, on) => {
+test("plain prose reply is filled", { options: BEDROCK }, async ($, on) => {
   const e = engine(on, { replies: [answered(BETTER)] });
 
   await press($, DRAFT);
@@ -285,7 +286,7 @@ test("a path that exists in the project passes the path guard", async ($, on) =>
 });
 
 
-test("prose with a slash such as CI/CD is not checked as a path", async ($, on) => {
+test("prose with a slash such as CI/CD is not checked as a path", { options: BEDROCK }, async ($, on) => {
   const e = engine(on, {
     replies: [
       answered(
