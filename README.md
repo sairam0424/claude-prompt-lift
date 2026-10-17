@@ -158,7 +158,7 @@ Each refusal is one toast and leaves the box exactly as typed.
 Before any model call (nothing is spent):
 
 - `prompt-master: commands and shell lines are sent as typed` — the draft starts with `/`, `!` or `#`. Press Enter: those lines run, they are not prompts.
-- `prompt-master: that reads like an answer to Claude's question` — the draft opens like a reply (`yes`, `no`, `ok`, `sure`, `go ahead`, `option 2`, …) or is under 12 words right after Claude asked a question. Answer with Enter.
+- `prompt-master: that reads like an answer to Claude's question` — the draft opens like a reply (`yes`, `no`, `ok`, `sure`, `go ahead`, `option 2`, …) when under 12 words, or is under 12 words right after Claude asked a question. Answer with Enter.
 - `prompt-master: under 3 words, nothing to enhance` — fewer than `minWords` words. Add a few, or lower `minWords`.
 - `prompt-master: over 4000 characters, already specific` — longer than `maxDraftChars`. Send it as it is, or raise the cap.
 

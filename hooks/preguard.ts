@@ -4,7 +4,10 @@ import type { Config } from "./config";
 // the draft is left exactly as typed.
 
 export const REPLY_PREFIX =
-  /^\s*(y|yes|no|n|ok|okay|sure|go ahead|proceed|continue|do it|use|option\s+\w+)\b/i;
+  /^\s*(yes|no|ok|okay|sure|go ahead|proceed|continue|do it|option\s+\w+)\b/i;
+
+// Spec §5.4: threshold for short drafts (both reply prefix and question rules)
+const SHORT_DRAFT_THRESHOLD = 12;
 
 export function wordCount(s: string): number {
   return s
@@ -35,13 +38,14 @@ export function preGuard(
   }
 
   // Check 2: Reply-like drafts
-  // Either: matches REPLY_PREFIX at any length
-  // Or: last assistant message ends with ? and draft < 12 words
-  const isReplyPrefix = REPLY_PREFIX.test(draft);
+  // Either: matches REPLY_PREFIX when draft < SHORT_DRAFT_THRESHOLD words
+  // Or: last assistant message ends with ? and draft < SHORT_DRAFT_THRESHOLD words
+  const isReplyPrefix =
+    REPLY_PREFIX.test(draft) && wordCount(draft) < SHORT_DRAFT_THRESHOLD;
   const isShortAnswerToQuestion =
     lastAssistant !== undefined &&
     lastAssistant.trim().endsWith("?") &&
-    wordCount(draft) < 12;
+    wordCount(draft) < SHORT_DRAFT_THRESHOLD;
 
   if (isReplyPrefix || isShortAnswerToQuestion) {
     return {
