@@ -1,40 +1,140 @@
 # prompt-master
 
-A Claude Code mod that enhances vague prompts using your project's loaded instructions and skill catalog before you send them. The band row appears above the prompt: `[ Enhance (e) ] [ Send (s) ] [ Undo (u) ]`; `Cancel (c)` while a call runs; `Send (queues)` while a turn runs; `Redo (u)` after an Undo.
+A Claude Code mod that turns a vague prompt into a specific one before you send it. It reads the instruction files your session loaded (the `CLAUDE.md` tree and rules files) and the skills Claude can trigger, asks a model for the smallest edit that adds the missing facts, puts the result back in the prompt box with the inserted words underlined, and sends only when you press Send or Enter.
 
-## Usage
+The band row appears above the prompt: `[ Enhance (e) ] [ Send (s) ] [ Undo (u) ]`; `Cancel (c)` while a call runs; `Send (queues)` while a turn runs; `Redo (u)` after an Undo. Nothing runs while idle: no timers, no per-keystroke hooks, a model call happens only on a press or a command.
+
+## Install
+
+From a Claude Code session:
+
+```
+/plugin install prompt-master --marketplace sairam0424/claude-prompt-master
+```
+
+Claude Code asks `y` to add the marketplace, then a scope (`user` makes it available in every project).
+
+From a shell:
+
+```bash
+claude plugin marketplace add sairam0424/claude-prompt-master
+claude plugin install prompt-master@claude-prompt-master
+```
+
+From a local clone (the plugin is read live from the folder, so edits show up after `/reload-plugins`):
+
+```bash
+git clone https://github.com/sairam0424/claude-prompt-master ~/src/claude-prompt-master
+claude plugin marketplace add ~/src/claude-prompt-master
+claude plugin install prompt-master@claude-prompt-master
+```
+
+Then, in a session: `/reload-plugins` (or start a new one), and `/prompt-master probe` prints one line per model in the chain, `ok` for each one your account can call. A refused rung means that model is not available to you: set `models` (see Configuration).
+
+## Using it
 
 Three ways to press Enhance:
 - `ctrl+x b` from the prompt (the Enhance button carries the engine action `app:cycleDiffBase`; works while the diff panel is closed)
-- `ctrl+x tab` to focus the band then `e`
+- `ctrl+x tab` to focus the band, then `e`
 - `/prompt-master <your text>`
 
 ### Send vs Enter
 
-Both send what is in the box. Send refuses drafts with `@file` mentions or pasted images ("press Enter to send; @files and images only travel with Enter") because a plugin-submitted prompt does not expand them.
+Both send what is in the box. Send refuses drafts with `@file` mentions or pasted images (`prompt-master: press Enter to send; @files and images only travel with Enter`) because a plugin-submitted prompt does not expand them.
 
 ### Undo
 
-The original is kept until you submit or `/clear`. Undo acts only when the box still holds the enhanced text (or is empty), otherwise press Undo twice within 10 seconds. Undo is two-way (Redo).
+The original is kept until you submit or `/clear`. Undo acts only when the box still holds the enhanced text (or is empty); otherwise it says `box edited since Enhance; press Undo again within 10 s to discard` and acts on the second press. Undo is two-way (Redo).
 
-## Commands
+### Commands
 
 - `/prompt-master <text>` — enhance the text
 - `/prompt-master undo` — restore the original draft
-- `/prompt-master model <id|alias|reset>` — switch model or reset to chain
-- `/prompt-master status` — show the last call, the session and per-day totals, the block size and hash
-- `/prompt-master diff` — show word-level diff of last enhancement
-- `/prompt-master probe` — test each model in chain
+- `/prompt-master model <id|alias|reset>` — put a model first for this machine (`sonnet`, `haiku`, a full id) or `reset` to the configured chain
+- `/prompt-master status` — the chain, the last call, session and per-day totals, the static block size and hash
+- `/prompt-master diff` — word-level diff of the last enhancement
+- `/prompt-master probe` — one tiny call per model in the chain, reporting `ok` or the refusal
 
 A sub-word is recognised only when it is the whole argument (any case): `/prompt-master diff the two configs and explain` is a draft to enhance, not the diff. `model` takes exactly one token; `model the auth flow as a state machine` is a draft too.
 
-## What Goes to the Model
+## What is sent to the model
 
-The instruction files Claude Code loaded for the session (Project, Local, Managed, and `~/.claude/rules/*`; NOT the auto-memory index; NOT `~/.claude/CLAUDE.md` or `~/CLAUDE.md` by default — see `instructionExclude`), the skill names Claude actually receives (minus `mcp` and the `skillExclude` namespaces), the top-8 keyword-matched skill descriptions, a subproject's CLAUDE.md when the draft names it, and the draft. Never your conversation unless `includeConversation` is on.
+- The instruction files Claude Code loaded for the session: Project, Local, Managed and `~/.claude/rules/*`. Not the auto-memory index. Not `~/.claude/CLAUDE.md` or `~/CLAUDE.md` by default (`instructionExclude`).
+- Every skill name Claude lists, except MCP-provided ones. Nothing else is excluded by default; a large skill catalogue costs cached tokens, so leave out the namespaces you never want named with `skillExclude` (patterns match the whole name, `*` any run, `?` one character):
 
-## Cost Per Press
+  ```json
+  "skillExclude": "sparc:*,swarm:*,gws-*"
+  ```
 
-Costs with Bedrock us.* profiles (verified 2026-10-16; USD per 1M tokens):
+- The eight skill descriptions whose words best match the draft (`relevantSkills`).
+- A subproject's `CLAUDE.md` when the draft names a top-level directory of the project that has one.
+- The draft. Never your conversation unless `includeConversation` is on.
+
+The instructions and skill names form one cached block, so a second press within five minutes reads it from the cache.
+
+## Configuration
+
+Settings live in `/config` under `pluginConfigs` → `prompt-master@claude-prompt-master` → `options`, or in your settings file:
+
+```json
+{
+  "pluginConfigs": {
+    "prompt-master@claude-prompt-master": {
+      "options": {
+        "minWords": 4,
+        "skillExclude": "sparc:*,gws-*"
+      }
+    }
+  }
+}
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `models` | string | `fable,sonnet,haiku` | Comma-separated models to try in order: an alias (`fable`, `sonnet`, `haiku`), a full model id, or `session` for the session's model |
+| `effortModels` | string | `fable,sonnet` | Models that receive `effort: low`; others get no effort parameter (matched by exact id) |
+| `maxTokens` | number | 2000 | Maximum tokens per model completion |
+| `timeoutMsFirst` | number | 30000 | Timeout for the first model attempt |
+| `timeoutMsNext` | number | 15000 | Timeout for fallback model attempts |
+| `minWords` | number | 3 | Minimum word count to trigger enhancement |
+| `maxDraftChars` | number | 4000 | Maximum characters in the draft prompt |
+| `keptShareFloor` | number | 0.5 | Minimum fraction of the draft's words the rewrite must keep |
+| `maxGrowthChars` | number | 1200 | Maximum character growth allowed |
+| `relevantSkills` | number | 8 | Number of relevant skill descriptions to include |
+| `instructionFileMaxChars` | number | 40000 | Maximum characters read from each instruction file |
+| `enhanceAction` | string | `app:cycleDiffBase` | Engine action the Enhance button carries (empty disables it) |
+| `filePrefix` | string | `plain` | How file paths appear in the rewrite (`plain` or `at`) |
+| `skillPlacement` | string | `mention` | How a matched skill is named (`mention` mid-sentence, or `run` as a leading `/name`) |
+| `includeConversation` | boolean | false | Include recent conversation history |
+| `conversationMessages` | number | 6 | Number of recent messages to include |
+| `skillPrefixAllow` | string | `""` | Skills allowed as a leading `/name` under `run` (empty for none) |
+| `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Instruction files to leave out |
+| `skillExclude` | string | `""` | Skill name patterns left out of the listing (`*` and `?` wildcards); empty sends every skill Claude lists |
+
+The chain falls back on a refused model, an empty reply, a rate limit, a server error and a timeout; never on your Cancel, never on a 400. The toast names every attempt.
+
+### Bedrock users
+
+On Bedrock the aliases resolve to whatever the build maps them to, and `effortModels` is matched by exact id, so pin both keys to your cross-region inference profiles:
+
+```json
+{
+  "pluginConfigs": {
+    "prompt-master@claude-prompt-master": {
+      "options": {
+        "models": "us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5,us.anthropic.claude-haiku-5-5",
+        "effortModels": "us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5"
+      }
+    }
+  }
+}
+```
+
+These are the ids the cost table below prices and the rungs `/prompt-master model sonnet` names. Run `/prompt-master probe` once: a rung your account cannot call is reported as refused.
+
+## Cost
+
+Prices are USD per 1M tokens, Bedrock `us.*` profiles, verified 2026-10-16:
 
 | Model | Input | Output | Cache Write | Cache Read |
 |-------|-------|--------|-------------|------------|
@@ -42,70 +142,54 @@ Costs with Bedrock us.* profiles (verified 2026-10-16; USD per 1M tokens):
 | Sonnet 5.5 | 2.20 | 11.00 | 2.75 | 0.11 |
 | Haiku 5.5 | 0.11 | 0.55 | 0.1375 | 0.011 |
 
+The table is Bedrock `us.*` cross-region pricing, which is Anthropic's list price plus 10%; on the Anthropic API expect about 10% less. An alias prices as the current generation of its family (`fable` as Fable 5.1, `sonnet` as Sonnet 5.5, `haiku` as Haiku 5.5); a model the table does not know shows `$0.000`.
+
 Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 - Fable: ≈ $0.13 cold / ≈ $0.04 warm
 - Sonnet: ≈ $0.027 / ≈ $0.009
 - Haiku: ≈ $0.0015 / ≈ $0.0006
 
-The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars — a successful rewrite, "already specific, left as is", every refusal, and a chain that failed after a paid rung — and `status` counts them all (a refused press cost the same as an accepted one). `/prompt-master model haiku` switches to Haiku.
+The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars — a successful rewrite, `already specific, left as is`, every refusal, and a chain that failed after a paid rung — and `status` counts them all (a refused press cost the same as an accepted one). `/prompt-master model haiku` switches to Haiku.
 
-## What Is Refused
+## Why was my draft refused?
 
-Each refusal is one toast and leaves the box untouched. Beyond the pre-call guards (commands and shell lines, replies, too short, too long), a rewrite is refused when it hits the token cap, grows too much, drops too much of the draft, turns a question into a task or back, loses a path or `@mention` the draft had, adds a command or link you did not write, or starts with a command prefix — `!`, `#`, or a `/` that is not a listed skill — because Enter would run it. Paths and prose are told apart: a sentence may end with `src/auth.ts.` and still carry `src/auth.ts`, and only tokens that look like files (rooted, carrying an extension, or under a directory of the project root) must exist, so `CI/CD` and `and/or` pass.
+Each refusal is one toast and leaves the box exactly as typed.
 
-## Configuration
+Before any model call (nothing is spent):
 
-All settings are in `/config` under `pluginConfigs.prompt-master`:
+- `prompt-master: commands and shell lines are sent as typed` — the draft starts with `/`, `!` or `#`. Press Enter: those lines run, they are not prompts.
+- `prompt-master: that reads like an answer to Claude's question` — the draft opens like a reply (`yes`, `no`, `ok`, `sure`, `go ahead`, `option 2`, …) or is under 12 words right after Claude asked a question. Answer with Enter.
+- `prompt-master: under 3 words, nothing to enhance` — fewer than `minWords` words. Add a few, or lower `minWords`.
+- `prompt-master: over 4000 characters, already specific` — longer than `maxDraftChars`. Send it as it is, or raise the cap.
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `models` | string | `us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5,us.anthropic.claude-haiku-5-5` | Comma-separated list of model IDs to try in order |
-| `effortModels` | string | `us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5` | Comma-separated list of models for high-effort prompts |
-| `maxTokens` | number | 2000 | Maximum tokens per model completion |
-| `timeoutMsFirst` | number | 30000 | Timeout for the first model attempt |
-| `timeoutMsNext` | number | 15000 | Timeout for fallback model attempts |
-| `minWords` | number | 3 | Minimum word count to trigger enhancement |
-| `maxDraftChars` | number | 4000 | Maximum characters in the draft prompt |
-| `keptShareFloor` | number | 0.5 | Minimum fraction of original words to keep |
-| `maxGrowthChars` | number | 1200 | Maximum character growth allowed |
-| `relevantSkills` | number | 8 | Number of relevant skills to include |
-| `instructionFileMaxChars` | number | 40000 | Maximum characters to read from instruction files |
-| `enhanceAction` | string | `app:cycleDiffBase` | Action to trigger after enhancement |
-| `filePrefix` | string | `plain` | How to prefix file paths in prompts (`plain` or `at`) |
-| `skillPlacement` | string | `mention` | How to include skills in prompts (`mention` or `run`) |
-| `includeConversation` | boolean | false | Include recent conversation history in prompts |
-| `conversationMessages` | number | 6 | Number of recent messages to include |
-| `skillPrefixAllow` | string | `""` | Comma-separated list of allowed skill prefixes (empty for none) |
-| `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Comma-separated list of instruction files to exclude |
-| `skillExclude` | string | `sparc:*,swarm:*,hive-mind:*,coordination:*,hooks:*,monitoring:*,optimization:*,analysis:*,automation:*,memory:*,expo:*,render:*,claude-seo:*,gws-*` | Comma-separated list of skill patterns to exclude |
+After the call (the toast ends with what the call cost):
+
+- `reply hit the token cap, kept your prompt` — the rewrite ran to `maxTokens`. Shorten the draft or raise `maxTokens`.
+- `the model returned nothing` — an empty rewrite. Press again, or `/prompt-master model sonnet`.
+- `rewrite too long, kept your prompt` — it grew past the allowance (the draft plus at most `maxGrowthChars`, scaled down for short drafts: 150 characters plus three times the draft) or added more than three sentences. Raise `maxGrowthChars`, or start from a fuller draft.
+- `rewrite dropped too much of your prompt, kept it` — fewer than `keptShareFloor` (50%) of your draft's words of four letters or more survived. Lower the floor if you want freer rewrites.
+- `changed a question into a task, kept your prompt` / `changed a task into a question, kept your prompt` — the rewrite flipped your intent. Phrase the draft so the question or the instruction is unmistakable.
+- `lost a file or code reference from your draft, kept it` — a path, `@mention` or code token from the draft is missing in the rewrite. Press again; the model is told to keep them.
+- `added a command or link you did not write, kept your prompt` — the rewrite introduced `rm`, `curl`, `wget`, `sudo` or `chmod`, a pipe to `sh`, `&&`, a URL or an absolute path that appears neither in your draft nor in the instruction files. If you want it, type it yourself.
+- `rewrite starts with a command prefix, kept your prompt` — the rewrite begins with `!`, `#` or a `/word` that is not a listed skill, which Enter would run instead of send.
+- `named a file that does not exist, kept your prompt` — the rewrite names a file-looking path (rooted, with an extension, or under a top-level directory of the project) that is not on disk. Prose such as `CI/CD` or `and/or` is not checked.
+- `draft changed while enhancing, left as is` — you kept typing. Press Enhance again when the draft is ready.
+- `no model answered · fable: rate_limit → sonnet: timeout → haiku: refused` — every rung failed; the trail names each outcome. `/prompt-master probe` tells you which models your account can call.
+- `cancelled, draft unchanged` — you pressed Cancel; no fallback was tried.
+- `already specific, left as is` — not a refusal: the model judged the draft fine. The call is still billed.
+
+## Updating
+
+- Installed from GitHub: `claude plugin update prompt-master@claude-prompt-master`, then restart Claude Code.
+- Installed from a clone: `git pull` in the clone, then `/reload-plugins` in a session (or start a new one). The folder is read live; `claude plugin update` only refreshes the recorded version.
 
 ## Limits
 
 - Terminal only (no desktop footer, no VS Code)
 - No timers, no per-keystroke hooks
 - One band row
-- Shares the Bedrock quota with the main turn (a Fable rate limit falls back to Sonnet and the toast says so)
+- Shares your account's model quota with the main turn (a rate limit on the first rung falls back to the next and the toast says so)
 
-## Installation
+## License
 
-Add the local marketplace and install at user scope:
-
-```bash
-claude plugin marketplace add /Users/sairamugge/src/prompt-master
-claude plugin install prompt-master@prompt-master-local --scope user
-```
-
-## Updating
-
-Claude Code reads this plugin straight from `/Users/sairamugge/src/prompt-master` (the install is a folder marketplace; `claude plugin update` reports "read from its folder"). After editing or committing there, run `/reload-plugins` in a session, or start a new session. A version bump in `.claude-plugin/plugin.json` followed by `claude plugin update prompt-master@prompt-master-local` only refreshes the recorded version; it is not needed to pick up changes.
-
-## First-Run Checklist
-
-After installation, in a live Claude session:
-
-1. `/reload-plugins`, then `/plugin` should list prompt-master as an active mod
-2. `/prompt-master probe` → three `ok` lines; if a Sonnet or Haiku id is refused, set `models` in `/config` (pluginConfigs) to the ids your account enables
-3. Type a vague draft, `ctrl+x tab`, `e` (or `ctrl+x b`) → the box is replaced, inserted words are underlined, a toast shows tokens and dollars (a refusal toast ends with dollars too)
-4. Press Enhance again within five minutes → the toast shows a non-zero `cached` count; if it stays `(no cache)` three times the row says so
-5. Press Send on a plain draft → it submits and the box clears; Undo then Redo
-6. `/prompt-master status`
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Sairam Ugge.
