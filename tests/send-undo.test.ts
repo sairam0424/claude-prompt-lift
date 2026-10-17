@@ -110,6 +110,11 @@ test("Send refuses @file and image drafts", () => {
   expect(sendRefusal("why does @src/a.ts break")).toBe(ENTER_TOAST);
   expect(sendRefusal("compare with [Image #2] please")).toBe(ENTER_TOAST);
   expect(sendRefusal(BETTER)).toBeUndefined();
+  // Token-initial @ mentions and images are refused; emails are sendable.
+  expect(sendRefusal("mail me@example.com the report")).toBeUndefined();
+  expect(sendRefusal("@decorator in python")).toBe(ENTER_TOAST);
+  expect(sendRefusal("see @src/a.ts")).toBe(ENTER_TOAST);
+  expect(sendRefusal("[Image #1] what is this")).toBe(ENTER_TOAST);
 });
 
 test("Send with an empty box toasts", () => {

@@ -37,7 +37,7 @@ const TOAST_RESTORED = "prompt-master: restored your draft";
 const TOAST_REAPPLIED = "prompt-master: re-applied the enhanced prompt";
 
 /** `@file` mentions and pasted images travel only with Enter (C10, C11). */
-const ENTER_ONLY = /@\S+|\[Image #\d+\]/;
+const ENTER_ONLY = /(^|\s)@[\w./-]+|\[Image #\d+\]/;
 
 /**
  * The prompt noun as Send drives it before it touches state, so a test's `$`
