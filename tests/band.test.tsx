@@ -47,6 +47,7 @@ const DRAFT_CHANGED = `prompt-master: draft changed while enhancing, left as is 
   estimateUsd(USAGE, FABLE, DEFAULT_PRICES),
 )}`;
 const NO_CACHE_HINT = "cache not hitting — consider /prompt-master model haiku";
+const OPUS = "us.anthropic.claude-opus-4-1";
 const ABORTED: ModelCompleteResult = {
   isAnswered: false,
   reason: "aborted",
@@ -117,6 +118,12 @@ test("done row shows the usage, the added words and the skills", () => {
   );
   expect(doneRowText(LAST, 3)).toBe(
     `fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04 · +12 words · 1 skill · ${NO_CACHE_HINT}`,
+  );
+});
+
+test("done row shows $? and (no price) for an unpriced model (R3)", () => {
+  expect(doneRowText({ ...LAST, model: OPUS, usd: null }, 0)).toBe(
+    `${OPUS} · 6.8k cached · 1.4k in · 310 out · $? · (no price) · +12 words · 1 skill`,
   );
 });
 
@@ -339,4 +346,16 @@ test("a cached press ends the no-cache streak", async ($, on) => {
   }
 
   expect(await rowText(ui)).not.toContain(NO_CACHE_HINT);
+});
+
+test("the done row says (no price) after an unpriced press", { options: { models: OPUS } }, async ($, on) => {
+  const e = engine(on);
+  e.box.text = DRAFT;
+  const ui = await mount($);
+
+  await ui.press({ key: "enhance" });
+
+  expect(e.box.text).toBe(BETTER);
+  expect(e.calls[0]?.model).toBe(OPUS);
+  expect(await rowText(ui)).toContain(" · 310 out · $? · (no price) · +");
 });

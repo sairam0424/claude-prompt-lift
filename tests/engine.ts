@@ -46,7 +46,20 @@ export const BEDROCK = {
   effortModels: `${FABLE},${SONNET}`,
 };
 export const NOW_MS = Date.UTC(2026, 9, 16, 12, 0, 0);
-export const TODAY = "2026-10-16";
+
+/**
+ * The `YYYY-MM-DD` a Date falls on in this machine's zone, from the Date API
+ * rather than a literal: the stats day key is local (R6), so a literal would
+ * hold in some zones only.
+ */
+export function localDay(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** The stats day key every press in these tests lands on. */
+export const TODAY = localDay(new Date(NOW_MS));
 
 export const USAGE: ModelUsage = {
   input_tokens: 1400,
@@ -93,6 +106,8 @@ export type EngineOptions = {
   delay?: boolean;
   /** Make `prompt.fill` refuse instead of taking the text. */
   fill?: FillRefusal;
+  /** Make `session.messages` reject for this reason: enhance's failure path. */
+  denyMessages?: string;
   /** Make `prompt.submit` refuse with this reason instead of taking the text. */
   drop?: string;
   /** Runs once the stub took a submit, before it answers: a person typing on. */
@@ -258,7 +273,11 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
       },
     } as never,
   }));
-  on("session.messages", () => ({ value: messages as never }));
+  on("session.messages", () =>
+    opts.denyMessages === undefined
+      ? { value: messages as never }
+      : { deny: opts.denyMessages },
+  );
   on("session.model", () => ({ value: opts.model ?? FABLE }));
   on("session.root", () => ({ value: root }));
   on("fs.read", ($, e) => {

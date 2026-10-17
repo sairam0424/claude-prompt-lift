@@ -37,15 +37,26 @@ const sessionUsd = atom(
   { plugin: "prompt-master", key: "sessionUsd" } as const,
   0,
 );
+const sessionUnpriced = atom(
+  { plugin: "prompt-master", key: "sessionUnpriced" } as const,
+  0,
+);
 
-export type DayStats = { presses: number; usd: number };
+/**
+ * A day's (or the session's) totals: `usd` adds only the calls the price
+ * table covers; `unpriced` counts the calls it does not (R3).
+ */
+export type DayStats = { presses: number; usd: number; unpriced: number };
 export type Stats = { byDay: Record<string, DayStats> };
 
 export const STATS_STORE_KEY = "stats";
-export const EMPTY_DAY: DayStats = { presses: 0, usd: 0 };
+export const EMPTY_DAY: DayStats = { presses: 0, usd: 0, unpriced: 0 };
 
-/** What an answered call cost and whether block 0 differs from the last one. */
-export type CallRecord = { usd: number; hashChanged: boolean };
+/**
+ * What an answered call cost (undefined when the model has no price) and
+ * whether block 0 differs from the last one.
+ */
+export type CallRecord = { usd: number | undefined; hashChanged: boolean };
 
 /** What `toLastUsage` records beyond the call's own usage. */
 export type CallFacts = {
@@ -61,32 +72,53 @@ export function asStats(value: unknown): Stats {
   return { byDay: isRecord ? (byDay as Record<string, DayStats>) : {} };
 }
 
+/** The stats day key: the local `YYYY-MM-DD`, month and day padded (R6). */
 export function dayOf(nowMs: number): string {
-  return new Date(nowMs).toISOString().slice(0, 10);
+  const date = new Date(nowMs);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * The day's row; a row written before unpriced calls were counted reads as
+ * zero of them.
+ */
+export function dayRow(stats: Stats, day: string): DayStats {
+  return { ...EMPTY_DAY, ...stats.byDay[day] };
+}
+
+/** A call added to a row: priced, it adds its dollars; unpriced, a count. */
+export function addCall(row: DayStats, usd: number | undefined): DayStats {
+  return {
+    presses: row.presses + 1,
+    usd: usd === undefined ? row.usd : row.usd + usd,
+    unpriced: usd === undefined ? row.unpriced + 1 : row.unpriced,
+  };
 }
 
 export async function recordPress(
   $: EngineInterface,
-  usd: number,
+  usd: number | undefined,
 ): Promise<void> {
   const day = dayOf(await $.clock.now());
   const stats = asStats(await $.store.get(STATS_STORE_KEY));
-  const previous = stats.byDay[day] ?? EMPTY_DAY;
   await $.store.set(STATS_STORE_KEY, {
-    byDay: {
-      ...stats.byDay,
-      [day]: { presses: previous.presses + 1, usd: previous.usd + usd },
-    },
+    byDay: { ...stats.byDay, [day]: addCall(dayRow(stats, day), usd) },
   });
 }
 
 /** The totals every paid press adds to: the session atoms and the day's row. */
 export async function recordSpend(
   $: EngineInterface,
-  usd: number,
+  usd: number | undefined,
 ): Promise<void> {
   await update($, sessionPresses, (n) => n + 1);
-  await update($, sessionUsd, (n) => n + usd);
+  if (usd === undefined) {
+    await update($, sessionUnpriced, (n) => n + 1);
+  } else {
+    await update($, sessionUsd, (n) => n + usd);
+  }
   await recordPress($, usd);
 }
 
@@ -126,16 +158,20 @@ export async function noteRewrite(
 }
 
 /**
- * What a chain that answered nothing still paid: each rung at its own price.
+ * What a chain that answered nothing still paid: each priced rung at its own
+ * price; undefined when no rung had one (R3).
  */
 export function attemptsUsd(
   attempts: readonly Attempt[],
   prices: Readonly<Record<string, Price>>,
-): number {
-  return attempts.reduce(
-    (sum, attempt) => sum + estimateUsd(attempt.usage, attempt.model, prices),
-    0,
-  );
+): number | undefined {
+  const priced = attempts
+    .map((attempt) => estimateUsd(attempt.usage, attempt.model, prices))
+    .filter((usd): usd is number => usd !== undefined);
+  if (priced.length === 0) {
+    return undefined;
+  }
+  return priced.reduce((sum, usd) => sum + usd, 0);
 }
 
 /** A reply that neither read nor wrote the prompt cache (the C19 streak). */
@@ -152,7 +188,7 @@ export function describeAttempt(attempt: Attempt): string {
 
 export function toLastUsage(
   a: CallFacts,
-  usd: number,
+  usd: number | undefined,
   hashChanged: boolean,
 ): LastUsage {
   const usage = a.run.usage;
@@ -162,7 +198,8 @@ export function toLastUsage(
     cached: usage.cache_read_input_tokens,
     written: usage.cache_creation_input_tokens,
     output: usage.output_tokens,
-    usd,
+    // State is JSON: an unknown price persists as null, not undefined
+    usd: usd ?? null,
     attempts: a.run.attempts.map(describeAttempt),
     why: a.why,
     addedWords: a.addedWords,

@@ -131,7 +131,7 @@ test("estimateUsd prices a warm Fable press", async () => {
   );
   const expected = (1500 * 11 + 7000 * 0.275 + 400 * 55) / 1e6;
   // Check within 6 decimal places (microsecond precision)
-  expect(Math.abs(usd - expected)).toBeLessThan(1e-6);
+  expect(Math.abs((usd ?? 0) - expected)).toBeLessThan(1e-6);
 });
 
 test("estimateUsd prices an alias chain as its family's current generation", async () => {
@@ -148,7 +148,7 @@ test("estimateUsd prices an alias chain as its family's current generation", asy
   );
 });
 
-test("estimateUsd returns 0 for unknown model", async () => {
+test("estimateUsd returns undefined for a model with no price (R3)", async () => {
   const usd = estimateUsd(
     {
       input_tokens: 1000,
@@ -156,10 +156,10 @@ test("estimateUsd returns 0 for unknown model", async () => {
       cache_read_input_tokens: 0,
       output_tokens: 100,
     },
-    "unknown-model",
+    "us.anthropic.claude-opus-4-1",
     DEFAULT_PRICES,
   );
-  expect(usd).toBe(0);
+  expect(usd).toBeUndefined();
 });
 
 test("estimateUsd handles missing token counts", async () => {

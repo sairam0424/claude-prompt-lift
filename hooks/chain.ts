@@ -189,17 +189,47 @@ export function formatTokens(count: number): string {
   return String(count);
 }
 
-export function formatDollars(usd: number): string {
+/** The longest a toast may be (spec §12); longer text ends in an ellipsis. */
+export const TOAST_MAX = 200;
+/** The model's `why` as the success toast shows it (R2). */
+export const WHY_MAX = 60;
+/** An error's message as a failure toast shows it (R2). */
+export const ERROR_MAX = 80;
+
+/** `text` within `max` chars, ending in `…` when it had to be cut. */
+export function cut(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+/**
+ * Every toast the mod shows passes through here (R2): whitespace and
+ * newlines collapse to single spaces, then the one line is cut to TOAST_MAX.
+ */
+export function capToast(text: string): string {
+  return cut(text.replace(/\s+/g, " ").trim(), TOAST_MAX);
+}
+
+/** Dollars to the cent, to the tenth of a cent under one; `$?` when unknown. */
+export function formatDollars(usd: number | undefined): string {
+  if (usd === undefined) {
+    return "$?";
+  }
   if (usd < 0.01) {
     return "$" + usd.toFixed(3);
   }
   return "$" + usd.toFixed(2);
 }
 
+/** The dollars a toast or row shows, and why there are none (R3). */
+export function costText(usd: number | undefined): string {
+  const dollars = formatDollars(usd);
+  return usd === undefined ? `${dollars} · (no price)` : dollars;
+}
+
 export function usageText(a: {
   model: string;
   usage: ModelUsage;
-  usd: number;
+  usd: number | undefined;
   why?: string;
   hashChanged?: boolean;
   attempts: readonly Attempt[];
@@ -215,14 +245,14 @@ export function usageText(a: {
     `${formatTokens(cachedTokens)} cached`,
     `${formatTokens(inputTokens)} in`,
     `${outputTokens} out`,
-    formatDollars(a.usd),
+    costText(a.usd),
   ];
 
   let text = parts.join(" · ");
 
   // Add optional suffixes
   if (a.why && a.why.length > 0) {
-    text += ` · ${a.why}`;
+    text += ` · ${cut(a.why, WHY_MAX)}`;
   }
 
   const cacheCreation = a.usage.cache_creation_input_tokens ?? 0;

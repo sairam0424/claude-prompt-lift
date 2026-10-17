@@ -4,7 +4,8 @@ export type LastUsage = {
   cached: number
   written: number
   output: number
-  usd: number
+  /** Dollars by the price table; null when the model has no row there. */
+  usd: number | null
   attempts: string[]
   why: string
   addedWords: number
@@ -28,6 +29,7 @@ declare module 'claude-code' {
       noCacheStreak: number
       sessionPresses: number
       sessionUsd: number
+      sessionUnpriced: number
     }
   }
 }

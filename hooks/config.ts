@@ -170,14 +170,18 @@ export function priceFor(
   return undefined;
 }
 
+/**
+ * What a call cost by the price table, or undefined when the table has no
+ * row for the model (R3): an unknown price is shown as `$?`, never as $0.
+ */
 export function estimateUsd(
   usage: ModelUsage,
   model: string,
   prices: Readonly<Record<string, Price>>,
-): number {
+): number | undefined {
   const price = priceFor(model, prices);
   if (!price) {
-    return 0;
+    return undefined;
   }
 
   const cost =

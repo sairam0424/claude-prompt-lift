@@ -3,13 +3,13 @@ import type { EngineInterface } from "claude-code";
 import type { LastUsage } from "../types";
 import type { Config } from "./config";
 import { shortModel } from "./config";
-import { formatDollars, formatTokens } from "./chain";
+import { costText, formatDollars, formatTokens } from "./chain";
 import { selectInstructionFiles, type MemoryFile } from "./context";
 import { resolveChain } from "./gather";
 import {
   asStats,
   dayOf,
-  EMPTY_DAY,
+  dayRow,
   STATS_STORE_KEY,
   type DayStats,
 } from "./stats";
@@ -37,6 +37,10 @@ const sessionPresses = atom(
 );
 const sessionUsd = atom(
   { plugin: "prompt-master", key: "sessionUsd" } as const,
+  0,
+);
+const sessionUnpriced = atom(
+  { plugin: "prompt-master", key: "sessionUnpriced" } as const,
   0,
 );
 
@@ -68,15 +72,21 @@ function lastCallText(last: LastUsage | null): string {
     `${formatTokens(last.cached)} cached`,
     `${formatTokens(last.input + last.written)} in`,
     `${last.output} out`,
-    formatDollars(last.usd),
+    costText(last.usd ?? undefined),
     cacheWord(last),
     last.hashChanged ? "static block changed" : "static block unchanged",
   ].join(" · ");
 }
 
+/**
+ * Presses and priced dollars; the unpriced calls are named only when there
+ * were some (R3).
+ */
 function totalsText(stats: DayStats): string {
   const presses = stats.presses === 1 ? "1 press" : `${stats.presses} presses`;
-  return `${presses} · ${formatDollars(stats.usd)}`;
+  const unpriced =
+    stats.unpriced > 0 ? [`unpriced calls: ${stats.unpriced}`] : [];
+  return [presses, formatDollars(stats.usd), ...unpriced].join(" · ");
 }
 
 function filesText(files: readonly MemoryFile[]): string {
@@ -114,8 +124,9 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
     session: {
       presses: await read($, sessionPresses),
       usd: await read($, sessionUsd),
+      unpriced: await read($, sessionUnpriced),
     },
-    today: stats.byDay[dayOf(await $.clock.now())] ?? EMPTY_DAY,
+    today: dayRow(stats, dayOf(await $.clock.now())),
     staticChars: await read($, staticChars),
     blockHash: await read($, blockHash),
     skills: {

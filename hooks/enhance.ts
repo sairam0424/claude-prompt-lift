@@ -5,9 +5,12 @@ import { SYSTEM } from "./rules";
 import { postProcess, preGuard, type PostOk } from "./guards";
 import { prepare, type Prepared } from "./prepare";
 import {
-  formatDollars,
+  capToast,
+  costText,
+  cut,
   runChain,
   usageText,
+  ERROR_MAX,
   type ChainFail,
   type ChainOk,
 } from "./chain";
@@ -171,7 +174,9 @@ export async function enhance(
       relevantCount: prepared.relevantCount,
     });
   } catch (err) {
-    $.ui.toast(`prompt-master: enhance failed (${errorMessage(err)})`);
+    // The message is cut where it is composed (R2); capToast makes it one line
+    const message = cut(errorMessage(err), ERROR_MAX);
+    $.ui.toast(capToast(`prompt-master: enhance failed (${message})`));
     $.ui.log(`prompt-master: enhance failed: ${String(err)}`, { to: "debug" });
   } finally {
     busy = false;
@@ -199,9 +204,12 @@ export function expectedBoxText(source: EnhanceSource, draft: string): string {
   return source.kind === "box" ? draft : "";
 }
 
-/** C19: a toast that follows a model call ends with what the call cost. */
-function withCost(toast: string, usd: number): string {
-  return `${toast} · ${formatDollars(usd)}`;
+/**
+ * C19: a toast that follows a model call ends with what the call cost, or
+ * `$? · (no price)` when the model has no price (R3); one line, capped (R2).
+ */
+function withCost(toast: string, usd: number | undefined): string {
+  return capToast(`${toast} · ${costText(usd)}`);
 }
 
 async function callChain(
@@ -272,7 +280,7 @@ async function verifyAndFill(
     rootDirs: readonly string[];
     post: PostOk;
     myId: number;
-    usd: number;
+    usd: number | undefined;
   },
 ): Promise<string | undefined> {
   const hasPaths = await namedPathsExist($, {
@@ -332,14 +340,16 @@ async function recordSuccess($: EngineInterface, a: Success): Promise<void> {
   );
   await update($, phase, () => "done");
   $.ui.toast(
-    usageText({
-      model: a.run.model,
-      usage: a.run.usage,
-      usd: a.call.usd,
-      why: a.post.why,
-      hashChanged: a.call.hashChanged,
-      attempts: a.run.attempts,
-    }),
+    capToast(
+      usageText({
+        model: a.run.model,
+        usage: a.run.usage,
+        usd: a.call.usd,
+        why: a.post.why,
+        hashChanged: a.call.hashChanged,
+        attempts: a.run.attempts,
+      }),
+    ),
   );
 }
 

@@ -3,7 +3,7 @@ import type { EngineInterface, RenderElement, RenderInput } from "claude-code";
 import type { LastUsage } from "../types";
 import type { Config } from "./config";
 import { shortModel } from "./config";
-import { formatDollars, formatTokens } from "./chain";
+import { costText, formatTokens } from "./chain";
 import { enhance } from "./enhance";
 import { cancel, send, undo } from "./actions";
 import { resolveChain } from "./gather";
@@ -62,7 +62,7 @@ export function doneRowText(usage: LastUsage, streak: number): string {
     `${formatTokens(usage.cached)} cached`,
     `${formatTokens(usage.input + usage.written)} in`,
     `${usage.output} out`,
-    formatDollars(usage.usd),
+    costText(usage.usd ?? undefined),
     `+${plural(usage.addedWords, "word")}`,
     plural(usage.skills, "skill"),
     ...hint,

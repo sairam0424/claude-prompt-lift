@@ -256,8 +256,8 @@ test("statusText lays the lines out", () => {
       skills: 1,
       hashChanged: true,
     },
-    session: { presses: 2, usd: 0.08 },
-    today: { presses: 5, usd: 0.2 },
+    session: { presses: 2, usd: 0.08, unpriced: 0 },
+    today: { presses: 5, usd: 0.2, unpriced: 0 },
     staticChars: 5120,
     blockHash: "ab12cd34",
     skills: { included: 2, total: 3 },
@@ -290,6 +290,15 @@ test("statusText lays the lines out", () => {
   expect(
     statusText({ ...a, last: { ...a.last!, cached: 0, written: 0 } }),
   ).toContain("cache miss");
+  // R3: unpriced calls are named only when there were some
+  expect(
+    statusText({ ...a, session: { ...a.session, unpriced: 3 } }),
+  ).toContain(
+    "session: 2 presses · $0.08 · unpriced calls: 3\ntoday: 5 presses · $0.20\n",
+  );
+  expect(statusText({ ...a, last: { ...a.last!, usd: null } })).toContain(
+    "last call: fable 5.1 · 6.8k cached · 1.4k in · 310 out · $? · (no price) · cache hit",
+  );
 });
 
 // --- diff ---
