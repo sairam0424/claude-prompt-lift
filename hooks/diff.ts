@@ -27,12 +27,28 @@ function lcsTable(from: readonly string[], to: readonly string[]): Table {
   return dp;
 }
 
+type Token = { word: string; start: number; end: number };
+
+function tokenize(text: string): Token[] {
+  const tokens: Token[] = [];
+  for (const match of text.matchAll(/\S+/g)) {
+    tokens.push({
+      word: match[0] ?? "",
+      start: match.index ?? 0,
+      end: (match.index ?? 0) + (match[0] ?? "").length,
+    });
+  }
+  return tokens;
+}
+
 export function wordDiffInsertions(
   from: string,
   to: string,
 ): Array<{ start: number; end: number }> {
-  const fromWords = from.split(/\s+/);
-  const toWords = to.split(/\s+/);
+  const fromTokens = tokenize(from);
+  const toTokens = tokenize(to);
+  const fromWords = fromTokens.map((t) => t.word);
+  const toWords = toTokens.map((t) => t.word);
   const m = fromWords.length;
   const n = toWords.length;
   const dp = lcsTable(fromWords, toWords);
@@ -42,7 +58,7 @@ export function wordDiffInsertions(
   let i = m;
   let j = n;
   while (i > 0 && j > 0) {
-    if (fromWords[i - 1] === toWords[j - 1]) {
+    if ((fromWords[i - 1] ?? "") === (toWords[j - 1] ?? "")) {
       inserted[j - 1] = false;
       i--;
       j--;
@@ -53,35 +69,31 @@ export function wordDiffInsertions(
     }
   }
 
-  // Convert word indices to character offsets
+  // Group contiguous inserted tokens into runs
   const runs: Array<{ start: number; end: number }> = [];
-  let pos = 0;
   let runStart = -1;
+  let runEnd = -1;
 
-  for (let idx = 0; idx < toWords.length; idx++) {
-    const word = toWords[idx] ?? "";
-
-    if (inserted[idx]) {
+  for (let idx = 0; idx < toTokens.length; idx++) {
+    if (inserted[idx] ?? false) {
+      const token = toTokens[idx];
+      if (!token) continue;
       if (runStart === -1) {
-        runStart = pos;
+        runStart = token.start;
       }
+      runEnd = token.end;
     } else {
       if (runStart !== -1) {
-        // End of run, trim trailing space
-        runs.push({ start: runStart, end: pos - 1 });
+        runs.push({ start: runStart, end: runEnd });
         runStart = -1;
+        runEnd = -1;
       }
-    }
-
-    pos += word.length;
-    if (idx < toWords.length - 1) {
-      pos += 1; // Space
     }
   }
 
   // Handle last run
   if (runStart !== -1) {
-    runs.push({ start: runStart, end: pos });
+    runs.push({ start: runStart, end: runEnd });
   }
 
   return runs;

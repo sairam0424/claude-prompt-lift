@@ -14,12 +14,20 @@ export type LastUsage = {
 };
 
 declare module "claude-code" {
+  interface PromptDecoration {
+    start: number;
+    end: number;
+    bold?: boolean;
+    underline?: boolean;
+  }
+
   interface PluginState {
     "prompt-master": {
       phase: "idle" | "running" | "done";
       original: string | null;
       enhanced: string | null;
       isUndone: boolean;
+      lastDecorations: PromptDecoration[] | null;
       model: string;
       runningModel: string;
       lastUsage: LastUsage | null;

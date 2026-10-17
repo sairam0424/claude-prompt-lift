@@ -1,5 +1,5 @@
 import { atom, read, update } from "claude-code";
-import type { EngineInterface } from "claude-code";
+import type { EngineInterface, PromptDecoration } from "claude-code";
 import { armUndo, disarmUndo, undoArmedAt } from "./arm";
 import { capToast } from "./chain";
 import { cancel, type DraftReader } from "./enhance";
@@ -21,6 +21,10 @@ const enhanced = atom(
 const isUndone = atom(
   { plugin: "prompt-master", key: "isUndone" } as const,
   false,
+);
+const lastDecorations = atom<PromptDecoration[] | null>(
+  { plugin: "prompt-master", key: "lastDecorations" } as const,
+  null,
 );
 
 export { cancel };
@@ -163,7 +167,13 @@ export async function undo($: EngineInterface): Promise<void> {
     return;
   }
   disarmUndo();
-  const filled = await $.prompt.fill({ text: decision.text, mode: "replace" });
+  const isRedo = decision.kind === "redo";
+  const decorations = isRedo ? await read($, lastDecorations) : null;
+  const filled = await $.prompt.fill({
+    text: decision.text,
+    mode: "replace",
+    ...(decorations && { decorations }),
+  });
   if (!filled.isFilled) {
     const cause = filled.refusal ?? "refused";
     $.ui.toast(
@@ -173,7 +183,6 @@ export async function undo($: EngineInterface): Promise<void> {
     );
     return;
   }
-  const isRedo = decision.kind === "redo";
   await update($, isUndone, () => !isRedo);
   $.ui.toast(isRedo ? TOAST_REAPPLIED : TOAST_RESTORED);
 }
@@ -192,6 +201,7 @@ export async function clearHeld($: EngineInterface): Promise<void> {
   await update($, original, () => null);
   await update($, enhanced, () => null);
   await update($, isUndone, () => false);
+  await update($, lastDecorations, () => null);
   await update($, phase, () => "idle");
 }
 

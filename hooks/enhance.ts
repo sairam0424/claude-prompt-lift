@@ -1,5 +1,9 @@
 import { atom, read, update } from "claude-code";
-import type { EngineInterface, StateValue } from "claude-code";
+import type {
+  EngineInterface,
+  PromptDecoration,
+  StateValue,
+} from "claude-code";
 import type { Config } from "./config";
 import { SYSTEM } from "./rules";
 import { postProcess, preGuard, type PostOk } from "./guards";
@@ -50,6 +54,10 @@ export const enhanced = atom(
 export const isUndone = atom(
   { plugin: "prompt-master", key: "isUndone" } as const,
   false,
+);
+export const lastDecorations = atom<PromptDecoration[] | null>(
+  { plugin: "prompt-master", key: "lastDecorations" } as const,
+  null,
 );
 export const model = atom(
   { plugin: "prompt-master", key: "model" } as const,
@@ -326,6 +334,7 @@ async function recordSuccess($: EngineInterface, a: Success): Promise<void> {
   }
   await update($, enhanced, () => a.filledText);
   await update($, isUndone, () => false);
+  await update($, lastDecorations, () => a.post.decorations);
   // A pending Undo confirm referred to the pair this fill replaced (C13).
   disarmUndo();
   await noteRewrite(
