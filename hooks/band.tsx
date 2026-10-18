@@ -4,7 +4,7 @@ import type { LastUsage } from "../types";
 import type { Config } from "./config";
 import { shortModel } from "./config";
 import { costText, formatTokens } from "./chain";
-import { enhance } from "./enhance";
+import { enhance, isCallInFlight } from "./enhance";
 import { cancel, send, undo } from "./actions";
 import { resolveChain } from "./gather";
 
@@ -106,7 +106,11 @@ async function drawRow(
 ): Promise<RenderElement> {
   const { Box, Button, Text } = $.ui.resolve(e);
   const current = await read($, phase);
-  if (current === "running") {
+  // A `running` no call backs is one a dropped environment left (§5.3 resets):
+  // drawn as idle here and reset by the next command; a render never writes.
+  const isRunning = current === "running" && isCallInFlight();
+  const isDone = current === "done";
+  if (isRunning) {
     const running = await read($, runningModel);
     return (
       <Box gap={1}>
@@ -127,7 +131,7 @@ async function drawRow(
       onPress={() => enhance($, cfg, { kind: "box" })}
     />
   );
-  if (current === "idle") {
+  if (!isDone) {
     return (
       <Box gap={1}>
         {enhanceButton}

@@ -3,8 +3,8 @@ import type { CommandRunResult, EngineInterface } from "claude-code";
 import type { Config } from "./config";
 import { decide } from "./chain";
 import { wordDiffLines } from "./diff";
-import { enhance } from "./enhance";
-import { undo } from "./actions";
+import { enhance, isCallInFlight } from "./enhance";
+import { resetStuckPhase, undo } from "./actions";
 import {
   configuredIds,
   errorMessage,
@@ -110,6 +110,8 @@ export async function runCommand(
   cfg: Config,
   rawArgs: string,
 ): Promise<CommandRunResult> {
+  // A `running` no call backs would freeze the band (§5.3 resets): idle first.
+  await resetStuckPhase($, isCallInFlight());
   const args = rawArgs.trim();
   if (args === "") {
     return { text: HINT };

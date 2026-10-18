@@ -25,12 +25,12 @@ import {
   resolveChain,
 } from "./gather";
 import {
+  assessCall,
   attemptsUsd,
   describeAttempt,
-  noteRewrite,
   recordCall,
   recordSpend,
-  type CallRecord,
+  type AnsweredCall,
 } from "./stats";
 import { disarmUndo } from "./arm";
 
@@ -80,19 +80,14 @@ const TOAST_MISSING_PATH =
   "prompt-master: named a file that does not exist, kept your prompt";
 const TOAST_CANCELLED = "prompt-master: cancelled, draft unchanged";
 const TOAST_NO_MODELS = "prompt-master: no models configured";
+const TOAST_RECORD_FAILED =
+  "prompt-master: saved the result, but recording its cost failed";
 
 export type EnhanceSource = { kind: "box" } | { kind: "args"; text: string };
 
 type Phase = StateValue<"prompt-master", "phase">;
 
-type Success = {
-  draft: string;
-  filledText: string;
-  run: ChainOk;
-  post: PostOk;
-  call: CallRecord;
-  relevantCount: number;
-};
+type Success = { run: ChainOk; post: PostOk; call: AnsweredCall };
 
 let busy = false;
 let cancelled = false;
@@ -107,6 +102,14 @@ export function cancel(): void {
   }
   cancelled = true;
   controller.abort();
+}
+
+/**
+ * Whether a press is under way: its controller is set before its first write
+ * and cleared in its `finally`; the band and the resets ask.
+ */
+export function isCallInFlight(): boolean {
+  return controller !== undefined;
 }
 
 export async function enhance(
@@ -142,8 +145,9 @@ export async function enhance(
       await reportFailure($, cfg, run);
       return;
     }
-    // Paid for whatever the rewrite comes to (G5, C19): record it first.
-    const call = await recordCall($, cfg, {
+    // Paid for whatever the rewrite comes to (G5, C19): judged now, written
+    // once the outcome is known — after the pair when the box is filled.
+    const call = await assessCall($, cfg, {
       run,
       staticBlock: prepared.staticBlock,
       relevantCount: prepared.relevantCount,
@@ -159,6 +163,7 @@ export async function enhance(
       documents: prepared.documentsText,
     });
     if (!post.ok) {
+      await recordCall($, call);
       $.ui.toast(withCost("fine" in post ? TOAST_FINE : post.toast, call.usd));
       return;
     }
@@ -172,16 +177,11 @@ export async function enhance(
       usd: call.usd,
     });
     if (filledText === undefined) {
+      await recordCall($, call);
       return;
     }
-    await recordSuccess($, {
-      draft,
-      filledText,
-      run,
-      post,
-      call,
-      relevantCount: prepared.relevantCount,
-    });
+    await holdPair($, { draft, filledText, decorations: post.decorations });
+    await recordSuccess($, { run, post, call });
   } catch (err) {
     // The message is cut where it is composed (R2); capToast makes it one line
     const message = cut(errorMessage(err), ERROR_MAX);
@@ -327,39 +327,57 @@ async function verifyAndFill(
   return filled.text;
 }
 
-/** Step 9: the pair, the last-call record, the phase and the usage toast. */
-async function recordSuccess($: EngineInterface, a: Success): Promise<void> {
+/**
+ * Step 9's first write, right after the fill: the pair Undo restores, held
+ * before anything about the call is recorded (§5.3, §12).
+ */
+async function holdPair(
+  $: EngineInterface,
+  a: { draft: string; filledText: string; decorations: PromptDecoration[] },
+): Promise<void> {
   const previousEnhanced = await read($, enhanced);
   if (previousEnhanced !== a.draft) {
     await update($, original, () => a.draft);
   }
   await update($, enhanced, () => a.filledText);
   await update($, isUndone, () => false);
-  await update($, lastDecorations, () => a.post.decorations);
+  await update($, lastDecorations, () => a.decorations);
   // A pending Undo confirm referred to the pair this fill replaced (C13).
   disarmUndo();
-  await noteRewrite(
-    $,
-    {
-      run: a.run,
-      relevantCount: a.relevantCount,
-      why: a.post.why,
-      addedWords: a.post.addedWords,
-    },
-    a.call,
-  );
+}
+
+/**
+ * Step 9's rest: the call's record, the phase and the toast. The pair is
+ * already held, so a record that fails to write costs the bookkeeping, not
+ * the result: the phase still goes to `done` (Send and Undo stay) and the
+ * toast says so instead of the usage line.
+ */
+async function recordSuccess($: EngineInterface, a: Success): Promise<void> {
+  const toast = await recordOrFail($, a);
   await update($, phase, () => "done");
-  $.ui.toast(
-    capToast(
-      usageText({
-        model: a.run.model,
-        usage: a.run.usage,
-        usd: a.call.usd,
-        why: a.post.why,
-        hashChanged: a.call.hashChanged,
-        attempts: a.run.attempts,
-      }),
-    ),
+  $.ui.toast(toast);
+}
+
+/** The usage line, or the failure line when the record could not be written. */
+async function recordOrFail($: EngineInterface, a: Success): Promise<string> {
+  try {
+    await recordCall($, a.call, a.post);
+  } catch (err) {
+    $.ui.log(
+      `prompt-master: recording the cost failed: ${errorMessage(err)}`,
+      { to: "debug" },
+    );
+    return TOAST_RECORD_FAILED;
+  }
+  return capToast(
+    usageText({
+      model: a.run.model,
+      usage: a.run.usage,
+      usd: a.call.usd,
+      why: a.post.why,
+      hashChanged: a.call.hashChanged,
+      attempts: a.run.attempts,
+    }),
   );
 }
 

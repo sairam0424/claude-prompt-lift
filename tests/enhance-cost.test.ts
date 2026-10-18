@@ -254,8 +254,9 @@ test("an unpriced model shows $? and counts as unpriced, not as $0.00", { option
     ` · 310 out · ${UNPRICED} · added symptom and test`,
   );
   expect(e.toasts[0]).not.toContain("$0");
-  // The call and the rewrite both persist the unknown price as JSON null
-  expect(recorded).toEqual([null, null]);
+  // The one last-call write, made after the fill, persists the unknown price
+  // as JSON null
+  expect(recorded).toEqual([null]);
   expect(status).toContain(
     `last call: ${OPUS} · 6.8k cached · 1.4k in · 310 out · ${UNPRICED} · cache hit`,
   );

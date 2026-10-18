@@ -359,3 +359,17 @@ test("the done row says (no price) after an unpriced press", { options: { models
   expect(e.calls[0]?.model).toBe(OPUS);
   expect(await rowText(ui)).toContain(" · 310 out · $? · (no price) · +");
 });
+
+test("a running phase no call backs draws the idle row", { options: BEDROCK }, async ($, on) => {
+  const e = engine(on);
+  // Every read says `running`, as a phase a dropped environment left would
+  on("state.get", { plugin: "prompt-master", key: "phase" }, () => ({
+    value: { value: "running", version: 0 },
+  }));
+
+  const ui = await mount($);
+
+  expect(await keys(ui)).toEqual(["enhance"]);
+  expect(await rowText(ui)).toBe(idleRowText(FABLE));
+  expect(e.calls).toHaveLength(0);
+});

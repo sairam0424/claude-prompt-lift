@@ -3,6 +3,7 @@ import { parseOptions } from "./config";
 import { cancel, clearHeld, resetStuckPhase } from "./actions";
 import { renderBand } from "./band";
 import { runCommand } from "./commands";
+import { isCallInFlight } from "./enhance";
 
 export { HINT } from "./commands";
 
@@ -16,7 +17,7 @@ export const register: Register = (on, options) => {
         "Enhance the prompt from the project instructions and skills",
       argumentHint: "<text> | undo | model <id> | status | diff | probe",
     });
-    await resetStuckPhase($);
+    await resetStuckPhase($, isCallInFlight());
     return next(e);
   });
 

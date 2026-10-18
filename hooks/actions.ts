@@ -205,8 +205,19 @@ export async function clearHeld($: EngineInterface): Promise<void> {
   await update($, phase, () => "idle");
 }
 
-/** session.start: a phase a dropped environment left at `running`. */
-export async function resetStuckPhase($: EngineInterface): Promise<void> {
+/**
+ * A phase a dropped environment left at `running` goes back to `idle` at
+ * session.start and when a command runs (§5.3 resets). The caller says
+ * whether a call is in flight (enhance.ts owns that; importing it here would
+ * make a cycle): a live call's phase is never reset.
+ */
+export async function resetStuckPhase(
+  $: EngineInterface,
+  isInFlight: boolean,
+): Promise<void> {
+  if (isInFlight) {
+    return;
+  }
   if ((await read($, phase)) === "running") {
     await update($, phase, () => "idle");
   }

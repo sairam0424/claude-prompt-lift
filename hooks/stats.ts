@@ -54,9 +54,20 @@ export const EMPTY_DAY: DayStats = { presses: 0, usd: 0, unpriced: 0 };
 
 /**
  * What an answered call cost (undefined when the model has no price) and
- * whether block 0 differs from the last one.
+ * whether block 0 differs from the last one: the facts the toasts show.
  */
 export type CallRecord = { usd: number | undefined; hashChanged: boolean };
+
+/**
+ * An answered call as `assessCall` judges it and `recordCall` writes it: the
+ * record and what it was judged from.
+ */
+export type AnsweredCall = CallRecord & {
+  run: ChainOk;
+  staticBlock: string;
+  relevantCount: number;
+  hash: string;
+};
 
 /** What `toLastUsage` records beyond the call's own usage. */
 export type CallFacts = {
@@ -65,6 +76,10 @@ export type CallFacts = {
   why: string;
   addedWords: number;
 };
+
+/** What a filled rewrite added; a call that filled nothing has none. */
+export type Rewrite = Pick<CallFacts, "why" | "addedWords">;
+const NO_REWRITE: Rewrite = { why: "", addedWords: 0 };
 
 export function asStats(value: unknown): Stats {
   const byDay = (value as { byDay?: unknown } | null | undefined)?.byDay;
@@ -123,38 +138,45 @@ export async function recordSpend(
 }
 
 /**
- * An answered call, before the rewrite is judged: its dollars, the block-0
- * hash and size, the no-cache streak, the totals, and a last-call record
- * with no rewrite facts yet (`noteRewrite` fills those in on a fill).
+ * An answered call judged before anything is written: its dollars, block 0's
+ * hash, and whether that hash changed. Reads only, so a fill can hold the
+ * pair before `recordCall` writes (§5.3 step 9).
  */
-export async function recordCall(
+export async function assessCall(
   $: EngineInterface,
   cfg: Config,
   a: { run: ChainOk; staticBlock: string; relevantCount: number },
-): Promise<CallRecord> {
+): Promise<AnsweredCall> {
   const usd = estimateUsd(a.run.usage, a.run.model, cfg.prices);
   const hash = hashBlock(a.staticBlock);
   const previousHash = await read($, blockHash);
   const hashChanged = previousHash !== "" && previousHash !== hash;
-  const facts: CallFacts = { ...a, why: "", addedWords: 0 };
-  await update($, lastUsage, () => toLastUsage(facts, usd, hashChanged));
-  await update($, blockHash, () => hash);
-  await update($, staticChars, () => a.staticBlock.length);
-  const uncached = isUncached(a.run.usage);
-  await update($, noCacheStreak, (n) => (uncached ? n + 1 : 0));
-  await recordSpend($, usd);
-  return { usd, hashChanged };
+  return { ...a, usd, hash, hashChanged };
 }
 
-/** The last-call record once a rewrite was filled: its why and added words. */
-export async function noteRewrite(
+/**
+ * The writes for an answered call, whatever the rewrite came to: the
+ * last-call record (with the rewrite's why and added words once it was
+ * filled), the block-0 hash and size, the no-cache streak, and the totals.
+ */
+export async function recordCall(
   $: EngineInterface,
-  facts: CallFacts,
-  call: CallRecord,
+  call: AnsweredCall,
+  rewrite: Rewrite = NO_REWRITE,
 ): Promise<void> {
+  const facts: CallFacts = {
+    run: call.run,
+    relevantCount: call.relevantCount,
+    ...rewrite,
+  };
   await update($, lastUsage, () =>
     toLastUsage(facts, call.usd, call.hashChanged),
   );
+  await update($, blockHash, () => call.hash);
+  await update($, staticChars, () => call.staticBlock.length);
+  const uncached = isUncached(call.run.usage);
+  await update($, noCacheStreak, (n) => (uncached ? n + 1 : 0));
+  await recordSpend($, call.usd);
 }
 
 /**
