@@ -64,6 +64,25 @@ The original is kept until you submit or `/clear`. Undo acts only when the box s
 
 A sub-word is recognised only when it is the whole argument (any case): `/prompt-lift diff the two configs and explain` is a draft to enhance, not the diff. `model` takes exactly one token; `model the auth flow as a state machine` is a draft too.
 
+### Keyboard
+
+The band buttons take hotkeys only while the band has focus. Press `ctrl+x tab` to focus the band, then `e` for Enhance, `s` for Send, `u` for Undo, or `c` for Cancel.
+
+From the prompt (without focusing the band first), `ctrl+x b` presses Enhance because the Enhance button carries the engine action `app:cycleDiffBase`. This chord works while the diff panel is closed; with the panel open, it cycles the diff base as the action normally does.
+
+A single-key binding is possible through Claude Code's own keybindings file, `~/.claude/keybindings.json` (the `/keybindings` command creates it; changes apply without a restart). Add this block inside the top-level `bindings` array:
+
+```json
+{
+  "context": "Global",
+  "bindings": {
+    "ctrl+e": "app:cycleDiffBase"
+  }
+}
+```
+
+This binds ctrl+e to the same action, which presses Enhance whenever the band is drawn. With the band hidden or the diff panel open, ctrl+e cycles the diff base. Pick a key no other binding in your file uses.
+
 ## What is sent to the model
 
 - The instruction files Claude Code loaded for the session: Project, Local, Managed and `~/.claude/rules/*`. Not the auto-memory index. Not `~/.claude/CLAUDE.md` or `~/CLAUDE.md` by default (`instructionExclude`).
@@ -78,6 +97,27 @@ A sub-word is recognised only when it is the whole argument (any case): `/prompt
 - The draft. Never your conversation unless `includeConversation` is on.
 
 The instructions and skill names form one cached block, so a second press within five minutes reads it from the cache.
+
+## Data handling
+
+Outbound data leaves this machine only through `$.model.complete`, called with your own Claude Code model access (Bedrock, API key, or subscription, whichever the session uses). The call carries:
+
+- Your draft
+- The instruction files the session loaded: Project, Local, Managed, and `~/.claude/rules/*`. Not the auto-memory index. Not `~/.claude/CLAUDE.md` or `~/CLAUDE.md` by default.
+- The skill names Claude lists (minus `skillExclude`)
+- Up to eight matched skill descriptions
+- A named subproject's `CLAUDE.md` when the draft mentions a top-level directory of the project that has one
+- The recent conversation only when `includeConversation` is on
+
+The mod reads files through `$.fs.read`, `$.fs.exists`, and `$.fs.list`, accessing only those instruction files and a top-level directory's `CLAUDE.md` under the project root. `$.env.get` reads only `HOME`. Session facts come from `$.session.usage`, `$.session.messages`, `$.session.model`, `$.session.root`, and `$.command.list`.
+
+Writes happen through `$.prompt.fill` (which writes the prompt box) and `$.prompt.submit` (which sends only when you press Send or run `/prompt-lift send`). Nothing is sent on a timer or while you type.
+
+Persistence is local to this machine: `$.state` holds the session's held pair, phase, last usage, and model choice; `$.store` holds the per-day press and cost rows, the chosen model, and the static-block hash.
+
+The mod uses no `$.http.fetch`, no `$.process.run`, no clipboard access, no telemetry, no analytics, and no file writes.
+
+Hooks: `session.start`, `session.end`, `classic.SessionStart{clear|resume|fork}` (a passthrough observer that clears the held pair on `/clear`), `prompt.submit` (a passthrough observer that forgets the held pair), `ui.render{AbovePrompt}`, `command.run{prompt-lift}`.
 
 ## Configuration
 

@@ -5,6 +5,10 @@
   "author": {
     "name": "Sairam Ugge"
   },
+  "homepage": "https://github.com/sairam0424/claude-prompt-lift",
+  "repository": "https://github.com/sairam0424/claude-prompt-lift",
+  "license": "MIT",
+  "keywords": ["claude-code-mod", "prompt", "enhance", "band"],
   "types": "./types/index.d.ts",
   "userConfig": {
     "models": {
