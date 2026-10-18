@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `prices` configuration option to override the built-in price table with custom per-model pricing
 - Typed chain requests and `scripts/typecheck.sh` for static type checking
-- Day-key stats tracking in local time
 - Unpriced models show `$?` and `(no price)` in status output with `unpriced calls: N` counter
 - Comprehensive test coverage for stats, guards, highlighting, and cost recording
 
@@ -30,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cap the undo refusal toast to prevent overflow
 - Record every paid call's cost, including those in the failure path
 - A press that fell back to a later rung is priced by every rung it paid for, not the answering rung alone (toast, `status`, session and day totals)
-- Path guard checks only file-looking tokens, avoiding false positives on prose like `CI/CD`
+- Day-key stats tracking in local time
 
 ## [0.2.0] - 2026-10-17
 

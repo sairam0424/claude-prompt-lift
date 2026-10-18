@@ -132,7 +132,7 @@
     "prices": {
       "type": "string",
       "title": "Prices",
-      "description": "JSON map of model id fragment to per-1M-token prices {\"<key>\": {\"input\",\"output\",\"cacheWrite\",\"cacheRead\"}} merged over the built-in table; invalid JSON is ignored with a log line",
+      "description": "JSON string: map of model id fragment to per-1M-token prices {\"<key>\": {\"input\",\"output\",\"cacheWrite\",\"cacheRead\"}} merged over the built-in table; invalid JSON is ignored with a log line",
       "default": ""
     }
   }

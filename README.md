@@ -33,7 +33,7 @@ Then, in a session:
 
 1. `/reload-plugins` (or start a new one)
 2. `/prompt-master probe` — one line per model; `ok` means your account can call it
-3. Type a draft like "write a commit" and press Enhance — the done row should show ≥ 1 skill matched
+3. Type a draft like "write a commit" and press Enhance — the done row shows the number of skill descriptions matched into the dynamic block (≥ 1 when a commit skill such as commit-commands:commit is installed; 0 is correct otherwise)
 4. If a model shows `refused`, set `models` to the rungs your account has (see Configuration)
 
 ## Using it
@@ -156,7 +156,7 @@ The built-in price table can be overridden with the `prices` configuration optio
 "prices": "{\"fable-5-1\": {\"input\": 10, \"output\": 50, \"cacheWrite\": 12.5, \"cacheRead\": 0.25}}"
 ```
 
-Each key is a model id fragment (`priceFor` matches an alias whole and a full id by substring) and replaces the built-in row of the same name wholesale. Invalid JSON or a malformed entry leaves the whole table at its defaults and logs `prompt-master: prices option ignored: <reason>` once at session start. A bare object, or any other non-string value, never reaches the plugin: Claude Code checks the option's declared type before loading it and refuses with `Prices must be a string`.
+Each key is a model id fragment (`priceFor` matches an alias whole and a full id by substring) and replaces the built-in row of the same name wholesale. Invalid JSON or a malformed entry leaves the whole table at its defaults and logs `prompt-master: prices option ignored: <reason>` once at session start. Claude Code validates plugin options against the manifest before the hooks module loads, so any non-string `prices` value is refused at load (a number produces `Prices must be a string`; an object is refused at the options boundary) and never reaches the mod.
 
 Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 - Fable: ≈ $0.13 cold / ≈ $0.04 warm
