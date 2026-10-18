@@ -108,6 +108,11 @@ export type EngineOptions = {
   fill?: FillRefusal;
   /** Make `session.messages` reject for this reason: enhance's failure path. */
   denyMessages?: string;
+  /**
+   * Make `store.set` of this key reject for this reason: the path where a
+   * stats write fails.
+   */
+  denyStoreSet?: { key: string; reason: string };
   /** Make `prompt.submit` refuse with this reason instead of taking the text. */
   drop?: string;
   /** Runs once the stub took a submit, before it answers: a person typing on. */
@@ -301,6 +306,10 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
   );
   on("store.get", ($, e) => ({ value: store[e.key] }));
   on("store.set", ($, e) => {
+    const denied = opts.denyStoreSet;
+    if (denied !== undefined && denied.key === e.key) {
+      return { deny: denied.reason };
+    }
     store[e.key] = e.value;
     return { value: undefined };
   });
@@ -341,5 +350,30 @@ export function improve(prompt: string): string {
     prompt,
     why: "test",
     applied: [],
+  });
+}
+
+/**
+ * Every write of one prompt-master state key, in order. The matcher narrows
+ * `e` per key literal, so a key held in a variable takes the cast.
+ */
+export function watch(on: On, key: string): unknown[] {
+  const values: unknown[] = [];
+  on("state.set", { plugin: "prompt-master", key } as never, ($, ev, next) => {
+    values.push(ev.value);
+    return next(ev);
+  });
+  return values;
+}
+
+/** Answers the next read of the phase with `value`, then steps aside. */
+export function phaseOnce(on: On, value: string): void {
+  let isPending = true;
+  on("state.get", { plugin: "prompt-master", key: "phase" }, ($, ev, next) => {
+    if (!isPending) {
+      return next(ev);
+    }
+    isPending = false;
+    return { value: { value, version: 0 } };
   });
 }

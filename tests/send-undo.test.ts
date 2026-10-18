@@ -1,9 +1,11 @@
 import { expect, test } from "claude-code/testing";
 import type { Engine as Harness } from "claude-code/testing";
-import type { ModelCompleteResult, On } from "claude-code";
+import type { ModelCompleteResult } from "claude-code";
 import {
   answered,
   engine,
+  phaseOnce,
+  watch,
   BETTER,
   DRAFT,
   GOOD,
@@ -65,21 +67,6 @@ function improve(prompt: string): string {
   });
 }
 
-type HeldKey = "phase" | "original" | "enhanced" | "isUndone";
-
-/**
- * Every write of one prompt-master state key, in order. The matcher narrows
- * `e` per key literal, so a key held in a variable takes the cast.
- */
-function watch(on: On, key: HeldKey): unknown[] {
-  const values: unknown[] = [];
-  on("state.set", { plugin: "prompt-master", key } as never, ($, ev, next) => {
-    values.push(ev.value);
-    return next(ev);
-  });
-  return values;
-}
-
 function sendIo($: Harness): SendIo {
   return $ as unknown as SendIo;
 }
@@ -90,18 +77,6 @@ function boxOf(e: Engine): DraftReader {
       read: async () => ({ text: e.box.text, cursor: e.box.text.length }),
     },
   };
-}
-
-/** Answers the next read of the phase with `value`, then steps aside. */
-function phaseOnce(on: On, value: string): void {
-  let isPending = true;
-  on("state.get", { plugin: "prompt-master", key: "phase" }, ($, ev, next) => {
-    if (!isPending) {
-      return next(ev);
-    }
-    isPending = false;
-    return { value: { value, version: 0 } };
-  });
 }
 
 // --- Send ---
