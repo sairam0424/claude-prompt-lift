@@ -2,7 +2,7 @@ import { atom, read, update } from "claude-code";
 import type { EngineInterface, ModelUsage } from "claude-code";
 import type { LastUsage } from "../types";
 import type { Config, Price } from "./config";
-import { estimateUsd, shortModel } from "./config";
+import { estimateUsd, priceFor, shortModel } from "./config";
 import type { Attempt, ChainOk } from "./chain";
 import { hashBlock } from "./context";
 import { errorMessage } from "./gather";
@@ -54,8 +54,9 @@ export const STATS_STORE_KEY = "stats";
 export const EMPTY_DAY: DayStats = { presses: 0, usd: 0, unpriced: 0 };
 
 /**
- * What an answered call cost (undefined when the model has no price) and
- * whether block 0 differs from the last one: the facts the toasts show.
+ * What an answered press cost (every rung it paid for, see `callUsd`;
+ * undefined when the answering model has no price) and whether block 0
+ * differs from the last one: the facts the toasts show.
  */
 export type CallRecord = { usd: number | undefined; hashChanged: boolean };
 
@@ -151,7 +152,7 @@ export async function assessCall(
   cfg: Config,
   a: { run: ChainOk; staticBlock: string; relevantCount: number },
 ): Promise<AnsweredCall> {
-  const usd = estimateUsd(a.run.usage, a.run.model, cfg.prices);
+  const usd = callUsd(a.run, cfg.prices);
   const hash = hashBlock(a.staticBlock);
   const previousHash = await read($, blockHash);
   const hashChanged = previousHash !== "" && previousHash !== hash;
@@ -206,6 +207,25 @@ export async function recordOrLog(
 }
 
 /**
+ * What an answered press cost: every rung the chain paid for, the failed
+ * ones before the answer included (G5; spec §15: a fallback after Fable's
+ * cold write costs both models' cold writes). The answering rung is the last
+ * of `attempts`, so its own cost is in the sum; a failed rung with no price
+ * adds nothing, as in a failed chain (ruled). Undefined when the answering
+ * model has no price (R3): a total with an unknown part is unknown, and reads
+ * `$?` rather than the part.
+ */
+export function callUsd(
+  run: ChainOk,
+  prices: Readonly<Record<string, Price>>,
+): number | undefined {
+  if (priceFor(run.model, prices) === undefined) {
+    return undefined;
+  }
+  return attemptsUsd(run.attempts, prices);
+}
+
+/**
  * What a chain that answered nothing still paid: each priced rung at its own
  * price; undefined when no rung had one (R3).
  */
@@ -239,6 +259,7 @@ export function toLastUsage(
   usd: number | undefined,
   hashChanged: boolean,
 ): LastUsage {
+  // The token columns are the answering rung's; `usd` is the whole press's
   const usage = a.run.usage;
   return {
     model: a.run.model,

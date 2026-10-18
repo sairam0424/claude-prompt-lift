@@ -109,6 +109,44 @@ test("a chain that fails after a paid rung records the spend", async ($, on) => 
   expect(e.toasts[0]?.endsWith(` · ${COST}`)).toBe(true);
 });
 
+test(
+  "a fallback press costs every rung: the failed Fable call plus the answer",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on, {
+      replies: [
+        { isAnswered: false, reason: "empty-reply", usage: USAGE },
+        answered(GOOD),
+      ],
+    });
+
+    await press($, DRAFT);
+    const status = ((await press($, "status")) as { text: string }).text;
+
+    // Spec §15: a fallback pays both rungs; the answer alone would read $0.007
+    const fable = estimateUsd(USAGE, FABLE, DEFAULT_PRICES) ?? 0;
+    const sonnet = estimateUsd(USAGE, SONNET, DEFAULT_PRICES) ?? 0;
+    const both = formatDollars(fable + sonnet);
+    expect(e.calls.map((c) => c.model)).toEqual([FABLE, SONNET]);
+    expect(e.box.text).toBe(BETTER);
+    expect(e.toasts).toHaveLength(1);
+    expect(e.toasts[0]).toContain(
+      `sonnet 5.5 · 6.8k cached · 1.4k in · 310 out · ${both} · added symptom and test`,
+    );
+    expect(e.toasts[0]).toContain(
+      " · via fable 5.1: no text (possible refusal)",
+    );
+    expect(e.toasts[0]).not.toContain(formatDollars(sonnet));
+    expect(status).toContain(
+      `last call: sonnet 5.5 · 6.8k cached · 1.4k in · 310 out · ${both}`,
+    );
+    expect(status).toContain(`session: 1 press · ${both}`);
+    expect(status).toContain(`today: 1 press · ${both}`);
+    const day = (e.store.stats as Stats).byDay[TODAY];
+    expect(Math.abs((day?.usd ?? 0) - (fable + sonnet))).toBeLessThan(1e-9);
+  },
+);
+
 test("a fine verdict toasts and does not fill", async ($, on) => {
   const e = engine(on, {
     replies: [answered(JSON.stringify({ verdict: "fine" }))],

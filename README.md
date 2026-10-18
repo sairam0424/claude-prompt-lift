@@ -157,7 +157,7 @@ Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 - Sonnet: ≈ $0.027 / ≈ $0.009
 - Haiku: ≈ $0.0015 / ≈ $0.0006
 
-The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars — a successful rewrite, `already specific, left as is`, every refusal, and a chain that failed after a paid rung — and `status` counts them all (a refused press cost the same as an accepted one). `/prompt-master model haiku` switches to Haiku.
+The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars — a successful rewrite, `already specific, left as is`, every refusal, and a chain that failed after a paid rung — and `status` counts them all (a refused press cost the same as an accepted one). A press that fell back to a later rung is priced by every rung it paid for: `via fable 5.1: no text` on the toast means Fable's tokens are in the dollars too, not only the answering model's. `/prompt-master model haiku` switches to Haiku.
 
 ## Why was my draft refused?
 

@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - True highlight offsets for insertion runs; Redo now re-applies highlights correctly
 - Cap the undo refusal toast to prevent overflow
 - Record every paid call's cost, including those in the failure path
+- A press that fell back to a later rung is priced by every rung it paid for, not the answering rung alone (toast, `status`, session and day totals)
 - Path guard checks only file-looking tokens, avoiding false positives on prose like `CI/CD`
 
 ## [0.2.0] - 2026-10-17
