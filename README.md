@@ -199,6 +199,7 @@ After the call (the toast ends with what the call cost):
 
 ## Limits
 
+- **One band above the prompt, shared by every mod.** The engine draws the above-prompt band once; hooks run in the order of `enabledPlugins` in `~/.claude/settings.json` (earlier = outer). prompt-master always passes the band through and stacks its row above whatever the mods beneath draw, but a mod listed *before* it that draws without passing through (the playground `token-weather` does) hides prompt-master's row entirely: no buttons, no `ctrl+x b`, only the `/prompt-master …` commands. Fix: move the `prompt-master@claude-prompt-master` line above that mod's line in `enabledPlugins`, then `/reload-plugins` (or restart). `/prompt-master status` still works while the band is hidden.
 - Terminal only (no desktop footer, no VS Code)
 - No timers, no per-keystroke hooks
 - One band row
