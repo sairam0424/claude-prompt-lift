@@ -351,6 +351,32 @@ test("static block changed toast baseline: first press does not show it", async 
   expect(e.toasts[0]).not.toContain("static block changed");
 });
 
+test("static block changed toast when memory differs between presses", async ($, on) => {
+  // Pass a mutable array so the engine's session.usage hook returns the same
+  // reference; mutating it between presses changes what memoryFiles the mod
+  // sees, which changes the static block hash.
+  const mutableMemory: Array<{ path: string; type: string; tokens: number }> = [
+    { path: PROJECT_FILE, type: "Project", tokens: 100 },
+  ];
+
+  const e = engine(on, {
+    replies: [answered(GOOD), answered(GOOD)],
+    memoryFiles: mutableMemory,
+  });
+
+  await press($, DRAFT);
+  expect(e.toasts[0]).not.toContain("static block changed");
+
+  // Mutate the array to add a second file; the next press sees different content
+  mutableMemory.push({ path: RULES_FILE, type: "User", tokens: 50 });
+
+  e.box.text = "";
+  await press($, DRAFT_2);
+
+  expect(e.toasts).toHaveLength(2);
+  expect(e.toasts[1]).toContain(" · static block changed");
+});
+
 test("a reply-token draft of 12+ words reaches the model", async ($, on) => {
   // Spec §5.4 (R1): reply prefix guard applies only below 12 words.
   // An 11-word draft starting with "no" is refused; a 12-word one is not.
