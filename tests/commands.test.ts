@@ -19,6 +19,7 @@ import { wordDiffLines } from "../hooks/diff";
 import { parseModelArg, probeText } from "../hooks/commands";
 import { matchRungs } from "../hooks/gather";
 import { statusText, type StatusInput } from "../hooks/status";
+import type { LastUsage } from "../types";
 import { HINT } from "../hooks/register";
 
 // The sub-words of /prompt-lift beyond <text> and undo (spec §5.2, C18):
@@ -280,25 +281,22 @@ test("statusText lays the lines out", () => {
       `instruction files excluded: ${MEMORY_FILE} (6000 tokens)`,
     ].join("\n"),
   );
+  const call = (patch: Partial<LastUsage>) =>
+    statusText({ ...a, last: { ...a.last!, ...patch } });
   expect(
     statusText({ ...a, last: null, included: [], excluded: [] }),
   ).toContain("last call: none yet");
-  expect(
-    statusText({
-      ...a,
-      last: { ...a.last!, cached: 0, written: 900, hashChanged: false },
-    }),
-  ).toContain("cache written · static block unchanged");
-  expect(
-    statusText({ ...a, last: { ...a.last!, cached: 0, written: 0 } }),
-  ).toContain("cache miss");
+  expect(call({ cached: 0, written: 900, hashChanged: false })).toContain(
+    "cache written · static block unchanged",
+  );
+  expect(call({ cached: 0, written: 0 })).toContain("cache miss");
   // R3: unpriced calls are named only when there were some
   expect(
     statusText({ ...a, session: { ...a.session, unpriced: 3 } }),
   ).toContain(
     "session: 2 presses · $0.08 · unpriced calls: 3\ntoday: 5 presses · $0.20\n",
   );
-  expect(statusText({ ...a, last: { ...a.last!, usd: null } })).toContain(
+  expect(call({ usd: null })).toContain(
     "last call: fable 5.1 · 6.8k cached · 1.4k in · 310 out · $? · (no price) · cache hit",
   );
 });
