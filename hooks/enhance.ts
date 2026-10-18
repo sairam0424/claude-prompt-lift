@@ -1,9 +1,5 @@
 import { atom, read, update } from "claude-code";
-import type {
-  EngineInterface,
-  PromptDecoration,
-  StateValue,
-} from "claude-code";
+import type { EngineInterface, StateValue } from "claude-code";
 import type { Config } from "./config";
 import { SYSTEM } from "./rules";
 import { postProcess, preGuard, type PostOk } from "./guards";
@@ -13,7 +9,6 @@ import {
   costText,
   cut,
   runChain,
-  usageText,
   ERROR_MAX,
   type ChainFail,
   type ChainOk,
@@ -33,32 +28,16 @@ import {
   recordSpend,
   type AnsweredCall,
 } from "./stats";
-import { disarmUndo } from "./arm";
+import { holdPair, recordSuccess } from "./record";
 
 // The Enhance flow (spec §5.3 steps 1–9) and the session state it writes.
 // Every atom this file reads or writes is declared here (the usage atoms live
-// in stats.ts): `read` and `update` only validate against an atom made in the
-// file that calls them.
+// in stats.ts, the held pair's in record.ts): `read` and `update` only
+// validate against an atom made in the file that calls them.
 
 export const phase = atom(
   { plugin: "prompt-master", key: "phase" } as const,
   "idle",
-);
-export const original = atom(
-  { plugin: "prompt-master", key: "original" } as const,
-  null,
-);
-export const enhanced = atom(
-  { plugin: "prompt-master", key: "enhanced" } as const,
-  null,
-);
-export const isUndone = atom(
-  { plugin: "prompt-master", key: "isUndone" } as const,
-  false,
-);
-export const lastDecorations = atom(
-  { plugin: "prompt-master", key: "lastDecorations" } as const,
-  null,
 );
 export const model = atom(
   { plugin: "prompt-master", key: "model" } as const,
@@ -82,14 +61,10 @@ const TOAST_MISSING_PATH =
 const TOAST_CANCELLED = "prompt-master: cancelled, draft unchanged";
 const TOAST_NO_MODELS = "prompt-master: no models configured";
 const TOAST_NOT_TAKEN = "prompt-master: the prompt box did not take the text";
-const TOAST_RECORD_FAILED =
-  "prompt-master: saved the result, but recording its cost failed";
 
 export type EnhanceSource = { kind: "box" } | { kind: "args"; text: string };
 
 type Phase = StateValue<"prompt-master", "phase">;
-
-type Success = { run: ChainOk; post: PostOk; call: AnsweredCall };
 
 let busy = false;
 let cancelled = false;
@@ -331,53 +306,6 @@ async function verifyAndFill(
     return undefined;
   }
   return filled.text;
-}
-
-/**
- * Step 9's first write, right after the fill: the pair Undo restores, held
- * before anything about the call is recorded (§5.3, §12).
- */
-async function holdPair(
-  $: EngineInterface,
-  a: { draft: string; filledText: string; decorations: PromptDecoration[] },
-): Promise<void> {
-  const previousEnhanced = await read($, enhanced);
-  if (previousEnhanced !== a.draft) {
-    await update($, original, () => a.draft);
-  }
-  await update($, enhanced, () => a.filledText);
-  await update($, isUndone, () => false);
-  await update($, lastDecorations, () => a.decorations);
-  // A pending Undo confirm referred to the pair this fill replaced (C13).
-  disarmUndo();
-}
-
-/**
- * Step 9's rest: record, phase, toast. The pair is already held, so a record
- * that fails costs the bookkeeping, not the result: the phase still goes to
- * `done` (Send and Undo stay) and the toast says so, not the usage line.
- */
-async function recordSuccess($: EngineInterface, a: Success): Promise<void> {
-  const toast = await recordOrFail($, a);
-  await update($, phase, () => "done");
-  $.ui.toast(toast);
-}
-
-/** The usage line, or the failure line when the record could not be written. */
-async function recordOrFail($: EngineInterface, a: Success): Promise<string> {
-  if (!(await recordOrLog($, a.call, a.post))) {
-    return TOAST_RECORD_FAILED;
-  }
-  return capToast(
-    usageText({
-      model: a.run.model,
-      usage: a.run.usage,
-      usd: a.call.usd,
-      why: a.post.why,
-      hashChanged: a.call.hashChanged,
-      attempts: a.run.attempts,
-    }),
-  );
 }
 
 /**
