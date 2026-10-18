@@ -27,24 +27,24 @@ import type { DraftReader } from "../hooks/enhance";
 //
 // The split: a test's `$` carries the engine nouns alone (no state, no
 // `prompt.read`), so `send` and `undo` as wholes run only with the mod's own
-// `$`. Undo runs end to end through `/prompt-master undo`; Send's submit step
+// `$`. Undo runs end to end through `/prompt-lift undo`; Send's submit step
 // (`submitDraft`) takes the prompt noun and a stub box and runs against the
 // stub engine, its refusal (`sendRefusal`) is pure; the state Send then clears
 // is `clearHeld`, covered by the composer, classic and session tests. The
 // plugin loads in an environment of its own, so a `cancel()` the test imports
 // is another instance: Cancel runs through `session.end`, which calls it.
 
-const COMMAND = "prompt-master";
+const COMMAND = "prompt-lift";
 const EDITED = `${BETTER} and also the logout path`;
 const BETTER_2 = `${BETTER} Keep the fix to src/auth.ts.`;
 const ENTER_TOAST =
-  "prompt-master: press Enter to send; @files and images only travel with Enter";
+  "prompt-lift: press Enter to send; @files and images only travel with Enter";
 const ARM_TOAST =
-  "prompt-master: box edited since Enhance; press Undo again within 10 s to discard";
-const RESTORED = "prompt-master: restored your draft";
-const REAPPLIED = "prompt-master: re-applied the enhanced prompt";
-const NOTHING_TO_UNDO = "prompt-master: nothing to undo";
-const CANCELLED = "prompt-master: cancelled, draft unchanged · $0.000";
+  "prompt-lift: box edited since Enhance; press Undo again within 10 s to discard";
+const RESTORED = "prompt-lift: restored your draft";
+const REAPPLIED = "prompt-lift: re-applied the enhanced prompt";
+const NOTHING_TO_UNDO = "prompt-lift: nothing to undo";
+const CANCELLED = "prompt-lift: cancelled, draft unchanged · $0.000";
 const ABORTED: ModelCompleteResult = {
   isAnswered: false,
   reason: "aborted",
@@ -85,8 +85,8 @@ test("Send refuses @file and image drafts", () => {
 });
 
 test("Send with an empty box toasts", () => {
-  expect(sendRefusal("")).toBe("prompt-master: nothing to send");
-  expect(sendRefusal("  \n")).toBe("prompt-master: nothing to send");
+  expect(sendRefusal("")).toBe("prompt-lift: nothing to send");
+  expect(sendRefusal("  \n")).toBe("prompt-lift: nothing to send");
 });
 
 test("submitDraft submits the box as the user and clears it", async ($, on) => {
@@ -114,7 +114,7 @@ test("submitDraft refuses without submitting", async ($, on) => {
   e.box.text = "";
   expect(await submitDraft(sendIo($), boxOf(e))).toEqual({
     outcome: "refused",
-    toast: "prompt-master: nothing to send",
+    toast: "prompt-lift: nothing to send",
   });
 
   expect(e.submits).toHaveLength(0);

@@ -12,7 +12,7 @@ export const register: Register = (on, options) => {
 
   on("session.start", async ($, e, next) => {
     await $.command.register({
-      name: "prompt-master",
+      name: "prompt-lift",
       description:
         "Enhance the prompt from the project instructions and skills",
       argumentHint: "<text> | undo | model <id> | status | diff | probe",
@@ -64,7 +64,7 @@ export const register: Register = (on, options) => {
     renderBand($, e, next, cfg),
   );
 
-  on("command.run", { command: "prompt-master" }, ($, e) =>
+  on("command.run", { command: "prompt-lift" }, ($, e) =>
     runCommand($, cfg, e.args),
   );
 };

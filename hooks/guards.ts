@@ -237,13 +237,13 @@ export function postProcess(a: {
   if (isTruncated(a.outputTokens, a.cfg.maxTokens, result)) {
     return {
       ok: false,
-      toast: "prompt-master: reply hit the token cap, kept your prompt",
+      toast: "prompt-lift: reply hit the token cap, kept your prompt",
     };
   }
 
   // Step 5: Empty?
   if (result.trim().length === 0) {
-    return { ok: false, toast: "prompt-master: the model returned nothing" };
+    return { ok: false, toast: "prompt-lift: the model returned nothing" };
   }
 
   // Step 6: Growth (chars AND sentences)
@@ -251,7 +251,7 @@ export function postProcess(a: {
   if (result.length > allowed) {
     return {
       ok: false,
-      toast: "prompt-master: rewrite too long, kept your prompt",
+      toast: "prompt-lift: rewrite too long, kept your prompt",
     };
   }
 
@@ -260,7 +260,7 @@ export function postProcess(a: {
   if (resultSentences > draftSentences + 3) {
     return {
       ok: false,
-      toast: "prompt-master: rewrite too long, kept your prompt",
+      toast: "prompt-lift: rewrite too long, kept your prompt",
     };
   }
 
@@ -269,7 +269,7 @@ export function postProcess(a: {
   if (share < a.cfg.keptShareFloor) {
     return {
       ok: false,
-      toast: "prompt-master: rewrite dropped too much of your prompt, kept it",
+      toast: "prompt-lift: rewrite dropped too much of your prompt, kept it",
     };
   }
 
@@ -279,13 +279,13 @@ export function postProcess(a: {
   if (draftClass === "info" && resultClass === "action") {
     return {
       ok: false,
-      toast: "prompt-master: changed a question into a task, kept your prompt",
+      toast: "prompt-lift: changed a question into a task, kept your prompt",
     };
   }
   if (draftClass === "action" && resultClass === "info") {
     return {
       ok: false,
-      toast: "prompt-master: changed a task into a question, kept your prompt",
+      toast: "prompt-lift: changed a task into a question, kept your prompt",
     };
   }
 
@@ -296,7 +296,7 @@ export function postProcess(a: {
       return {
         ok: false,
         toast:
-          "prompt-master: lost a file or code reference from your draft, kept it",
+          "prompt-lift: lost a file or code reference from your draft, kept it",
       };
     }
   }
@@ -308,7 +308,7 @@ export function postProcess(a: {
     return {
       ok: false,
       toast:
-        "prompt-master: added a command or link you did not write, kept your prompt",
+        "prompt-lift: added a command or link you did not write, kept your prompt",
     };
   }
 
@@ -320,7 +320,7 @@ export function postProcess(a: {
     return {
       ok: false,
       toast:
-        "prompt-master: rewrite starts with a command prefix, kept your prompt",
+        "prompt-lift: rewrite starts with a command prefix, kept your prompt",
     };
   }
 

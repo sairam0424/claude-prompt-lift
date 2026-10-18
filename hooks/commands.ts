@@ -22,20 +22,20 @@ import { status } from "./status";
 // The atoms are declared here as well as in enhance.ts: `read` and `update`
 // validate against an atom made in the calling file.
 
-const model = atom({ plugin: "prompt-master", key: "model" } as const, "");
+const model = atom({ plugin: "prompt-lift", key: "model" } as const, "");
 const original = atom(
-  { plugin: "prompt-master", key: "original" } as const,
+  { plugin: "prompt-lift", key: "original" } as const,
   null,
 );
 const enhanced = atom(
-  { plugin: "prompt-master", key: "enhanced" } as const,
+  { plugin: "prompt-lift", key: "enhanced" } as const,
   null,
 );
 
 export const HINT =
-  "prompt-master: type /prompt-master <your prompt>, press ctrl+x b, or click Enhance";
-const MODEL_USAGE = "use /prompt-master model <id|alias|reset>";
-const NOTHING_TO_DIFF = "prompt-master: nothing to diff";
+  "prompt-lift: type /prompt-lift <your prompt>, press ctrl+x b, or click Enhance";
+const MODEL_USAGE = "use /prompt-lift model <id|alias|reset>";
+const NOTHING_TO_DIFF = "prompt-lift: nothing to diff";
 const PROBE_PROMPT = "ping";
 const PROBE_MAX_TOKENS = 8;
 // A full model id as every Claude surface spells one: `claude-…` after an
@@ -56,7 +56,7 @@ export type ParseModelResult =
   | { kind: "not-a-model-command" };
 
 /**
- * Parse a `/prompt-master` command to check if it's a model command.
+ * Parse a `/prompt-lift` command to check if it's a model command.
  * Rules:
  * - First token must be "model"
  * - Exactly one further token → set/reset/invalid
@@ -76,7 +76,7 @@ export function parseModelArg(args: string): ParseModelResult {
   if (tokens.length === 1) {
     return {
       kind: "invalid",
-      reason: "prompt-master: usage: /prompt-master model <id|alias|reset>",
+      reason: "prompt-lift: usage: /prompt-lift model <id|alias|reset>",
     };
   }
 
@@ -101,7 +101,7 @@ export function parseModelArg(args: string): ParseModelResult {
   // Invalid token
   return {
     kind: "invalid",
-    reason: `prompt-master: "${token}" is not a model id or alias`,
+    reason: `prompt-lift: "${token}" is not a model id or alias`,
   };
 }
 
@@ -173,7 +173,7 @@ async function chooseModel(
 ): Promise<string> {
   if (choice === "") {
     const chain = await resolveChain($, cfg);
-    return `prompt-master: first rung ${chain[0] ?? "none"} · ${MODEL_USAGE}`;
+    return `prompt-lift: first rung ${chain[0] ?? "none"} · ${MODEL_USAGE}`;
   }
   if (choice.toLowerCase() === "reset") {
     await $.store.delete(MODEL_STORE_KEY);
@@ -182,12 +182,12 @@ async function chooseModel(
   const ids = await configuredIds($, cfg);
   const matched = matchRungs(choice, ids);
   if (matched.length > 1) {
-    return `prompt-master: ${choice} names several rungs (${matched.join(", ")}) · ${MODEL_USAGE}`;
+    return `prompt-lift: ${choice} names several rungs (${matched.join(", ")}) · ${MODEL_USAGE}`;
   }
   const pinned =
     matched[0] ?? (MODEL_ID_PATTERN.test(choice) ? choice : undefined);
   if (pinned === undefined) {
-    return `prompt-master: ${choice} is neither a rung of ${ids.join(" → ")} nor a full model id · ${MODEL_USAGE}`;
+    return `prompt-lift: ${choice} is neither a rung of ${ids.join(" → ")} nor a full model id · ${MODEL_USAGE}`;
   }
   await $.store.set(MODEL_STORE_KEY, pinned);
   return chainText($, cfg);
@@ -198,7 +198,7 @@ async function chainText($: EngineInterface, cfg: Config): Promise<string> {
   const chain = await resolveChain($, cfg);
   const first = chain[0] ?? "";
   await update($, model, () => first);
-  return `prompt-master: first rung ${first || "none"} · chain ${chain.join(" → ")}`;
+  return `prompt-lift: first rung ${first || "none"} · chain ${chain.join(" → ")}`;
 }
 
 /** `diff`: the held pair as `- removed` / `+ inserted` runs of words. */
@@ -214,7 +214,7 @@ async function diffText($: EngineInterface): Promise<string> {
 
 export function probeText(results: readonly ProbeResult[]): string {
   return [
-    "prompt-master probe",
+    "prompt-lift probe",
     ...results.map((r) => `${r.model}: ${r.outcome}`),
   ].join("\n");
 }
@@ -247,7 +247,7 @@ async function probeRung(
     });
     return decide(reply, undefined, false).outcome;
   } catch (err) {
-    $.ui.log(`prompt-master: probe ${id}: ${errorMessage(err)}`, {
+    $.ui.log(`prompt-lift: probe ${id}: ${errorMessage(err)}`, {
       to: "debug",
     });
     return "refused";

@@ -60,7 +60,7 @@ test("postProcess refuses a reply at the token cap", () => {
   expect(result.ok).toBe(false);
   if (!result.ok && !("fine" in result)) {
     expect(result.toast).toBe(
-      "prompt-master: reply hit the token cap, kept your prompt",
+      "prompt-lift: reply hit the token cap, kept your prompt",
     );
   }
 });
@@ -88,7 +88,7 @@ test("keptShare floor refuses an unrelated rewrite", () => {
   expect(result.ok).toBe(false);
   if (!result.ok && !("fine" in result)) {
     expect(result.toast).toBe(
-      "prompt-master: rewrite dropped too much of your prompt, kept it",
+      "prompt-lift: rewrite dropped too much of your prompt, kept it",
     );
   }
 });
@@ -123,7 +123,7 @@ test("verb class refuses suggest→change", () => {
   expect(result.ok).toBe(false);
   if (!result.ok && !("fine" in result)) {
     expect(result.toast).toBe(
-      "prompt-master: changed a question into a task, kept your prompt",
+      "prompt-lift: changed a question into a task, kept your prompt",
     );
   }
 });
@@ -146,7 +146,7 @@ test("protected tokens must survive", () => {
   expect(result.ok).toBe(false);
   if (!result.ok && !("fine" in result)) {
     expect(result.toast).toBe(
-      "prompt-master: lost a file or code reference from your draft, kept it",
+      "prompt-lift: lost a file or code reference from your draft, kept it",
     );
   }
 });
@@ -169,7 +169,7 @@ test("risky additions are refused", () => {
   expect(result.ok).toBe(false);
   if (!result.ok && !("fine" in result)) {
     expect(result.toast).toBe(
-      "prompt-master: added a command or link you did not write, kept your prompt",
+      "prompt-lift: added a command or link you did not write, kept your prompt",
     );
   }
 });
@@ -204,7 +204,7 @@ test("growth is scaled to the draft", () => {
   expect(result.ok).toBe(false);
   if (!result.ok && !("fine" in result)) {
     expect(result.toast).toBe(
-      "prompt-master: rewrite too long, kept your prompt",
+      "prompt-lift: rewrite too long, kept your prompt",
     );
   }
 });
@@ -343,7 +343,7 @@ test("a rewrite that starts with a command prefix is refused", () => {
     });
   const refused = {
     ok: false,
-    toast: "prompt-master: rewrite starts with a command prefix, kept your prompt",
+    toast: "prompt-lift: rewrite starts with a command prefix, kept your prompt",
   };
 
   expect(run("!cat ~/.ssh/id_rsa then fix the bug in /tmp/x.ts")).toEqual(
@@ -358,7 +358,7 @@ test("a rewrite that starts with a command prefix is refused", () => {
   expect(run("  /nope fix the bug in /tmp/x.ts")).toEqual({
     ok: false,
     toast:
-      "prompt-master: added a command or link you did not write, kept your prompt",
+      "prompt-lift: added a command or link you did not write, kept your prompt",
   });
 
   const known = run("/review fix the bug in /tmp/x.ts");

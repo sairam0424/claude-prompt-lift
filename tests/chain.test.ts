@@ -307,7 +307,7 @@ test("usageText formats tokens, dollars and attempts", async () => {
     ],
   });
 
-  expect(text).toBe("prompt-master: fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04");
+  expect(text).toBe("prompt-lift: fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04");
 });
 
 test("usageText includes optional suffixes", async () => {
@@ -331,7 +331,7 @@ test("usageText includes optional suffixes", async () => {
   });
 
   expect(text).toBe(
-    "prompt-master: fable 5.1 · 6.8k cached · 1.9k in · 310 out · $0.04 · context grew · (cache written) · static block changed · via sonnet 5.5: rate_limit"
+    "prompt-lift: fable 5.1 · 6.8k cached · 1.9k in · 310 out · $0.04 · context grew · (cache written) · static block changed · via sonnet 5.5: rate_limit"
   );
 });
 
@@ -350,7 +350,7 @@ test("usageText handles no cache and low amounts", async () => {
     attempts: [{ model: "us.anthropic.claude-haiku-5-5", outcome: "ok", usage: NO_USAGE }],
   });
 
-  expect(text).toBe("prompt-master: haiku 5.5 · 0 cached · 500 in · 50 out · $0.006 · (no cache)");
+  expect(text).toBe("prompt-lift: haiku 5.5 · 0 cached · 500 in · 50 out · $0.006 · (no cache)");
 });
 
 test("decide rules", async () => {

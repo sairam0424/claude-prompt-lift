@@ -51,7 +51,7 @@ test("usageText shows $? and (no price) for an unpriced model", async () => {
   });
 
   expect(text).toBe(
-    `prompt-master: ${OPUS} · 6.8k cached · 1.4k in · 310 out · $? · (no price) · added the symptom`,
+    `prompt-lift: ${OPUS} · 6.8k cached · 1.4k in · 310 out · $? · (no price) · added the symptom`,
   );
   expect(text).not.toContain("$0");
 });

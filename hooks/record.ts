@@ -11,26 +11,26 @@ import { recordOrLog, type AnsweredCall } from "./stats";
 // `update` validate against an atom made in the calling file, and the same
 // plugin and key name the same value.
 
-const phase = atom({ plugin: "prompt-master", key: "phase" } as const, "idle");
+const phase = atom({ plugin: "prompt-lift", key: "phase" } as const, "idle");
 const original = atom(
-  { plugin: "prompt-master", key: "original" } as const,
+  { plugin: "prompt-lift", key: "original" } as const,
   null,
 );
 const enhanced = atom(
-  { plugin: "prompt-master", key: "enhanced" } as const,
+  { plugin: "prompt-lift", key: "enhanced" } as const,
   null,
 );
 const isUndone = atom(
-  { plugin: "prompt-master", key: "isUndone" } as const,
+  { plugin: "prompt-lift", key: "isUndone" } as const,
   false,
 );
 const lastDecorations = atom(
-  { plugin: "prompt-master", key: "lastDecorations" } as const,
+  { plugin: "prompt-lift", key: "lastDecorations" } as const,
   null,
 );
 
 const TOAST_RECORD_FAILED =
-  "prompt-master: saved the result, but recording its cost failed";
+  "prompt-lift: saved the result, but recording its cost failed";
 
 /** A press the box took: the chain's reply, the rewrite and the judged call. */
 export type Success = { run: ChainOk; post: PostOk; call: AnsweredCall };

@@ -13,7 +13,7 @@ import type {
 } from "claude-code";
 import type { CommandEntry, MemoryFile, SkillEntry } from "../hooks/context";
 
-// Shared stub engine for the prompt-master tests, in the prompt-polish style:
+// Shared stub engine for the prompt-lift tests, in the prompt-polish style:
 // every noun the mod calls is answered from memory and recorded.
 
 export const DRAFT = "fix the login bug in src/auth.ts please";
@@ -177,7 +177,7 @@ const DEFAULT_COMMANDS: CommandEntry[] = [
     source: "plugin",
   },
   {
-    name: "prompt-master",
+    name: "prompt-lift",
     description: "Enhance the prompt from the project instructions and skills",
     source: "plugin",
   },
@@ -342,9 +342,9 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
   };
 }
 
-/** `/prompt-master <args>` through the registered command; the whole result. */
+/** `/prompt-lift <args>` through the registered command; the whole result. */
 export function press($: Harness, args: string): Promise<unknown> {
-  return $.command.run({ command: "prompt-master", args } as never);
+  return $.command.run({ command: "prompt-lift", args } as never);
 }
 
 /** Prompt block `index` of model call `call`, or "" when there is none. */
@@ -363,12 +363,12 @@ export function improve(prompt: string): string {
 }
 
 /**
- * Every write of one prompt-master state key, in order. The matcher narrows
+ * Every write of one prompt-lift state key, in order. The matcher narrows
  * `e` per key literal, so a key held in a variable takes the cast.
  */
 export function watch(on: On, key: string): unknown[] {
   const values: unknown[] = [];
-  on("state.set", { plugin: "prompt-master", key } as never, ($, ev, next) => {
+  on("state.set", { plugin: "prompt-lift", key } as never, ($, ev, next) => {
     values.push(ev.value);
     return next(ev);
   });
@@ -378,7 +378,7 @@ export function watch(on: On, key: string): unknown[] {
 /** Answers the next read of the phase with `value`, then steps aside. */
 export function phaseOnce(on: On, value: string): void {
   let isPending = true;
-  on("state.get", { plugin: "prompt-master", key: "phase" }, ($, ev, next) => {
+  on("state.get", { plugin: "prompt-lift", key: "phase" }, ($, ev, next) => {
     if (!isPending) {
       return next(ev);
     }

@@ -38,7 +38,7 @@ test(
     const phases: unknown[] = [];
     on(
       "state.set",
-      { plugin: "prompt-master", key: "phase" },
+      { plugin: "prompt-lift", key: "phase" },
       ($, ev, next) => {
         phases.push(ev.value);
         return next(ev);
@@ -66,7 +66,7 @@ test(
     expect(e.fills[0]?.mode).toBe("replace");
     expect(e.fills[0]?.decorations?.length ?? 0).toBeGreaterThan(0);
     expect(e.toasts).toHaveLength(1);
-    expect(e.toasts[0]?.startsWith("prompt-master: fable 5.1 ·")).toBe(true);
+    expect(e.toasts[0]?.startsWith("prompt-lift: fable 5.1 ·")).toBe(true);
     expect(e.toasts[0]).toContain("$");
     expect(e.toasts[0]).toContain("added symptom and test");
     expect(e.logs).toHaveLength(0);
@@ -88,7 +88,7 @@ test("block 0 is identical across two different drafts", async ($, on) => {
   expect(e.toasts[1]).not.toContain("static block changed");
 });
 
-test("/prompt-master <text> enhances its args when the box is empty", async ($, on) => {
+test("/prompt-lift <text> enhances its args when the box is empty", async ($, on) => {
   const e = engine(on);
 
   await press($, `  ${DRAFT}  `);
@@ -106,7 +106,7 @@ test("a reply-like draft is refused before any model call", async ($, on) => {
   expect(e.calls).toHaveLength(0);
   expect(e.fills).toHaveLength(0);
   expect(e.toasts).toEqual([
-    "prompt-master: that reads like an answer to Claude's question",
+    "prompt-lift: that reads like an answer to Claude's question",
   ]);
 });
 
@@ -122,7 +122,7 @@ test("command path refuses to fill when the box is no longer empty", async ($, o
   expect(e.fills).toHaveLength(0);
   expect(e.box.text).toBe("typing");
   expect(e.toasts).toEqual([
-    `prompt-master: draft changed while enhancing, left as is · ${COST}`,
+    `prompt-lift: draft changed while enhancing, left as is · ${COST}`,
   ]);
 });
 
@@ -166,7 +166,7 @@ test("two presses in one tick make one call", async ($, on) => {
 
   expect(e.calls).toHaveLength(1);
   expect(e.fills).toHaveLength(1);
-  expect(e.toasts).toContain("prompt-master: already enhancing");
+  expect(e.toasts).toContain("prompt-lift: already enhancing");
 });
 
 test("a stale reply is dropped", async ($, on) => {
@@ -174,7 +174,7 @@ test("a stale reply is dropped", async ($, on) => {
   let isStale = false;
   on(
     "state.get",
-    { plugin: "prompt-master", key: "requestId" },
+    { plugin: "prompt-lift", key: "requestId" },
     ($, ev, next) =>
       isStale ? { value: { value: 999, version: 99 } } : next(ev),
   );
@@ -200,14 +200,14 @@ test("fill refused toasts the refusal", async ($, on) => {
   expect(e.fills).toHaveLength(1);
   expect(e.box.text).toBe("");
   expect(e.toasts).toEqual([
-    `prompt-master: the prompt box did not take the text (refused) · ${COST}`,
+    `prompt-lift: the prompt box did not take the text (refused) · ${COST}`,
   ]);
 });
 
 test("a refused first press settles the phase back to idle", async ($, on) => {
   const e = engine(on);
   const phases: unknown[] = [];
-  on("state.set", { plugin: "prompt-master", key: "phase" }, ($, ev, next) => {
+  on("state.set", { plugin: "prompt-lift", key: "phase" }, ($, ev, next) => {
     phases.push(ev.value);
     return next(ev);
   });
@@ -224,7 +224,7 @@ test("plain prose reply is filled", { options: BEDROCK }, async ($, on) => {
   await press($, DRAFT);
 
   expect(e.box.text).toBe(BETTER);
-  expect(e.toasts[0]?.startsWith("prompt-master: fable 5.1 ·")).toBe(true);
+  expect(e.toasts[0]?.startsWith("prompt-lift: fable 5.1 ·")).toBe(true);
 });
 
 test("a capped reply leaves the box untouched", async ($, on) => {
@@ -237,7 +237,7 @@ test("a capped reply leaves the box untouched", async ($, on) => {
   expect(e.fills).toHaveLength(0);
   expect(e.box.text).toBe("");
   expect(e.toasts).toEqual([
-    `prompt-master: reply hit the token cap, kept your prompt · ${formatDollars(
+    `prompt-lift: reply hit the token cap, kept your prompt · ${formatDollars(
       estimateUsd({ ...USAGE, output_tokens: 2000 }, FABLE, DEFAULT_PRICES),
     )}`,
   ]);
@@ -256,7 +256,7 @@ test("an invented path is refused", async ($, on) => {
 
   expect(e.fills).toHaveLength(0);
   expect(e.toasts).toEqual([
-    `prompt-master: named a file that does not exist, kept your prompt · ${COST}`,
+    `prompt-lift: named a file that does not exist, kept your prompt · ${COST}`,
   ]);
 });
 
@@ -298,7 +298,7 @@ test(
 
     expect(e.fills).toHaveLength(1);
     expect(e.box.text).toContain("CI/CD");
-    expect(e.toasts[0]?.startsWith("prompt-master: fable 5.1 ·")).toBe(true);
+    expect(e.toasts[0]?.startsWith("prompt-lift: fable 5.1 ·")).toBe(true);
   },
 );
 
@@ -315,7 +315,7 @@ test("a path under a root directory that does not exist is refused", async ($, o
 
   expect(e.fills).toHaveLength(0);
   expect(e.toasts[0]).toContain(
-    "prompt-master: named a file that does not exist, kept your prompt",
+    "prompt-lift: named a file that does not exist, kept your prompt",
   );
 });
 

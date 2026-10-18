@@ -213,7 +213,7 @@ test("parsePrices returns empty object and logs for invalid JSON", async () => {
   const result = parsePrices("{invalid json}", (msg) => logs.push(msg));
   expect(result).toEqual({});
   expect(logs).toHaveLength(1);
-  expect(logs[0]).toContain("prompt-master: prices option ignored:");
+  expect(logs[0]).toContain("prompt-lift: prices option ignored:");
 });
 
 test("parsePrices returns empty object and logs for non-object JSON", async () => {
@@ -221,7 +221,7 @@ test("parsePrices returns empty object and logs for non-object JSON", async () =
   const result = parsePrices("[]", (msg) => logs.push(msg));
   expect(result).toEqual({});
   expect(logs).toHaveLength(1);
-  expect(logs[0]).toContain("prompt-master: prices option ignored:");
+  expect(logs[0]).toContain("prompt-lift: prices option ignored:");
 });
 
 test("parsePrices returns empty object and logs for missing fields", async () => {
@@ -232,7 +232,7 @@ test("parsePrices returns empty object and logs for missing fields", async () =>
   const result = parsePrices(json, (msg) => logs.push(msg));
   expect(result).toEqual({});
   expect(logs).toHaveLength(1);
-  expect(logs[0]).toContain("prompt-master: prices option ignored:");
+  expect(logs[0]).toContain("prompt-lift: prices option ignored:");
 });
 
 test("parsePrices returns empty object and logs for non-numeric fields", async () => {
@@ -243,7 +243,7 @@ test("parsePrices returns empty object and logs for non-numeric fields", async (
   const result = parsePrices(json, (msg) => logs.push(msg));
   expect(result).toEqual({});
   expect(logs).toHaveLength(1);
-  expect(logs[0]).toContain("prompt-master: prices option ignored:");
+  expect(logs[0]).toContain("prompt-lift: prices option ignored:");
 });
 
 test("parsePrices returns empty object and logs for negative numbers", async () => {
@@ -254,7 +254,7 @@ test("parsePrices returns empty object and logs for negative numbers", async () 
   const result = parsePrices(json, (msg) => logs.push(msg));
   expect(result).toEqual({});
   expect(logs).toHaveLength(1);
-  expect(logs[0]).toContain("prompt-master: prices option ignored:");
+  expect(logs[0]).toContain("prompt-lift: prices option ignored:");
 });
 
 test("parsePrices accepts multiple valid entries", async () => {
@@ -291,7 +291,7 @@ test("parseOptions merges user prices over DEFAULT_PRICES", async () => {
 test("parseOptions stores pricesIssue when prices JSON is invalid", async () => {
   const config = parseOptions({ prices: "{invalid" });
   expect(config.pricesIssue).toBeDefined();
-  expect(config.pricesIssue).toContain("prompt-master: prices option ignored:");
+  expect(config.pricesIssue).toContain("prompt-lift: prices option ignored:");
 });
 
 test("parseOptions has no pricesIssue when prices is valid", async () => {
@@ -331,5 +331,5 @@ test("parsePrices is all-or-nothing: one invalid entry returns empty object", as
   const result = parsePrices(json, (msg) => logs.push(msg));
   expect(result).toEqual({});
   expect(logs).toHaveLength(1);
-  expect(logs[0]).toContain("prompt-master: prices option ignored:");
+  expect(logs[0]).toContain("prompt-lift: prices option ignored:");
 });

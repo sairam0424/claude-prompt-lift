@@ -9,21 +9,21 @@ import { cancel, TOAST_NOT_TAKEN, type DraftReader } from "./enhance";
 // only validate against an atom made in the calling file, and the same
 // plugin and key name the same value.
 
-const phase = atom({ plugin: "prompt-master", key: "phase" } as const, "idle");
+const phase = atom({ plugin: "prompt-lift", key: "phase" } as const, "idle");
 const original = atom(
-  { plugin: "prompt-master", key: "original" } as const,
+  { plugin: "prompt-lift", key: "original" } as const,
   null,
 );
 const enhanced = atom(
-  { plugin: "prompt-master", key: "enhanced" } as const,
+  { plugin: "prompt-lift", key: "enhanced" } as const,
   null,
 );
 const isUndone = atom(
-  { plugin: "prompt-master", key: "isUndone" } as const,
+  { plugin: "prompt-lift", key: "isUndone" } as const,
   false,
 );
 const lastDecorations = atom(
-  { plugin: "prompt-master", key: "lastDecorations" } as const,
+  { plugin: "prompt-lift", key: "lastDecorations" } as const,
   null,
 );
 
@@ -32,14 +32,14 @@ export { cancel };
 /** How long a second Undo press has to confirm discarding an edit (C13). */
 export const UNDO_REARM_MS = 10_000;
 
-const TOAST_NOTHING_TO_SEND = "prompt-master: nothing to send";
+const TOAST_NOTHING_TO_SEND = "prompt-lift: nothing to send";
 const TOAST_ENTER_ONLY =
-  "prompt-master: press Enter to send; @files and images only travel with Enter";
-const TOAST_NOTHING_TO_UNDO = "prompt-master: nothing to undo";
+  "prompt-lift: press Enter to send; @files and images only travel with Enter";
+const TOAST_NOTHING_TO_UNDO = "prompt-lift: nothing to undo";
 const TOAST_UNDO_ARM =
-  "prompt-master: box edited since Enhance; press Undo again within 10 s to discard";
-const TOAST_RESTORED = "prompt-master: restored your draft";
-const TOAST_REAPPLIED = "prompt-master: re-applied the enhanced prompt";
+  "prompt-lift: box edited since Enhance; press Undo again within 10 s to discard";
+const TOAST_RESTORED = "prompt-lift: restored your draft";
+const TOAST_REAPPLIED = "prompt-lift: re-applied the enhanced prompt";
 
 /** `@file` mentions and pasted images travel only with Enter (C10, C11). */
 const ENTER_ONLY = /(^|\s)@[\w./-]+|\[Image #\d+\]/;
@@ -103,11 +103,11 @@ export async function send($: EngineInterface): Promise<void> {
   }
   if (step.outcome === "dropped") {
     // The engine shows a hook's reason itself; the draft stays, Undo with it.
-    $.ui.log(`prompt-master: send dropped: ${step.reason}`, { to: "debug" });
+    $.ui.log(`prompt-lift: send dropped: ${step.reason}`, { to: "debug" });
     return;
   }
   if (step.box === "kept") {
-    $.ui.log("prompt-master: the box kept the sent text", { to: "debug" });
+    $.ui.log("prompt-lift: the box kept the sent text", { to: "debug" });
   }
   await clearHeld($);
 }
@@ -146,7 +146,7 @@ export function decideUndo(a: {
     : { kind: "undo", text: a.original };
 }
 
-/** Undo / Redo (spec §5.3): the band button and `/prompt-master undo`. */
+/** Undo / Redo (spec §5.3): the band button and `/prompt-lift undo`. */
 export async function undo($: EngineInterface): Promise<void> {
   const now = await $.clock.now();
   const decision = decideUndo({

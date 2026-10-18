@@ -1,15 +1,17 @@
-# prompt-master
+# prompt-lift
 
 A Claude Code mod that turns a vague prompt into a specific one before you send it. It reads the instruction files your session loaded (the `CLAUDE.md` tree and rules files) and the skills Claude can trigger, asks a model for the smallest edit that adds the missing facts, puts the result back in the prompt box with the inserted words highlighted, and sends only when you press Send or Enter. The mod tracks costs with prompt caching support, falls back through a model chain on failures, and validates rewrites against safety guards.
 
 The band row appears above the prompt: `[ Enhance (e) ] [ Send (s) ] [ Undo (u) ]`; `Cancel (c)` while a call runs; `Send (queues)` while a turn runs; `Redo (u)` after an Undo. Nothing runs while idle: no timers, no per-keystroke hooks, a model call happens only on a press or a command.
+
+Formerly prompt-master; renamed in 0.4.0 — install id prompt-lift@claude-prompt-lift.
 
 ## Install
 
 From a Claude Code session:
 
 ```
-/plugin install prompt-master --marketplace sairam0424/claude-prompt-master
+/plugin install prompt-lift --marketplace sairam0424/claude-prompt-lift
 ```
 
 Claude Code asks `y` to add the marketplace, then a scope (`user` makes it available in every project).
@@ -17,22 +19,22 @@ Claude Code asks `y` to add the marketplace, then a scope (`user` makes it avail
 From a shell:
 
 ```bash
-claude plugin marketplace add sairam0424/claude-prompt-master
-claude plugin install prompt-master@claude-prompt-master
+claude plugin marketplace add sairam0424/claude-prompt-lift
+claude plugin install prompt-lift@claude-prompt-lift
 ```
 
 From a local clone (the plugin is read live from the folder, so edits show up after `/reload-plugins`):
 
 ```bash
-git clone https://github.com/sairam0424/claude-prompt-master ~/src/claude-prompt-master
-claude plugin marketplace add ~/src/claude-prompt-master
-claude plugin install prompt-master@claude-prompt-master
+git clone https://github.com/sairam0424/claude-prompt-lift ~/src/claude-prompt-lift
+claude plugin marketplace add ~/src/claude-prompt-lift
+claude plugin install prompt-lift@claude-prompt-lift
 ```
 
 Then, in a session:
 
 1. `/reload-plugins` (or start a new one)
-2. `/prompt-master probe` — one line per model; `ok` means your account can call it
+2. `/prompt-lift probe` — one line per model; `ok` means your account can call it
 3. Type a draft like "write a commit" and press Enhance — the done row shows the number of skill descriptions matched into the dynamic block (≥ 1 when a commit skill such as commit-commands:commit is installed; 0 is correct otherwise)
 4. If a model shows `refused`, set `models` to the rungs your account has (see Configuration)
 
@@ -41,11 +43,11 @@ Then, in a session:
 Three ways to press Enhance:
 - `ctrl+x b` from the prompt (the Enhance button carries the engine action `app:cycleDiffBase`; works while the diff panel is closed)
 - `ctrl+x tab` to focus the band, then `e`
-- `/prompt-master <your text>`
+- `/prompt-lift <your text>`
 
 ### Send vs Enter
 
-Both send what is in the box. Send refuses drafts with `@file` mentions or pasted images (`prompt-master: press Enter to send; @files and images only travel with Enter`) because a plugin-submitted prompt does not expand them.
+Both send what is in the box. Send refuses drafts with `@file` mentions or pasted images (`prompt-lift: press Enter to send; @files and images only travel with Enter`) because a plugin-submitted prompt does not expand them.
 
 ### Undo
 
@@ -53,14 +55,14 @@ The original is kept until you submit or `/clear`. Undo acts only when the box s
 
 ### Commands
 
-- `/prompt-master <text>` — enhance the text
-- `/prompt-master undo` — restore the original draft
-- `/prompt-master model <id|alias|reset>` — put a model first for this machine (`sonnet`, `haiku`, a full id) or `reset` to the configured chain
-- `/prompt-master status` — the chain, the last call, session and per-day totals, the static block size and hash
-- `/prompt-master diff` — word-level diff of the last enhancement
-- `/prompt-master probe` — one tiny call per model in the chain, reporting `ok` or the refusal
+- `/prompt-lift <text>` — enhance the text
+- `/prompt-lift undo` — restore the original draft
+- `/prompt-lift model <id|alias|reset>` — put a model first for this machine (`sonnet`, `haiku`, a full id) or `reset` to the configured chain
+- `/prompt-lift status` — the chain, the last call, session and per-day totals, the static block size and hash
+- `/prompt-lift diff` — word-level diff of the last enhancement
+- `/prompt-lift probe` — one tiny call per model in the chain, reporting `ok` or the refusal
 
-A sub-word is recognised only when it is the whole argument (any case): `/prompt-master diff the two configs and explain` is a draft to enhance, not the diff. `model` takes exactly one token; `model the auth flow as a state machine` is a draft too.
+A sub-word is recognised only when it is the whole argument (any case): `/prompt-lift diff the two configs and explain` is a draft to enhance, not the diff. `model` takes exactly one token; `model the auth flow as a state machine` is a draft too.
 
 ## What is sent to the model
 
@@ -79,12 +81,12 @@ The instructions and skill names form one cached block, so a second press within
 
 ## Configuration
 
-Settings live in `/config` under `pluginConfigs` → `prompt-master@claude-prompt-master` → `options`, or in your settings file:
+Settings live in `/config` under `pluginConfigs` → `prompt-lift@claude-prompt-lift` → `options`, or in your settings file:
 
 ```json
 {
   "pluginConfigs": {
-    "prompt-master@claude-prompt-master": {
+    "prompt-lift@claude-prompt-lift": {
       "options": {
         "minWords": 4,
         "skillExclude": "sparc:*,gws-*"
@@ -126,7 +128,7 @@ On Bedrock the aliases resolve to whatever the build maps them to, and `effortMo
 ```json
 {
   "pluginConfigs": {
-    "prompt-master@claude-prompt-master": {
+    "prompt-lift@claude-prompt-lift": {
       "options": {
         "models": "us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5,us.anthropic.claude-haiku-5-5",
         "effortModels": "us.anthropic.claude-fable-5-1,us.anthropic.claude-sonnet-5-5"
@@ -136,7 +138,7 @@ On Bedrock the aliases resolve to whatever the build maps them to, and `effortMo
 }
 ```
 
-These are the ids the cost table below prices and the rungs `/prompt-master model sonnet` names. Run `/prompt-master probe` once: a rung your account cannot call is reported as refused.
+These are the ids the cost table below prices and the rungs `/prompt-lift model sonnet` names. Run `/prompt-lift probe` once: a rung your account cannot call is reported as refused.
 
 ## Cost
 
@@ -156,14 +158,14 @@ The built-in price table can be overridden with the `prices` configuration optio
 "prices": "{\"fable-5-1\": {\"input\": 10, \"output\": 50, \"cacheWrite\": 12.5, \"cacheRead\": 0.25}}"
 ```
 
-Each key is a model id fragment (`priceFor` matches an alias whole and a full id by substring) and replaces the built-in row of the same name wholesale. Invalid JSON or a malformed entry leaves the whole table at its defaults and logs `prompt-master: prices option ignored: <reason>` once at session start. Claude Code validates plugin options against the manifest before the hooks module loads, so any non-string `prices` value is refused at load (a number produces `Prices must be a string`; an object is refused at the options boundary) and never reaches the mod.
+Each key is a model id fragment (`priceFor` matches an alias whole and a full id by substring) and replaces the built-in row of the same name wholesale. Invalid JSON or a malformed entry leaves the whole table at its defaults and logs `prompt-lift: prices option ignored: <reason>` once at session start. Claude Code validates plugin options against the manifest before the hooks module loads, so any non-string `prices` value is refused at load (a number produces `Prices must be a string`; an object is refused at the options boundary) and never reaches the mod.
 
 Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 - Fable: ≈ $0.13 cold / ≈ $0.04 warm
 - Sonnet: ≈ $0.027 / ≈ $0.009
 - Haiku: ≈ $0.0015 / ≈ $0.0006
 
-The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars — a successful rewrite, `already specific, left as is`, every refusal, and a chain that failed after a paid rung — and `status` counts them all (a refused press cost the same as an accepted one). A press that fell back to a later rung is priced by every rung it paid for: `via fable 5.1: no text` on the toast means Fable's tokens are in the dollars too, not only the answering model's. `/prompt-master model haiku` switches to Haiku.
+The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars — a successful rewrite, `already specific, left as is`, every refusal, and a chain that failed after a paid rung — and `status` counts them all (a refused press cost the same as an accepted one). A press that fell back to a later rung is priced by every rung it paid for: `via fable 5.1: no text` on the toast means Fable's tokens are in the dollars too, not only the answering model's. `/prompt-lift model haiku` switches to Haiku.
 
 ## Why was my draft refused?
 
@@ -171,15 +173,15 @@ Each refusal is one toast and leaves the box exactly as typed.
 
 Before any model call (nothing is spent):
 
-- `prompt-master: commands and shell lines are sent as typed` — the draft starts with `/`, `!` or `#`. Press Enter: those lines run, they are not prompts.
-- `prompt-master: that reads like an answer to Claude's question` — the draft opens like a reply (`yes`, `no`, `ok`, `sure`, `go ahead`, `option 2`, …) when under 12 words, or is under 12 words right after Claude asked a question. Answer with Enter.
-- `prompt-master: under 3 words, nothing to enhance` — fewer than `minWords` words. Add a few, or lower `minWords`.
-- `prompt-master: over 4000 characters, already specific` — longer than `maxDraftChars`. Send it as it is, or raise the cap.
+- `prompt-lift: commands and shell lines are sent as typed` — the draft starts with `/`, `!` or `#`. Press Enter: those lines run, they are not prompts.
+- `prompt-lift: that reads like an answer to Claude's question` — the draft opens like a reply (`yes`, `no`, `ok`, `sure`, `go ahead`, `option 2`, …) when under 12 words, or is under 12 words right after Claude asked a question. Answer with Enter.
+- `prompt-lift: under 3 words, nothing to enhance` — fewer than `minWords` words. Add a few, or lower `minWords`.
+- `prompt-lift: over 4000 characters, already specific` — longer than `maxDraftChars`. Send it as it is, or raise the cap.
 
 After the call (the toast ends with what the call cost):
 
 - `reply hit the token cap, kept your prompt` — the rewrite ran to `maxTokens`. Shorten the draft or raise `maxTokens`.
-- `the model returned nothing` — an empty rewrite. Press again, or `/prompt-master model sonnet`.
+- `the model returned nothing` — an empty rewrite. Press again, or `/prompt-lift model sonnet`.
 - `rewrite too long, kept your prompt` — it grew past the allowance (the draft plus at most `maxGrowthChars`, scaled down for short drafts: 150 characters plus three times the draft) or added more than three sentences. Raise `maxGrowthChars`, or start from a fuller draft.
 - `rewrite dropped too much of your prompt, kept it` — fewer than `keptShareFloor` (50%) of your draft's words of four letters or more survived. Lower the floor if you want freer rewrites.
 - `changed a question into a task, kept your prompt` / `changed a task into a question, kept your prompt` — the rewrite flipped your intent. Phrase the draft so the question or the instruction is unmistakable.
@@ -188,18 +190,18 @@ After the call (the toast ends with what the call cost):
 - `rewrite starts with a command prefix, kept your prompt` — the rewrite begins with `!`, `#` or a `/word` that is not a listed skill, which Enter would run instead of send.
 - `named a file that does not exist, kept your prompt` — the rewrite names a file-looking path (rooted, with an extension, or under a top-level directory of the project) that is not on disk. Prose such as `CI/CD` or `and/or` is not checked.
 - `draft changed while enhancing, left as is` — you kept typing. Press Enhance again when the draft is ready.
-- `no model answered · fable: rate_limit → sonnet: timeout → haiku: refused` — every rung failed; the trail names each outcome. `/prompt-master probe` tells you which models your account can call.
+- `no model answered · fable: rate_limit → sonnet: timeout → haiku: refused` — every rung failed; the trail names each outcome. `/prompt-lift probe` tells you which models your account can call.
 - `cancelled, draft unchanged` — you pressed Cancel; no fallback was tried.
 - `already specific, left as is` — not a refusal: the model judged the draft fine. The call is still billed.
 
 ## Updating
 
-- Installed from GitHub: `claude plugin update prompt-master@claude-prompt-master`, then restart Claude Code.
+- Installed from GitHub: `claude plugin update prompt-lift@claude-prompt-lift`, then restart Claude Code.
 - Installed from a clone: `git pull` in the clone, then `/reload-plugins` in a session (or start a new one). The folder is read live; `claude plugin update` only refreshes the recorded version.
 
 ## Limits
 
-- **One band above the prompt, shared by every mod.** The engine draws the above-prompt band once; hooks run in the order of `enabledPlugins` in `~/.claude/settings.json` (earlier = outer). prompt-master always passes the band through and stacks its row above whatever the mods beneath draw, but a mod listed *before* it that draws without passing through (the playground `token-weather` does) hides prompt-master's row entirely: no buttons, no `ctrl+x b`, only the `/prompt-master …` commands. Fix: move the `prompt-master@claude-prompt-master` line above that mod's line in `enabledPlugins`, then `/reload-plugins` (or restart). `/prompt-master status` still works while the band is hidden.
+- **One band above the prompt, shared by every mod.** The engine draws the above-prompt band once; hooks run in the order of `enabledPlugins` in `~/.claude/settings.json` (earlier = outer). prompt-lift always passes the band through and stacks its row above whatever the mods beneath draw, but a mod listed *before* it that draws without passing through (the playground `token-weather` does) hides prompt-lift's row entirely: no buttons, no `ctrl+x b`, only the `/prompt-lift …` commands. Fix: move the `prompt-lift@claude-prompt-lift` line above that mod's line in `enabledPlugins`, then `/reload-plugins` (or restart). `/prompt-lift status` still works while the band is hidden.
 - Terminal only (no desktop footer, no VS Code)
 - No timers, no per-keystroke hooks
 - One band row

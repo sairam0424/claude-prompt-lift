@@ -33,7 +33,7 @@ export function preGuard(
   ) {
     return {
       ok: false,
-      toast: "prompt-master: commands and shell lines are sent as typed",
+      toast: "prompt-lift: commands and shell lines are sent as typed",
     };
   }
 
@@ -50,7 +50,7 @@ export function preGuard(
   if (isReplyPrefix || isShortAnswerToQuestion) {
     return {
       ok: false,
-      toast: "prompt-master: that reads like an answer to Claude's question",
+      toast: "prompt-lift: that reads like an answer to Claude's question",
     };
   }
 
@@ -59,7 +59,7 @@ export function preGuard(
   if (words < cfg.minWords) {
     return {
       ok: false,
-      toast: `prompt-master: under ${cfg.minWords} words, nothing to enhance`,
+      toast: `prompt-lift: under ${cfg.minWords} words, nothing to enhance`,
     };
   }
 
@@ -67,7 +67,7 @@ export function preGuard(
   if (draft.length > cfg.maxDraftChars) {
     return {
       ok: false,
-      toast: `prompt-master: over ${cfg.maxDraftChars} characters, already specific`,
+      toast: `prompt-lift: over ${cfg.maxDraftChars} characters, already specific`,
     };
   }
 

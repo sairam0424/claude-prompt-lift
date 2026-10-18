@@ -22,7 +22,7 @@ declare module "claude-code" {
   }
 
   interface PluginState {
-    "prompt-master": {
+    "prompt-lift": {
       phase: "idle" | "running" | "done";
       original: string | null;
       enhanced: string | null;

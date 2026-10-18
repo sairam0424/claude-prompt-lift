@@ -68,7 +68,7 @@ export function conversationTail(
     );
 }
 
-/** `$.store` key of the first rung `/prompt-master model` chose (spec §5.2). */
+/** `$.store` key of the first rung `/prompt-lift model` chose (spec §5.2). */
 export const MODEL_STORE_KEY = "model";
 
 /** The configured ids with the `session` token resolved, in order. */
@@ -130,7 +130,7 @@ async function readDocuments(
         return { path: file.path, text: capText(text, maxChars) };
       } catch (err) {
         $.ui.log(
-          `prompt-master: could not read ${file.path}: ${errorMessage(err)}`,
+          `prompt-lift: could not read ${file.path}: ${errorMessage(err)}`,
           { to: "debug" },
         );
         return undefined;
@@ -150,7 +150,7 @@ async function listRootDirs(
       .filter((entry) => entry.kind === "dir")
       .map((entry) => entry.name);
   } catch (err) {
-    $.ui.log(`prompt-master: could not list ${root}: ${errorMessage(err)}`, {
+    $.ui.log(`prompt-lift: could not list ${root}: ${errorMessage(err)}`, {
       to: "debug",
     });
     return [];
@@ -175,7 +175,7 @@ async function readSubproject(
     const text = await $.fs.read(path);
     return { path, text: capText(text, SUBPROJECT_MAX_CHARS) };
   } catch (err) {
-    $.ui.log(`prompt-master: subproject lookup failed: ${errorMessage(err)}`, {
+    $.ui.log(`prompt-lift: subproject lookup failed: ${errorMessage(err)}`, {
       to: "debug",
     });
     return undefined;

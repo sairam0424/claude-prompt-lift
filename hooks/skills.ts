@@ -1,5 +1,5 @@
 /**
- * Skill placement and filtering utilities for the prompt-master mod.
+ * Skill placement and filtering utilities for the prompt-lift mod.
  * Extracted from guards.ts to maintain file size discipline.
  */
 

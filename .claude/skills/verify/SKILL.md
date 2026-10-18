@@ -1,9 +1,9 @@
 ---
 name: verify
-description: Run the prompt-master mod in a real, isolated Claude Code session and observe the band, Enhance, Undo/Redo, Send and status at the terminal surface (not the test kit).
+description: Run the prompt-lift mod in a real, isolated Claude Code session and observe the band, Enhance, Undo/Redo, Send and status at the terminal surface (not the test kit).
 ---
 
-# Verifying prompt-master at its surface
+# Verifying prompt-lift at its surface
 
 The mod's surface is the Claude Code prompt band. `claude plugin test` is CI; this is runtime observation.
 
@@ -18,13 +18,13 @@ The mod's surface is the Claude Code prompt band. `claude plugin test` is CI; th
 
 ## Drive
 
-- Idle band: `[ Enhance (e) ] ctrl+x b · or ctrl+x tab, e · prompt-master: <model>`.
+- Idle band: `[ Enhance (e) ] ctrl+x b · or ctrl+x tab, e · prompt-lift: <model>`.
 - Type a draft (no Enter), send `C-x b` → `[ Cancel (c) ] Enhancing with …` → ~10 s → done row with cost and the filled box.
 - Band hotkeys need band focus: `C-x Tab` then `u` (Undo/Redo) or `s` (Send).
-- Command path without the band: `/prompt-master <draft>`, `/prompt-master undo|status|probe`.
+- Command path without the band: `/prompt-lift <draft>`, `/prompt-lift undo|status|probe`.
 - A second Enhance within 5 min shows `N cached` and a sub-cent cost.
 - Free probes: `yes go ahead` + Enhance → `that reads like an answer`; `see @src/x.ts` + Send → `press Enter to send; …`; empty box + Send → `nothing to send`.
-- Toasts are transient: capture within ~1.5 s (`grep -oE 'prompt-master: [^│]*'`).
+- Toasts are transient: capture within ~1.5 s (`grep -oE 'prompt-lift: [^│]*'`).
 
 ## Gotchas
 

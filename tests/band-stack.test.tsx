@@ -1,13 +1,20 @@
 import { test, expect } from "claude-code/testing";
 import { engine } from "./engine";
 
-// The engine draws one band above the prompt for every mod; prompt-master
+// The engine draws one band above the prompt for every mod; prompt-lift
 // stacks its row above whatever the hooks beneath draw. A blank row between
 // the two keeps them readable as separate things.
 
-const PLUGIN = "prompt-master";
+const PLUGIN = "prompt-lift";
 const SURFACE = "terminal" as const;
-const PROPS = { hasSurvey: false, isWorking: false, maxRows: 10 };
+const PROPS = {
+  hasSurvey: false,
+  isWorking: false,
+  maxRows: 10,
+  bodyColumns: 120,
+  scroll: { offset: 0, bodyRows: 10 },
+  view: {},
+};
 
 test("the band keeps one blank row above the drawing beneath", async ($, on) => {
   engine(on, {});

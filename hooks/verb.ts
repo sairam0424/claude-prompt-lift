@@ -1,5 +1,5 @@
 /**
- * Verb classification utilities for the prompt-master mod.
+ * Verb classification utilities for the prompt-lift mod.
  * Extracted from guards.ts to maintain file size discipline.
  */
 

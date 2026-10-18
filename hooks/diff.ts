@@ -1,6 +1,6 @@
 // Word-level diffs over one longest-common-subsequence table: the inserted
 // runs as character offsets into the result (the fill's decorations, C15) and
-// the removed and inserted runs as lines (`/prompt-master diff`).
+// the removed and inserted runs as lines (`/prompt-lift diff`).
 
 type Table = number[][];
 

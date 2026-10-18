@@ -15,35 +15,35 @@ import { resolveChain } from "./gather";
 // `read` validates against an atom made in the calling file, and the same
 // plugin and key name the same value.
 
-const phase = atom({ plugin: "prompt-master", key: "phase" } as const, "idle");
+const phase = atom({ plugin: "prompt-lift", key: "phase" } as const, "idle");
 const isUndone = atom(
-  { plugin: "prompt-master", key: "isUndone" } as const,
+  { plugin: "prompt-lift", key: "isUndone" } as const,
   false,
 );
-const model = atom({ plugin: "prompt-master", key: "model" } as const, "");
+const model = atom({ plugin: "prompt-lift", key: "model" } as const, "");
 const runningModel = atom(
-  { plugin: "prompt-master", key: "runningModel" } as const,
+  { plugin: "prompt-lift", key: "runningModel" } as const,
   "",
 );
 const lastUsage = atom(
-  { plugin: "prompt-master", key: "lastUsage" } as const,
+  { plugin: "prompt-lift", key: "lastUsage" } as const,
   null,
 );
 const noCacheStreak = atom(
-  { plugin: "prompt-master", key: "noCacheStreak" } as const,
+  { plugin: "prompt-lift", key: "noCacheStreak" } as const,
   0,
 );
 
 /** Presses without a cache hit before the row suggests a cheaper rung (C19). */
 const NO_CACHE_HINT_AFTER = 3;
 export const RESTORED_ROW = "restored your draft";
-const NO_CACHE_HINT = "cache not hitting — consider /prompt-master model haiku";
+const NO_CACHE_HINT = "cache not hitting — consider /prompt-lift model haiku";
 
 export type BandEvent = RenderInput<"AbovePrompt">;
 export type BandNext = (e: BandEvent) => Promise<RenderElement>;
 
 export function idleRowText(firstRung: string): string {
-  return `ctrl+x b · or ctrl+x tab, e · prompt-master: ${shortModel(firstRung)}`;
+  return `ctrl+x b · or ctrl+x tab, e · prompt-lift: ${shortModel(firstRung)}`;
 }
 
 export function runningRowText(modelId: string): string {

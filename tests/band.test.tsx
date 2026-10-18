@@ -27,7 +27,7 @@ import type { LastUsage } from "../types";
 // band content. Its buttons run with the mod's own `$`, which is how the box
 // path of Enhance, Send with `asUser` and Cancel get their end-to-end tests.
 
-const PLUGIN = "prompt-master";
+const PLUGIN = "prompt-lift";
 const SURFACE = "terminal" as const;
 const PROPS = {
   hasSurvey: false,
@@ -41,13 +41,13 @@ type Props = typeof PROPS;
 type Band = Mounted<typeof SURFACE, "AbovePrompt">;
 
 const ENTER_TOAST =
-  "prompt-master: press Enter to send; @files and images only travel with Enter";
-const CANCELLED = `prompt-master: cancelled, draft unchanged · ${formatDollars(0)}`;
-const BUSY = "prompt-master: already enhancing";
-const DRAFT_CHANGED = `prompt-master: draft changed while enhancing, left as is · ${formatDollars(
+  "prompt-lift: press Enter to send; @files and images only travel with Enter";
+const CANCELLED = `prompt-lift: cancelled, draft unchanged · ${formatDollars(0)}`;
+const BUSY = "prompt-lift: already enhancing";
+const DRAFT_CHANGED = `prompt-lift: draft changed while enhancing, left as is · ${formatDollars(
   estimateUsd(USAGE, FABLE, DEFAULT_PRICES),
 )}`;
-const NO_CACHE_HINT = "cache not hitting — consider /prompt-master model haiku";
+const NO_CACHE_HINT = "cache not hitting — consider /prompt-lift model haiku";
 const OPUS = "us.anthropic.claude-opus-4-1";
 const ABORTED: ModelCompleteResult = {
   isAnswered: false,
@@ -103,7 +103,7 @@ async function rowText(ui: Band): Promise<string> {
 
 test("idle row names the keys and the first rung", () => {
   expect(idleRowText(FABLE)).toBe(
-    "ctrl+x b · or ctrl+x tab, e · prompt-master: fable 5.1",
+    "ctrl+x b · or ctrl+x tab, e · prompt-lift: fable 5.1",
   );
   expect(runningRowText("us.anthropic.claude-sonnet-5-5")).toBe(
     "Enhancing with sonnet 5.5…",
@@ -159,7 +159,7 @@ test("yields to a survey", async ($, on) => {
 });
 
 test(
-  "the idle row follows /prompt-master model haiku as its hint says",
+  "the idle row follows /prompt-lift model haiku as its hint says",
   { options: BEDROCK },
   async ($, on) => {
     const e = engine(on);
@@ -170,7 +170,7 @@ test(
     expect(await rowText(ui)).toBe(
       idleRowText("us.anthropic.claude-haiku-5-5"),
     );
-    expect(await rowText(ui)).toContain("prompt-master: haiku 5.5");
+    expect(await rowText(ui)).toContain("prompt-lift: haiku 5.5");
     expect(e.store.model).toBe("us.anthropic.claude-haiku-5-5");
     expect(e.calls).toHaveLength(0);
   },
@@ -389,7 +389,7 @@ test(
   async ($, on) => {
     const e = engine(on);
     // Every read says `running`, as a phase a dropped environment left would
-    on("state.get", { plugin: "prompt-master", key: "phase" }, () => ({
+    on("state.get", { plugin: "prompt-lift", key: "phase" }, () => ({
       value: { value: "running", version: 0 },
     }));
 

@@ -21,11 +21,11 @@ import { asStats, STATS_STORE_KEY } from "../hooks/stats";
 // until its phase has settled. The band's side is in band.test.tsx.
 
 const RECORD_FAILED =
-  "prompt-master: saved the result, but recording its cost failed";
-const RESTORED = "prompt-master: restored your draft";
+  "prompt-lift: saved the result, but recording its cost failed";
+const RESTORED = "prompt-lift: restored your draft";
 const ANSWER_LIKE =
-  "prompt-master: that reads like an answer to Claude's question";
-const BUSY = "prompt-master: already enhancing";
+  "prompt-lift: that reads like an answer to Claude's question";
+const BUSY = "prompt-lift: already enhancing";
 /** The pair, in the order the success path writes it. */
 const PAIR = ["original", "enhanced", "isUndone", "lastDecorations"];
 /** The state recording the call writes, in order; the store row follows. */
@@ -44,7 +44,7 @@ function watchWrites(on: On, keys: readonly string[]): string[] {
   for (const key of keys) {
     on(
       "state.set",
-      { plugin: "prompt-master", key } as never,
+      { plugin: "prompt-lift", key } as never,
       ($, ev, next) => {
         order.push(key);
         return next(ev);
@@ -96,7 +96,7 @@ test("a box that rejects the fill still has the call recorded", async ($, on) =>
   expect(e.fills).toHaveLength(1);
   expect(e.box.text).toBe("");
   expect(e.toasts).toHaveLength(1);
-  expect(e.toasts[0]?.startsWith("prompt-master: enhance failed (")).toBe(true);
+  expect(e.toasts[0]?.startsWith("prompt-lift: enhance failed (")).toBe(true);
   // The kit's own rejection: a throwing hook is skipped, nothing else answers
   expect(e.toasts[0]).toContain("prompt.fill");
   // Paid for the answer (G5, C19): the totals and the day row still count it
@@ -116,7 +116,7 @@ test("a record that fails on the failure path is logged, not toasted", async ($,
   await press($, DRAFT);
 
   expect(e.toasts).toHaveLength(1);
-  expect(e.toasts[0]?.startsWith("prompt-master: enhance failed (")).toBe(true);
+  expect(e.toasts[0]?.startsWith("prompt-lift: enhance failed (")).toBe(true);
   expect(presses).toEqual([1]);
   expect(e.store[STATS_STORE_KEY]).toBeUndefined();
   expect(e.logs).toHaveLength(2);
@@ -133,7 +133,7 @@ test("a command resets a running phase no call backs", async ($, on) => {
   const r = await press($, "status");
 
   expect(phases).toEqual(["idle"]);
-  expect((r as { text?: string }).text).toContain("prompt-master status");
+  expect((r as { text?: string }).text).toContain("prompt-lift status");
   expect(e.calls).toHaveLength(0);
 });
 
@@ -162,7 +162,7 @@ test("a press stays in flight until its phase has settled", async ($, on) => {
   let inWindow: Promise<unknown> | undefined;
   on(
     "state.set",
-    { plugin: "prompt-master", key: "runningModel" },
+    { plugin: "prompt-lift", key: "runningModel" },
     async (_, ev, next) => {
       if (inWindow === undefined) {
         inWindow = press($, DRAFT);

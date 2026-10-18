@@ -89,14 +89,14 @@ export function parsePrices(
     parsed = JSON.parse(json);
   } catch {
     if (log) {
-      log("prompt-master: prices option ignored: invalid JSON");
+      log("prompt-lift: prices option ignored: invalid JSON");
     }
     return {};
   }
 
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     if (log) {
-      log("prompt-master: prices option ignored: not an object");
+      log("prompt-lift: prices option ignored: not an object");
     }
     return {};
   }
@@ -107,7 +107,7 @@ export function parsePrices(
   for (const [key, value] of entries) {
     if (typeof value !== "object" || value === null) {
       if (log) {
-        log("prompt-master: prices option ignored: entry not an object");
+        log("prompt-lift: prices option ignored: entry not an object");
       }
       return {};
     }
@@ -118,7 +118,7 @@ export function parsePrices(
     for (const field of requiredFields) {
       if (!(field in candidate)) {
         if (log) {
-          log(`prompt-master: prices option ignored: missing ${field} field`);
+          log(`prompt-lift: prices option ignored: missing ${field} field`);
         }
         return {};
       }
@@ -126,14 +126,14 @@ export function parsePrices(
       const fieldValue = candidate[field];
       if (typeof fieldValue !== "number") {
         if (log) {
-          log(`prompt-master: prices option ignored: ${field} is not a number`);
+          log(`prompt-lift: prices option ignored: ${field} is not a number`);
         }
         return {};
       }
 
       if (fieldValue < 0) {
         if (log) {
-          log(`prompt-master: prices option ignored: ${field} is negative`);
+          log(`prompt-lift: prices option ignored: ${field} is negative`);
         }
         return {};
       }

@@ -28,7 +28,7 @@ const DRAFT_2 = "fix the login bug in src/auth.ts please now";
  * alias `fable` prices as this id, so it holds for the default chain too.
  */
 const COST = formatDollars(estimateUsd(USAGE, FABLE, DEFAULT_PRICES));
-const FINE = "prompt-master: already specific, left as is";
+const FINE = "prompt-lift: already specific, left as is";
 const OPUS = "us.anthropic.claude-opus-4-1";
 /** How every cost tail reads when the price table has no row (R3). */
 const UNPRICED = "$? · (no price)";
@@ -89,7 +89,7 @@ test("a chain that fails after a paid rung records the spend", async ($, on) => 
   const presses: unknown[] = [];
   on(
     "state.set",
-    { plugin: "prompt-master", key: "sessionPresses" },
+    { plugin: "prompt-lift", key: "sessionPresses" },
     ($, ev, next) => {
       presses.push(ev.value);
       return next(ev);
@@ -103,7 +103,7 @@ test("a chain that fails after a paid rung records the spend", async ($, on) => 
   expect(day?.presses).toBe(1);
   expect(Math.abs((day?.usd ?? 0) - usd)).toBeLessThan(1e-9);
   expect(presses).toEqual([1]);
-  expect(e.toasts[0]?.startsWith("prompt-master: no model answered ·")).toBe(
+  expect(e.toasts[0]?.startsWith("prompt-lift: no model answered ·")).toBe(
     true,
   );
   expect(e.toasts[0]?.endsWith(` · ${COST}`)).toBe(true);
@@ -168,7 +168,7 @@ test(
     const presses: unknown[] = [];
     on(
       "state.set",
-      { plugin: "prompt-master", key: "sessionPresses" },
+      { plugin: "prompt-lift", key: "sessionPresses" },
       ($, ev, next) => {
         presses.push(ev.value);
         return next(ev);
@@ -229,7 +229,7 @@ test("a fine verdict after a success keeps the phase at done", async ($, on) => 
     replies: [answered(GOOD), answered(JSON.stringify({ verdict: "fine" }))],
   });
   const phases: unknown[] = [];
-  on("state.set", { plugin: "prompt-master", key: "phase" }, ($, ev, next) => {
+  on("state.set", { plugin: "prompt-lift", key: "phase" }, ($, ev, next) => {
     phases.push(ev.value);
     return next(ev);
   });
@@ -248,7 +248,7 @@ test("stats accumulate presses and dollars by day", async ($, on) => {
   const presses: unknown[] = [];
   on(
     "state.set",
-    { plugin: "prompt-master", key: "sessionPresses" },
+    { plugin: "prompt-lift", key: "sessionPresses" },
     ($, ev, next) => {
       presses.push(ev.value);
       return next(ev);
@@ -277,7 +277,7 @@ test(
     const recorded: unknown[] = [];
     on(
       "state.set",
-      { plugin: "prompt-master", key: "lastUsage" },
+      { plugin: "prompt-lift", key: "lastUsage" },
       ($, ev, next) => {
         recorded.push((ev.value as { usd: unknown } | null)?.usd);
         return next(ev);
@@ -357,7 +357,7 @@ test(
     const status = ((await press($, "status")) as { text: string }).text;
 
     expect(e.toasts).toHaveLength(1);
-    expect(e.toasts[0]?.startsWith("prompt-master: no model answered ·")).toBe(
+    expect(e.toasts[0]?.startsWith("prompt-lift: no model answered ·")).toBe(
       true,
     );
     expect(e.toasts[0]?.endsWith(` · ${UNPRICED}`)).toBe(true);
@@ -423,7 +423,7 @@ test("an error's message in the enhance-failed toast is cut to one short line", 
 
   expect(reason.length).toBeGreaterThan(200);
   expect(e.toasts).toHaveLength(1);
-  expect(e.toasts[0]?.startsWith("prompt-master: enhance failed (")).toBe(true);
+  expect(e.toasts[0]?.startsWith("prompt-lift: enhance failed (")).toBe(true);
   expect(e.toasts[0]?.endsWith("…)")).toBe(true);
   expect(e.toasts[0]?.length).toBeLessThan(32 + 80 + 1);
   expect(e.toasts[0]).not.toContain("\n");

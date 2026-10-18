@@ -36,36 +36,36 @@ import { holdPair, recordSuccess } from "./record";
 // validate against an atom made in the file that calls them.
 
 export const phase = atom(
-  { plugin: "prompt-master", key: "phase" } as const,
+  { plugin: "prompt-lift", key: "phase" } as const,
   "idle",
 );
 export const model = atom(
-  { plugin: "prompt-master", key: "model" } as const,
+  { plugin: "prompt-lift", key: "model" } as const,
   "",
 );
 export const runningModel = atom(
-  { plugin: "prompt-master", key: "runningModel" } as const,
+  { plugin: "prompt-lift", key: "runningModel" } as const,
   "",
 );
 export const requestId = atom(
-  { plugin: "prompt-master", key: "requestId" } as const,
+  { plugin: "prompt-lift", key: "requestId" } as const,
   0,
 );
 
-const TOAST_BUSY = "prompt-master: already enhancing";
-const TOAST_FINE = "prompt-master: already specific, left as is";
+const TOAST_BUSY = "prompt-lift: already enhancing";
+const TOAST_FINE = "prompt-lift: already specific, left as is";
 const TOAST_DRAFT_CHANGED =
-  "prompt-master: draft changed while enhancing, left as is";
+  "prompt-lift: draft changed while enhancing, left as is";
 const TOAST_MISSING_PATH =
-  "prompt-master: named a file that does not exist, kept your prompt";
-const TOAST_CANCELLED = "prompt-master: cancelled, draft unchanged";
-const TOAST_NO_MODELS = "prompt-master: no models configured";
+  "prompt-lift: named a file that does not exist, kept your prompt";
+const TOAST_CANCELLED = "prompt-lift: cancelled, draft unchanged";
+const TOAST_NO_MODELS = "prompt-lift: no models configured";
 export const TOAST_NOT_TAKEN =
-  "prompt-master: the prompt box did not take the text";
+  "prompt-lift: the prompt box did not take the text";
 
 export type EnhanceSource = { kind: "box" } | { kind: "args"; text: string };
 
-type Phase = StateValue<"prompt-master", "phase">;
+type Phase = StateValue<"prompt-lift", "phase">;
 
 let busy = false;
 let cancelled = false;
@@ -173,8 +173,8 @@ export async function enhance(
     }
     // The message is cut where it is composed (R2); capToast makes it one line
     const message = cut(errorMessage(err), ERROR_MAX);
-    $.ui.toast(capToast(`prompt-master: enhance failed (${message})`));
-    $.ui.log(`prompt-master: enhance failed: ${String(err)}`, { to: "debug" });
+    $.ui.toast(capToast(`prompt-lift: enhance failed (${message})`));
+    $.ui.log(`prompt-lift: enhance failed: ${String(err)}`, { to: "debug" });
   } finally {
     // In flight until the phase has settled: a command in that window must
     // not reset this press's phase, and a press then is rightly told "busy".
@@ -242,7 +242,7 @@ function noteRunningModel($: EngineInterface, id: string): void {
   pendingNote = update($, runningModel, () => id)
     .then(() => undefined)
     .catch((err: unknown) => {
-      $.ui.log(`prompt-master: runningModel: ${errorMessage(err)}`, {
+      $.ui.log(`prompt-lift: runningModel: ${errorMessage(err)}`, {
         to: "debug",
       });
     });
@@ -268,8 +268,8 @@ async function reportFailure(
     return;
   }
   const trail = run.attempts.map(describeAttempt).join(" → ");
-  $.ui.toast(withCost(`prompt-master: no model answered · ${trail}`, usd));
-  $.ui.log(`prompt-master: enhance failed: ${trail}`);
+  $.ui.toast(withCost(`prompt-lift: no model answered · ${trail}`, usd));
+  $.ui.log(`prompt-lift: enhance failed: ${trail}`);
 }
 
 /** Steps 7 and 8: path guard, stale check, box re-read, fill. */
@@ -327,7 +327,7 @@ async function settle($: EngineInterface, before: Phase): Promise<void> {
       await update($, phase, () => (before === "done" ? "done" : "idle"));
     }
   } catch (err) {
-    $.ui.log(`prompt-master: could not reset the phase: ${errorMessage(err)}`, {
+    $.ui.log(`prompt-lift: could not reset the phase: ${errorMessage(err)}`, {
       to: "debug",
     });
   }

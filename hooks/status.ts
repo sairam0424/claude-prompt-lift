@@ -14,33 +14,33 @@ import {
   type DayStats,
 } from "./stats";
 
-// `/prompt-master status` (spec §5.2, §12): what the mod would send and what
+// `/prompt-lift status` (spec §5.2, §12): what the mod would send and what
 // it has spent, read from the engine, the state and the store; no model call.
 // The atoms are declared here as well as in enhance.ts: `read` validates
 // against an atom made in the calling file.
 
 const lastUsage = atom(
-  { plugin: "prompt-master", key: "lastUsage" } as const,
+  { plugin: "prompt-lift", key: "lastUsage" } as const,
   null,
 );
 const blockHash = atom(
-  { plugin: "prompt-master", key: "blockHash" } as const,
+  { plugin: "prompt-lift", key: "blockHash" } as const,
   "",
 );
 const staticChars = atom(
-  { plugin: "prompt-master", key: "staticChars" } as const,
+  { plugin: "prompt-lift", key: "staticChars" } as const,
   0,
 );
 const sessionPresses = atom(
-  { plugin: "prompt-master", key: "sessionPresses" } as const,
+  { plugin: "prompt-lift", key: "sessionPresses" } as const,
   0,
 );
 const sessionUsd = atom(
-  { plugin: "prompt-master", key: "sessionUsd" } as const,
+  { plugin: "prompt-lift", key: "sessionUsd" } as const,
   0,
 );
 const sessionUnpriced = atom(
-  { plugin: "prompt-master", key: "sessionUnpriced" } as const,
+  { plugin: "prompt-lift", key: "sessionUnpriced" } as const,
   0,
 );
 
@@ -98,7 +98,7 @@ function filesText(files: readonly MemoryFile[]): string {
 
 export function statusText(a: StatusInput): string {
   return [
-    "prompt-master status",
+    "prompt-lift status",
     `chain: ${a.chain.join(" → ")}`,
     `last call: ${lastCallText(a.last)}`,
     `session: ${totalsText(a.session)}`,

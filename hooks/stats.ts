@@ -15,31 +15,31 @@ import { errorMessage } from "./gather";
 // against an atom made in the calling file.
 
 const lastUsage = atom(
-  { plugin: "prompt-master", key: "lastUsage" } as const,
+  { plugin: "prompt-lift", key: "lastUsage" } as const,
   null,
 );
 const blockHash = atom(
-  { plugin: "prompt-master", key: "blockHash" } as const,
+  { plugin: "prompt-lift", key: "blockHash" } as const,
   "",
 );
 const staticChars = atom(
-  { plugin: "prompt-master", key: "staticChars" } as const,
+  { plugin: "prompt-lift", key: "staticChars" } as const,
   0,
 );
 const noCacheStreak = atom(
-  { plugin: "prompt-master", key: "noCacheStreak" } as const,
+  { plugin: "prompt-lift", key: "noCacheStreak" } as const,
   0,
 );
 const sessionPresses = atom(
-  { plugin: "prompt-master", key: "sessionPresses" } as const,
+  { plugin: "prompt-lift", key: "sessionPresses" } as const,
   0,
 );
 const sessionUsd = atom(
-  { plugin: "prompt-master", key: "sessionUsd" } as const,
+  { plugin: "prompt-lift", key: "sessionUsd" } as const,
   0,
 );
 const sessionUnpriced = atom(
-  { plugin: "prompt-master", key: "sessionUnpriced" } as const,
+  { plugin: "prompt-lift", key: "sessionUnpriced" } as const,
   0,
 );
 
@@ -199,7 +199,7 @@ export async function recordOrLog(
     return true;
   } catch (err) {
     $.ui.log(
-      `prompt-master: recording the cost failed: ${errorMessage(err)}`,
+      `prompt-lift: recording the cost failed: ${errorMessage(err)}`,
       { to: "debug" },
     );
     return false;

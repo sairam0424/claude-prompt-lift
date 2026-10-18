@@ -238,7 +238,7 @@ export function usageText(a: {
   const outputTokens = a.usage.output_tokens ?? 0;
 
   const parts: string[] = [
-    `prompt-master: ${model}`,
+    `prompt-lift: ${model}`,
     `${formatTokens(cachedTokens)} cached`,
     `${formatTokens(inputTokens)} in`,
     `${outputTokens} out`,
