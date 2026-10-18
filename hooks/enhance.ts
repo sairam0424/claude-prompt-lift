@@ -56,7 +56,7 @@ export const isUndone = atom(
   { plugin: "prompt-master", key: "isUndone" } as const,
   false,
 );
-export const lastDecorations = atom<PromptDecoration[] | null>(
+export const lastDecorations = atom(
   { plugin: "prompt-master", key: "lastDecorations" } as const,
   null,
 );

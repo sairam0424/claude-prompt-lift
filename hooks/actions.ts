@@ -1,5 +1,5 @@
 import { atom, read, update } from "claude-code";
-import type { EngineInterface, PromptDecoration } from "claude-code";
+import type { EngineInterface } from "claude-code";
 import { armUndo, disarmUndo, undoArmedAt } from "./arm";
 import { capToast } from "./chain";
 import { cancel, type DraftReader } from "./enhance";
@@ -22,7 +22,7 @@ const isUndone = atom(
   { plugin: "prompt-master", key: "isUndone" } as const,
   false,
 );
-const lastDecorations = atom<PromptDecoration[] | null>(
+const lastDecorations = atom(
   { plugin: "prompt-master", key: "lastDecorations" } as const,
   null,
 );

@@ -191,6 +191,10 @@ After the call (the toast ends with what the call cost):
 - One band row
 - Shares your account's model quota with the main turn (a rate limit on the first rung falls back to the next and the toast says so)
 
+## Development
+
+The plugin is read live from its folder. `claude plugin validate .` reads the manifest and the hooks module the way the engine will; `claude plugin test .` runs `tests/*.test.ts(x)`. Neither type-checks, so `bash scripts/typecheck.sh` is the type gate, best-effort: it finds the newest `claude-code.d.ts` Claude Code extracted with its plugin-authoring skill (under `/private/tmp/claude-*/bundled-skills/`, so absent after a reboot until that skill loads again in a session), writes a temporary tsconfig over that file plus `hooks/`, `types/` and `tests/`, and runs `tsc --noEmit` through `npx`. It prints the types file it used. With no types file on the machine it says so and exits 0; with only an older cached copy it says STALE, and an error it then reports may be the old build's rather than this code's.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Sairam Ugge.

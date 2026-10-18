@@ -1,4 +1,5 @@
 import { expect, test } from "claude-code/testing";
+import type { Engine as Harness } from "claude-code/testing";
 import type { On } from "claude-code";
 import { answered, engine, press, BETTER, DRAFT } from "./engine";
 
@@ -8,13 +9,12 @@ import { answered, engine, press, BETTER, DRAFT } from "./engine";
  * enhanced text back.
  */
 
-function undoCmd($): Promise<unknown> {
+function undoCmd($: Harness): Promise<unknown> {
   return press($, "undo");
 }
 
 test("Redo re-applies the decorations from the original Enhance", async ($, on: On) => {
-  const e = engine(on);
-  answered(on, BETTER);
+  const e = engine(on, { replies: [answered(BETTER)] });
 
   // Step 1: Enhance the draft
   await press($, DRAFT);

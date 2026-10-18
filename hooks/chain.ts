@@ -1,6 +1,11 @@
-import type { ModelCompleteRequest, ModelCompleteResult, ModelTextBlock, ModelUsage } from "claude-code";
+import type {
+  ModelCompleteRequest,
+  ModelCompleteResult,
+  ModelTextBlock,
+  ModelUsage,
+} from "claude-code";
 import type { Config } from "./config";
-import { shortModel, estimateUsd } from "./config";
+import { shortModel } from "./config";
 
 /**
  * One rung's call: what it answered and what it cost (zeros when nothing
@@ -65,8 +70,8 @@ export function decide(
 
   // API errors
   if ("reason" in r && r.reason === "api-error") {
-    const error = (r as any).error;
-    
+    const { error, status } = r;
+
     // invalid_request → stop
     if (error === "invalid_request") {
       return { outcome: "invalid_request", action: "stop" };
@@ -81,8 +86,7 @@ export function decide(
     }
 
     // Other errors: return error kind, or status if error is 'unknown' and status is non-null
-    const status = (r as any).status;
-    if (error === "unknown" && status !== null && status !== undefined) {
+    if (error === "unknown" && status !== null) {
       return { outcome: String(status), action: "next" };
     }
     return { outcome: error, action: "next" };
@@ -113,41 +117,32 @@ export async function runChain(a: {
       a.onAttempt(model, index);
     }
 
-    // Build request
+    // Build request; the effort key only for the models that take it
     const req: ModelCompleteRequest = {
       model,
       system: a.system,
       prompt: a.blocks,
       maxTokens: a.cfg.maxTokens,
       timeoutMs: index === 0 ? a.cfg.timeoutMsFirst : a.cfg.timeoutMsNext,
+      ...(a.cfg.effortModels.has(model) ? { effort: "low" } : {}),
     };
 
-    // Add effort key only if model is in effortModels
-    if (a.cfg.effortModels.has(model)) {
-      (req as any).effort = "low";
-    }
-
-    let result: ModelCompleteResult;
-    let outcome: string;
-
     try {
-      result = await a.complete(req, { signal: a.signal });
+      const result = await a.complete(req, { signal: a.signal });
       const decision = decide(result, previous, a.isCancelled());
-      outcome = decision.outcome;
-
       const attempt: Attempt = {
         model,
-        outcome,
+        outcome: decision.outcome,
         usage: result.usage ?? NO_USAGE,
       };
       attempts.push(attempt);
 
-      if (decision.action === "return") {
-        // Success!
+      // Answered (`decide` says "return" for this arm alone): the reply
+      if (result.isAnswered) {
         return {
           ok: true,
-          text: (result as any).text,
-          usage: (result as any).usage,
+          text: result.text,
+          usage: result.usage,
           model,
           attempts,
         };
@@ -157,17 +152,16 @@ export async function runChain(a: {
         // Stop the chain
         return {
           ok: false,
-          cancelled: outcome === "cancelled",
+          cancelled: decision.outcome === "cancelled",
           attempts,
         };
       }
 
       // decision.action === "next", continue to next model
       previous = attempt;
-    } catch (err) {
+    } catch {
       // Thrown complete → attempt outcome 'refused', next
-      outcome = "refused";
-      const attempt: Attempt = { model, outcome, usage: NO_USAGE };
+      const attempt: Attempt = { model, outcome: "refused", usage: NO_USAGE };
       attempts.push(attempt);
       previous = attempt;
       // Continue to next model

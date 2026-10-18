@@ -1,13 +1,15 @@
 import { expect, test } from "claude-code/testing";
 import { HINT, register } from "../hooks/register";
-import { engine, ROOT } from "./engine";
+import { engine, ROOT, ZERO_USAGE } from "./engine";
 
 test("bare /prompt-master answers the hint and calls no model", async ($, on) => {
   const calls: unknown[] = [];
   on("command.register", ($, e) => ({ value: { command: e.name } }));
   on("model.complete", ($, e) => {
     calls.push(e);
-    return { value: { isAnswered: false, reason: "empty-reply" } };
+    return {
+      value: { isAnswered: false, reason: "empty-reply", usage: ZERO_USAGE },
+    };
   });
   const r = await $.command.run({
     command: "prompt-master",

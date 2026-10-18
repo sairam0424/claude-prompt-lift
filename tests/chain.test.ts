@@ -1,5 +1,5 @@
 import { expect, test } from "claude-code/testing";
-import type { ModelCompleteRequest, ModelCompleteResult, ModelTextBlock, ModelUsage } from "claude-code";
+import type { ModelCompleteRequest, ModelCompleteResult, ModelUsage } from "claude-code";
 import { runChain, decide, usageText, type Attempt, type Complete } from "../hooks/chain";
 import { parseOptions } from "../hooks/config";
 
@@ -31,7 +31,7 @@ test("answered first rung returns with one attempt", async () => {
     chain: cfg.models,
     cfg,
     system: "test system",
-    blocks: [{ type: "text", text: "hello" }],
+    blocks: [{ text: "hello" }],
     signal: new AbortController().signal,
     isCancelled: () => false,
   });
@@ -77,7 +77,7 @@ test("timeout falls back, cancel does not", async () => {
     chain: cfg.models,
     cfg,
     system: "sys",
-    blocks: [{ type: "text", text: "hi" }],
+    blocks: [{ text: "hi" }],
     signal: new AbortController().signal,
     isCancelled: () => false,
   });
@@ -102,7 +102,7 @@ test("timeout falls back, cancel does not", async () => {
     chain: cfg.models,
     cfg,
     system: "sys",
-    blocks: [{ type: "text", text: "hi" }],
+    blocks: [{ text: "hi" }],
     signal: new AbortController().signal,
     isCancelled: () => true,
   });
@@ -136,7 +136,7 @@ test("empty-reply falls back and names the refusal", async () => {
     chain: cfg.models,
     cfg,
     system: "sys",
-    blocks: [{ type: "text", text: "hi" }],
+    blocks: [{ text: "hi" }],
     signal: new AbortController().signal,
     isCancelled: () => false,
   });
@@ -168,7 +168,7 @@ test("authentication_failed twice stops after the second", async () => {
     chain: cfg.models,
     cfg,
     system: "sys",
-    blocks: [{ type: "text", text: "hi" }],
+    blocks: [{ text: "hi" }],
     signal: new AbortController().signal,
     isCancelled: () => false,
   });
@@ -200,7 +200,7 @@ test("invalid_request stops at once", async () => {
     chain: cfg.models,
     cfg,
     system: "sys",
-    blocks: [{ type: "text", text: "hi" }],
+    blocks: [{ text: "hi" }],
     signal: new AbortController().signal,
     isCancelled: () => false,
   });
@@ -233,7 +233,7 @@ test("a thrown complete counts as refused and moves on", async () => {
     chain: cfg.models,
     cfg,
     system: "sys",
-    blocks: [{ type: "text", text: "hi" }],
+    blocks: [{ text: "hi" }],
     signal: new AbortController().signal,
     isCancelled: () => false,
   });
@@ -265,7 +265,7 @@ test("effort is omitted for models outside effortModels and timeouts differ per 
     chain: cfg.models,
     cfg,
     system: "sys",
-    blocks: [{ type: "text", text: "hi" }],
+    blocks: [{ text: "hi" }],
     signal: new AbortController().signal,
     isCancelled: () => false,
   });

@@ -36,9 +36,11 @@ test("parseVerdict reads fine, improve and plain text", () => {
 
   const plain = parseVerdict("Just do this thing");
   expect(plain.verdict).toBe("improve");
-  expect(plain.prompt).toBe("Just do this thing");
-  expect(plain.why).toBe("");
-  expect(plain.applied).toEqual([]);
+  if (plain.verdict === "improve") {
+    expect(plain.prompt).toBe("Just do this thing");
+    expect(plain.why).toBe("");
+    expect(plain.applied).toEqual([]);
+  }
 });
 
 test("postProcess refuses a reply at the token cap", () => {
@@ -51,6 +53,7 @@ test("postProcess refuses a reply at the token cap", () => {
     outputTokens: 2000,
     cfg: { ...cfg, maxTokens: 2000 },
     knownSkills: new Set(),
+    listedSkills: new Set(),
     descriptions: new Map(),
     documents: "",
   });
@@ -78,6 +81,7 @@ test("keptShare floor refuses an unrelated rewrite", () => {
     outputTokens: 50,
     cfg,
     knownSkills: new Set(),
+    listedSkills: new Set(),
     descriptions: new Map(),
     documents: "",
   });
@@ -112,6 +116,7 @@ test("verb class refuses suggest→change", () => {
     outputTokens: 50,
     cfg,
     knownSkills: new Set(),
+    listedSkills: new Set(),
     descriptions: new Map(),
     documents: "",
   });
@@ -134,6 +139,7 @@ test("protected tokens must survive", () => {
     outputTokens: 50,
     cfg,
     knownSkills: new Set(),
+    listedSkills: new Set(),
     descriptions: new Map(),
     documents: "",
   });
@@ -156,6 +162,7 @@ test("risky additions are refused", () => {
     outputTokens: 50,
     cfg,
     knownSkills: new Set(),
+    listedSkills: new Set(),
     descriptions: new Map(),
     documents: "",
   });
@@ -190,6 +197,7 @@ test("growth is scaled to the draft", () => {
     outputTokens: 50,
     cfg,
     knownSkills: new Set(),
+    listedSkills: new Set(),
     descriptions: new Map(),
     documents: "",
   });
@@ -271,6 +279,7 @@ test("postProcess returns decorations and addedWords", () => {
     outputTokens: 50,
     cfg,
     knownSkills: new Set(),
+    listedSkills: new Set(),
     descriptions: new Map(),
     documents: "",
   });
