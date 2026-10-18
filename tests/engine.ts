@@ -125,6 +125,8 @@ export type EngineOptions = {
   onSubmit?: (box: { text: string }) => void;
   /** What `session.usage` counts as the skills included and in all. */
   skillCounts?: { included: number; total: number };
+  /** What `session.usage` reports as the whole session's cost; absent, none. */
+  sessionCostUsd?: number;
 };
 
 export type Engine = {
@@ -285,6 +287,9 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
           },
         },
       },
+      ...(opts.sessionCostUsd === undefined
+        ? {}
+        : { cost: { usd: opts.sessionCostUsd } }),
     } as never,
   }));
   on("session.messages", () =>

@@ -13,10 +13,19 @@ import {
   resolveChain,
 } from "./gather";
 import { status } from "./status";
+import {
+  capDollars,
+  capsLine,
+  parseCapArg,
+  readCapStatus,
+  CAP_USAGE,
+  type CapArg,
+} from "./caps";
 
 // The one registered command's sub-words (spec §5.2, C18): bare → the hint;
 // `undo`, `status`, `diff`, `probe` when the whole argument is that word
-// (any case); `model <id|alias|reset>`; anything else → Enhance the text, so
+// (any case); `model <id|alias|reset>` and `cap <usd|off>` (R9); anything
+// else → Enhance the text, so
 // "diff the two configs" is a draft, not the diff. There is no `send`
 // sub-word: a slash command replaces the box, so it can never see the draft.
 // The atoms are declared here as well as in enhance.ts: `read` and `update`
@@ -29,6 +38,10 @@ const original = atom(
 );
 const enhanced = atom(
   { plugin: "prompt-lift", key: "enhanced" } as const,
+  null,
+);
+const capOverride = atom(
+  { plugin: "prompt-lift", key: "capOverride" } as const,
   null,
 );
 
@@ -143,6 +156,12 @@ export async function runCommand(
     return { text: await chooseModel($, cfg, modelParse.model) };
   }
 
+  // `cap` follows the same rule (R9): one argument is the cap, more is prose
+  const capArg = parseCapArg(args);
+  if (capArg.kind !== "prose") {
+    return runCap($, cfg, capArg);
+  }
+
   switch (args.toLowerCase()) {
     case "undo":
       await undo($);
@@ -191,6 +210,31 @@ async function chooseModel(
   }
   await $.store.set(MODEL_STORE_KEY, pinned);
   return chainText($, cfg);
+}
+
+/**
+ * `cap <usd|off>`: the session cap for this session only, kept in state
+ * rather than the store (a budget for now, not a setting); `cap` alone prints
+ * the caps as `status` does. The day cap is an option only (R9).
+ */
+async function runCap(
+  $: EngineInterface,
+  cfg: Config,
+  arg: Exclude<CapArg, { kind: "prose" }>,
+): Promise<CommandRunResult> {
+  if (arg.kind === "invalid") {
+    return { text: CAP_USAGE };
+  }
+  if (arg.kind === "show") {
+    return { text: capsLine(await readCapStatus($, cfg)) };
+  }
+  await update($, capOverride, () => arg.usd);
+  $.ui.toast(
+    arg.usd === 0
+      ? "prompt-lift: session cap off for this session"
+      : `prompt-lift: session cap ${capDollars(arg.usd)} for this session`,
+  );
+  return {};
 }
 
 /** The chain as it now resolves; the `model` atom follows, so the band redraws. */

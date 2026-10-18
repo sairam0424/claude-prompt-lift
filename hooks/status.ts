@@ -6,6 +6,7 @@ import { shortModel } from "./config";
 import { costText, formatDollars, formatTokens } from "./chain";
 import { selectInstructionFiles, type MemoryFile } from "./context";
 import { resolveChain } from "./gather";
+import { capsLine, readCapStatus, type CapStatus } from "./caps";
 import {
   asStats,
   dayOf,
@@ -49,6 +50,9 @@ export type StatusInput = {
   last: LastUsage | null;
   session: DayStats;
   today: DayStats;
+  caps: CapStatus;
+  /** The whole session's cost as the engine totals it; absent where it keeps none. */
+  sessionTotal?: number;
   staticChars: number;
   blockHash: string;
   skills: { included: number; total: number };
@@ -103,6 +107,10 @@ export function statusText(a: StatusInput): string {
     `last call: ${lastCallText(a.last)}`,
     `session: ${totalsText(a.session)}`,
     `today: ${totalsText(a.today)}`,
+    capsLine(a.caps),
+    ...(a.sessionTotal === undefined
+      ? []
+      : [`session total (all tools): ${formatDollars(a.sessionTotal)}`]),
     `static block: ${a.staticChars} chars · hash ${a.blockHash || "none"}`,
     `skills ${a.skills.included}/${a.skills.total} (included/total)`,
     `instruction files included: ${filesText(a.included)}`,
@@ -111,8 +119,10 @@ export function statusText(a: StatusInput): string {
 }
 
 export async function status($: EngineInterface, cfg: Config): Promise<string> {
-  const breakdown = (await $.session.usage({ breakdown: "summary" })).context
-    .breakdown;
+  const usage = await $.session.usage({ breakdown: "summary" });
+  const breakdown = usage.context.breakdown;
+  // The engine's own ledger, every tool included: absent where it keeps none
+  const total = usage.cost?.usd;
   const home = (await $.env.get("HOME")) ?? "";
   const files = breakdown?.memoryFiles ?? [];
   const included = selectInstructionFiles(files, cfg, home);
@@ -127,6 +137,8 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
       unpriced: await read($, sessionUnpriced),
     },
     today: dayRow(stats, dayOf(await $.clock.now())),
+    caps: await readCapStatus($, cfg),
+    sessionTotal: typeof total === "number" ? total : undefined,
     staticChars: await read($, staticChars),
     blockHash: await read($, blockHash),
     skills: {

@@ -15,7 +15,8 @@ export const register: Register = (on, options) => {
       name: "prompt-lift",
       description:
         "Enhance the prompt from the project instructions and skills",
-      argumentHint: "<text> | undo | model <id> | status | diff | probe",
+      argumentHint:
+        "<text> | undo | model <id> | cap <usd|off> | status | diff | probe",
     });
     if (cfg.pricesIssue) {
       $.ui.log(cfg.pricesIssue);

@@ -143,6 +143,20 @@ export async function recordSpend(
 }
 
 /**
+ * What the session and the day have spent in priced dollars: the windows the
+ * spend caps are checked against (R9). An unpriced press adds nothing here.
+ */
+export async function spentUsd(
+  $: EngineInterface,
+): Promise<{ session: number; day: number }> {
+  const stats = asStats(await $.store.get(STATS_STORE_KEY));
+  return {
+    session: await read($, sessionUsd),
+    day: dayRow(stats, dayOf(await $.clock.now())).usd,
+  };
+}
+
+/**
  * An answered call judged before anything is written: its dollars, block 0's
  * hash, and whether that hash changed. Reads only, so a fill can hold the
  * pair before `recordCall` writes (§5.3 step 9).

@@ -38,6 +38,8 @@ declare module "claude-code" {
       sessionPresses: number;
       sessionUsd: number;
       sessionUnpriced: number;
+      /** The session cap `/prompt-lift cap` set (0 = off); null = the option (R9). */
+      capOverride: number | null;
     };
   }
 }

@@ -138,6 +138,18 @@
       "title": "Prices",
       "description": "JSON string: map of model id fragment to per-1M-token prices {\"<key>\": {\"input\",\"output\",\"cacheWrite\",\"cacheRead\"}} merged over the built-in table; invalid JSON is ignored with a log line",
       "default": ""
+    },
+    "sessionCapUsd": {
+      "type": "number",
+      "title": "Session Spend Cap (USD)",
+      "description": "Refuse a press once this session's priced presses reach these dollars (0 = no cap); /prompt-lift cap <usd|off> overrides it for the session",
+      "default": 0
+    },
+    "dayCapUsd": {
+      "type": "number",
+      "title": "Day Spend Cap (USD)",
+      "description": "Refuse a press once today's priced presses, across sessions, reach these dollars (0 = no cap)",
+      "default": 0
     }
   }
 }

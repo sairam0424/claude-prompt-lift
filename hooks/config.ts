@@ -48,6 +48,8 @@ export type Config = {
   keptShareFloor: number;
   maxGrowthChars: number;
   enhanceAction: string;
+  sessionCapUsd: number;
+  dayCapUsd: number;
   prices: Readonly<Record<string, Price>>;
   pricesIssue: string | undefined;
 };
@@ -169,6 +171,16 @@ export function splitList(value: unknown): string[] {
   return result;
 }
 
+/**
+ * A spend cap option (R9): dollars above zero; 0, a negative or a non-finite
+ * value is off.
+ */
+function capOption(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : 0;
+}
+
 export function parseOptions(options: PluginOptions): Config {
   const models = splitList(options.models ?? DEFAULT_MODEL_CHAIN);
   const effortModelsArr = splitList(
@@ -232,6 +244,8 @@ export function parseOptions(options: PluginOptions): Config {
       typeof options.enhanceAction === "string"
         ? options.enhanceAction
         : "app:cycleDiffBase",
+    sessionCapUsd: capOption(options.sessionCapUsd),
+    dayCapUsd: capOption(options.dayCapUsd),
     prices,
     pricesIssue,
   };

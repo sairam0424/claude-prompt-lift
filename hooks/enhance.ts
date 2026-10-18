@@ -29,6 +29,7 @@ import {
   type AnsweredCall,
 } from "./stats";
 import { holdPair, recordSuccess } from "./record";
+import { capReachedToast, readCapStatus } from "./caps";
 
 // The Enhance flow (spec §5.3 steps 1–9) and the session state it writes.
 // Every atom this file reads or writes is declared here (the usage atoms live
@@ -119,6 +120,12 @@ export async function enhance(
     const guard = preGuard(draft, cfg, lastAssistantText(rows));
     if (!guard.ok) {
       $.ui.toast(guard.toast);
+      return;
+    }
+    // R9: a window at its cap refuses the press the same way, before any call
+    const capped = capReachedToast(await readCapStatus($, cfg));
+    if (capped !== undefined) {
+      $.ui.toast(capped);
       return;
     }
     const prepared = await prepare($, cfg, draft, rows);
