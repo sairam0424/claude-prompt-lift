@@ -9,6 +9,8 @@ const NOT_TAKEN =
   "prompt-master: the prompt box did not take the text (refused)";
 
 test("an Undo whose fill is refused toasts the refusal and leaves the pair", async ($, on) => {
+  // Only the engine itself can name a cause (`dialog`, `no_composer`); the
+  // site strips one a hook writes, so a stubbed refusal reaches the mod bare.
   const e = engine(on, { fill: { isFilled: false, refusal: "dialog" } });
   // The pair as a press held it; the box is empty, so Undo acts at once
   on("state.get", { plugin: "prompt-master", key: "original" }, () => ({

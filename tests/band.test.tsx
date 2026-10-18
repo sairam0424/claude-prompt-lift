@@ -4,6 +4,7 @@ import type { ModelCompleteResult, ModelUsage } from "claude-code";
 import {
   answered,
   engine,
+  press,
   BEDROCK,
   BETTER,
   DRAFT,
@@ -129,20 +130,24 @@ test("done row shows $? and (no price) for an unpriced model (R3)", () => {
 
 // --- the drawing ---
 
-test("idle band shows Enhance only and keeps the lower drawing", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
+test(
+  "idle band shows Enhance only and keeps the lower drawing",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
 
-  const ui = await mount($);
+    const ui = await mount($);
 
-  const found = await ui.findAll({ type: "Button" });
-  expect(found.map((b) => b.key)).toEqual(["enhance"]);
-  expect(found[0]?.props.label).toBe("Enhance (e)");
-  expect(found[0]?.props.hotkey).toBe("e");
-  expect(found[0]?.props.action).toBe("app:cycleDiffBase");
-  expect(await ui.find({ type: "Text", text: "lower" })).toBeDefined();
-  expect(await rowText(ui)).toBe(idleRowText(FABLE));
-  expect(e.calls).toHaveLength(0);
-});
+    const found = await ui.findAll({ type: "Button" });
+    expect(found.map((b) => b.key)).toEqual(["enhance"]);
+    expect(found[0]?.props.label).toBe("Enhance (e)");
+    expect(found[0]?.props.hotkey).toBe("e");
+    expect(found[0]?.props.action).toBe("app:cycleDiffBase");
+    expect(await ui.find({ type: "Text", text: "lower" })).toBeDefined();
+    expect(await rowText(ui)).toBe(idleRowText(FABLE));
+    expect(e.calls).toHaveLength(0);
+  },
+);
 
 test("yields to a survey", async ($, on) => {
   engine(on);
@@ -153,17 +158,23 @@ test("yields to a survey", async ($, on) => {
   expect(await ui.find({ type: "Text", text: "lower" })).toBeDefined();
 });
 
-test("the idle row follows /prompt-master model haiku as its hint says", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
-  const ui = await mount($);
+test(
+  "the idle row follows /prompt-master model haiku as its hint says",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
+    const ui = await mount($);
 
-  await $.command.run({ command: PLUGIN, args: "model haiku" } as never);
+    await $.command.run({ command: PLUGIN, args: "model haiku" } as never);
 
-  expect(await rowText(ui)).toBe(idleRowText("us.anthropic.claude-haiku-5-5"));
-  expect(await rowText(ui)).toContain("prompt-master: haiku 5.5");
-  expect(e.store.model).toBe("us.anthropic.claude-haiku-5-5");
-  expect(e.calls).toHaveLength(0);
-});
+    expect(await rowText(ui)).toBe(
+      idleRowText("us.anthropic.claude-haiku-5-5"),
+    );
+    expect(await rowText(ui)).toContain("prompt-master: haiku 5.5");
+    expect(e.store.model).toBe("us.anthropic.claude-haiku-5-5");
+    expect(e.calls).toHaveLength(0);
+  },
+);
 
 test(
   "Enhance button carries no action when the option is empty",
@@ -180,39 +191,43 @@ test(
   },
 );
 
-test("Enhance fills the box; Send and Undo follow; Undo turns to Redo", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
-  e.box.text = DRAFT;
-  const ui = await mount($);
+test(
+  "Enhance fills the box; Send and Undo follow; Undo turns to Redo",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
+    e.box.text = DRAFT;
+    const ui = await mount($);
 
-  await ui.press({ key: "enhance" });
+    await ui.press({ key: "enhance" });
 
-  expect(e.box.text).toBe(BETTER);
-  expect(e.calls).toHaveLength(1);
-  expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
-  expect(await label(ui, "send")).toBe("Send (s)");
-  expect(await label(ui, "undo")).toBe("Undo (u)");
-  expect((await ui.find({ key: "send" }))?.props.hotkey).toBe("s");
-  expect((await ui.find({ key: "undo" }))?.props.hotkey).toBe("u");
-  const row = await rowText(ui);
-  expect(
-    row.startsWith("fable 5.1 · 6.8k cached · 1.4k in · 310 out · $"),
-  ).toBe(true);
-  expect(row).toContain("words · ");
-  expect(row).toContain("skill");
+    expect(e.box.text).toBe(BETTER);
+    expect(e.calls).toHaveLength(1);
+    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(await label(ui, "send")).toBe("Send (s)");
+    expect(await label(ui, "undo")).toBe("Undo (u)");
+    expect((await ui.find({ key: "send" }))?.props.hotkey).toBe("s");
+    expect((await ui.find({ key: "undo" }))?.props.hotkey).toBe("u");
+    const row = await rowText(ui);
+    expect(
+      row.startsWith("fable 5.1 · 6.8k cached · 1.4k in · 310 out · $"),
+    ).toBe(true);
+    expect(row).toContain("words · ");
+    expect(row).toContain("skill");
 
-  await ui.press({ key: "undo" });
+    await ui.press({ key: "undo" });
 
-  expect(e.box.text).toBe(DRAFT);
-  expect(await label(ui, "undo")).toBe("Redo (u)");
-  expect(await rowText(ui)).toBe(RESTORED_ROW);
+    expect(e.box.text).toBe(DRAFT);
+    expect(await label(ui, "undo")).toBe("Redo (u)");
+    expect(await rowText(ui)).toBe(RESTORED_ROW);
 
-  await ui.press({ key: "undo" });
+    await ui.press({ key: "undo" });
 
-  expect(e.box.text).toBe(BETTER);
-  expect(await label(ui, "undo")).toBe("Undo (u)");
-  expect(e.calls).toHaveLength(1);
-});
+    expect(e.box.text).toBe(BETTER);
+    expect(await label(ui, "undo")).toBe("Undo (u)");
+    expect(e.calls).toHaveLength(1);
+  },
+);
 
 test("the button path leaves a box that changed while enhancing", async ($, on) => {
   const e = engine(on, { delay: true });
@@ -275,27 +290,31 @@ test("Send refuses a box with an @file", async ($, on) => {
   expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
 });
 
-test("Cancel while running stops the call and tries no fallback", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on, { delay: true, replies: [ABORTED, answered(GOOD)] });
-  e.box.text = DRAFT;
-  const ui = await mount($);
+test(
+  "Cancel while running stops the call and tries no fallback",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on, { delay: true, replies: [ABORTED, answered(GOOD)] });
+    e.box.text = DRAFT;
+    const ui = await mount($);
 
-  const run = ui.press({ key: "enhance" });
-  await e.modelCalled;
-  expect(await keys(ui)).toEqual(["cancel"]);
-  expect(await label(ui, "cancel")).toBe("Cancel (c)");
-  expect((await ui.find({ key: "cancel" }))?.props.hotkey).toBe("c");
-  expect(await rowText(ui)).toBe(runningRowText(FABLE));
-  await ui.press({ key: "cancel" });
-  e.release();
-  await run;
+    const run = ui.press({ key: "enhance" });
+    await e.modelCalled;
+    expect(await keys(ui)).toEqual(["cancel"]);
+    expect(await label(ui, "cancel")).toBe("Cancel (c)");
+    expect((await ui.find({ key: "cancel" }))?.props.hotkey).toBe("c");
+    expect(await rowText(ui)).toBe(runningRowText(FABLE));
+    await ui.press({ key: "cancel" });
+    e.release();
+    await run;
 
-  expect(e.calls).toHaveLength(1);
-  expect(e.fills).toHaveLength(0);
-  expect(e.box.text).toBe(DRAFT);
-  expect(e.toasts).toEqual([CANCELLED]);
-  expect(await keys(ui)).toEqual(["enhance"]);
-});
+    expect(e.calls).toHaveLength(1);
+    expect(e.fills).toHaveLength(0);
+    expect(e.box.text).toBe(DRAFT);
+    expect(e.toasts).toEqual([CANCELLED]);
+    expect(await keys(ui)).toEqual(["enhance"]);
+  },
+);
 
 test("Send says queues while a turn runs and Enhance stays live", async ($, on) => {
   const e = engine(on);
@@ -348,28 +367,59 @@ test("a cached press ends the no-cache streak", async ($, on) => {
   expect(await rowText(ui)).not.toContain(NO_CACHE_HINT);
 });
 
-test("the done row says (no price) after an unpriced press", { options: { models: OPUS } }, async ($, on) => {
-  const e = engine(on);
-  e.box.text = DRAFT;
-  const ui = await mount($);
+test(
+  "the done row says (no price) after an unpriced press",
+  { options: { models: OPUS } },
+  async ($, on) => {
+    const e = engine(on);
+    e.box.text = DRAFT;
+    const ui = await mount($);
 
-  await ui.press({ key: "enhance" });
+    await ui.press({ key: "enhance" });
 
-  expect(e.box.text).toBe(BETTER);
-  expect(e.calls[0]?.model).toBe(OPUS);
-  expect(await rowText(ui)).toContain(" · 310 out · $? · (no price) · +");
-});
+    expect(e.box.text).toBe(BETTER);
+    expect(e.calls[0]?.model).toBe(OPUS);
+    expect(await rowText(ui)).toContain(" · 310 out · $? · (no price) · +");
+  },
+);
 
-test("a running phase no call backs draws the idle row", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
-  // Every read says `running`, as a phase a dropped environment left would
-  on("state.get", { plugin: "prompt-master", key: "phase" }, () => ({
-    value: { value: "running", version: 0 },
-  }));
+test(
+  "a running phase no call backs draws the idle row",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
+    // Every read says `running`, as a phase a dropped environment left would
+    on("state.get", { plugin: "prompt-master", key: "phase" }, () => ({
+      value: { value: "running", version: 0 },
+    }));
 
-  const ui = await mount($);
+    const ui = await mount($);
 
-  expect(await keys(ui)).toEqual(["enhance"]);
-  expect(await rowText(ui)).toBe(idleRowText(FABLE));
-  expect(e.calls).toHaveLength(0);
-});
+    expect(await keys(ui)).toEqual(["enhance"]);
+    expect(await rowText(ui)).toBe(idleRowText(FABLE));
+    expect(e.calls).toHaveLength(0);
+  },
+);
+
+
+test(
+  "band shows cancel button while enhancing and done state after",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on, { replies: [answered(GOOD)], delay: true });
+    e.box.text = DRAFT;
+    const ui = await mount($);
+
+    // Press and verify running state shows cancel
+    ui.press({ key: "enhance" });
+    await e.modelCalled;
+    await ui.drawn();
+    expect(await keys(ui)).toContain("cancel");
+
+    // After reply, verify done state (no cancel)
+    e.release();
+    await ui.drawn();
+    expect(await keys(ui)).not.toContain("cancel");
+    expect(await keys(ui)).toContain("enhance");
+  },
+);
