@@ -1,6 +1,6 @@
 # prompt-master
 
-A Claude Code mod that turns a vague prompt into a specific one before you send it. It reads the instruction files your session loaded (the `CLAUDE.md` tree and rules files) and the skills Claude can trigger, asks a model for the smallest edit that adds the missing facts, puts the result back in the prompt box with the inserted words underlined, and sends only when you press Send or Enter.
+A Claude Code mod that turns a vague prompt into a specific one before you send it. It reads the instruction files your session loaded (the `CLAUDE.md` tree and rules files) and the skills Claude can trigger, asks a model for the smallest edit that adds the missing facts, puts the result back in the prompt box with the inserted words highlighted, and sends only when you press Send or Enter. The mod tracks costs with prompt caching support, falls back through a model chain on failures, and validates rewrites against safety guards.
 
 The band row appears above the prompt: `[ Enhance (e) ] [ Send (s) ] [ Undo (u) ]`; `Cancel (c)` while a call runs; `Send (queues)` while a turn runs; `Redo (u)` after an Undo. Nothing runs while idle: no timers, no per-keystroke hooks, a model call happens only on a press or a command.
 
@@ -29,7 +29,12 @@ claude plugin marketplace add ~/src/claude-prompt-master
 claude plugin install prompt-master@claude-prompt-master
 ```
 
-Then, in a session: `/reload-plugins` (or start a new one), and `/prompt-master probe` prints one line per model in the chain, `ok` for each one your account can call. A refused rung means that model is not available to you: set `models` (see Configuration).
+Then, in a session:
+
+1. `/reload-plugins` (or start a new one)
+2. `/prompt-master probe` — one line per model; `ok` means your account can call it
+3. Type a draft like "write a commit" and press Enhance — the done row should show ≥ 1 skill matched
+4. If a model shows `refused`, set `models` to the rungs your account has (see Configuration)
 
 ## Using it
 
@@ -143,7 +148,9 @@ Prices are USD per 1M tokens, Bedrock `us.*` profiles, verified 2026-10-16:
 | Sonnet 5.5 | 2.20 | 11.00 | 2.75 | 0.11 |
 | Haiku 5.5 | 0.11 | 0.55 | 0.1375 | 0.011 |
 
-The table is Bedrock `us.*` cross-region pricing, which is Anthropic's list price plus 10%; on the Anthropic API expect about 10% less. An alias prices as the current generation of its family (`fable` as Fable 5.1, `sonnet` as Sonnet 5.5, `haiku` as Haiku 5.5); a model the table does not know shows `$0.000`.
+The table is Bedrock `us.*` cross-region pricing, which is Anthropic's list price plus 10%; on the Anthropic API expect about 10% less. An alias prices as the current generation of its family (`fable` as Fable 5.1, `sonnet` as Sonnet 5.5, `haiku` as Haiku 5.5); an unpriced model shows `$?` and `(no price)`.
+
+The built-in price table can be overridden with the `prices` configuration option (see Configuration).
 
 Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 - Fable: ≈ $0.13 cold / ≈ $0.04 warm
@@ -190,6 +197,7 @@ After the call (the toast ends with what the call cost):
 - No timers, no per-keystroke hooks
 - One band row
 - Shares your account's model quota with the main turn (a rate limit on the first rung falls back to the next and the toast says so)
+- The mod sends instruction file text to the model; a hostile `CLAUDE.md` in a cloned repository can attempt prompt injection. The mod neutralizes tag-like markup and instructs the model to treat context as data, but the residual risk is yours to weigh when enhancing in untrusted repositories.
 
 ## Development
 
