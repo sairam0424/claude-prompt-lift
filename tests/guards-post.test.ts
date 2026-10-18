@@ -291,6 +291,7 @@ test("a draft ending in a path still passes the protected-token check", () => {
       '{"verdict":"improve","prompt":"Fix the login bug in src/auth.ts where the session expires after sign-in.","why":"","applied":[]}',
     outputTokens: 50,
     cfg,
+    listedSkills: new Set(),
     knownSkills: new Set(),
     descriptions: new Map(),
     documents: "",
@@ -306,6 +307,7 @@ test("a sentence-final skill mention passes the risky-addition check", () => {
       '{"verdict":"improve","prompt":"Review the login flow in src/auth.ts for session expiry, then run /review.","why":"","applied":[]}',
     outputTokens: 50,
     cfg,
+    listedSkills: new Set(["review"]),
     knownSkills: new Set(["review"]),
     descriptions: new Map(),
     documents: "",
@@ -327,6 +329,7 @@ test("a rewrite that starts with a command prefix is refused", () => {
       cfg,
       knownSkills: new Set(["review"]),
       descriptions: new Map([["review", "Pre-landing PR review"]]),
+      listedSkills: new Set(["review"]),
       documents: "",
     });
   const refused = {

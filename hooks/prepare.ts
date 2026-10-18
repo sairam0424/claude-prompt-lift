@@ -15,6 +15,7 @@ export type Prepared = {
   dynamicBlock: string;
   relevantCount: number;
   knownSkills: Set<string>;
+  listedSkills: Set<string>;
   descriptions: Map<string, string>;
   documentsText: string;
 };
@@ -54,6 +55,7 @@ export async function prepare(
       ...ctx.skillNames,
       ...ctx.commands.map((c) => c.name),
     ]),
+    listedSkills: new Set(ctx.skillNames),
     descriptions: ctx.descriptions,
     documentsText: ctx.documentsText,
   };

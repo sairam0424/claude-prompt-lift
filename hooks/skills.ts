@@ -75,15 +75,21 @@ export function demoteLeadingSkill(
     return result;
   }
 
-  const skillName = first.slice(1);
+  // Only demote if the first token matches COMMAND_SHAPE (R7)
+  const firstCore = stripEdges(first);
+  if (!COMMAND_SHAPE.test(firstCore)) {
+    return result;
+  }
+
+  const skillName = firstCore.slice(1);
   const description =
-    a.descriptions.get(skillName) || a.descriptions.get(first);
+    a.descriptions.get(skillName) || a.descriptions.get(firstCore);
 
   // Check conditions for keeping at the front
   const runAllowed =
     a.cfg.skillPlacement === "run" &&
     (a.cfg.skillPrefixAllow.includes(skillName) ||
-      a.cfg.skillPrefixAllow.includes(first));
+      a.cfg.skillPrefixAllow.includes(firstCore));
 
   // Check for dangerous words in description
   const isDangerous = description && DANGEROUS_SKILL_WORDS.test(description);
@@ -124,12 +130,19 @@ export function demoteLeadingSkill(
   }
 
   // Otherwise, move to end as a mention
-  const rest = tokens.slice(1).join(" ");
+  let rest = tokens.slice(1).join(" ");
   if (rest.length === 0) {
     return result;
   }
 
+  // Move trailing punctuation (., !, ?) after the skill clause (R7)
+  let trailingPunc = "";
+  if (rest.endsWith(".") || rest.endsWith("!") || rest.endsWith("?")) {
+    trailingPunc = rest.charAt(rest.length - 1);
+    rest = rest.slice(0, -1);
+  }
+
   // Capitalize first word of rest
   const capitalized = rest.charAt(0).toUpperCase() + rest.slice(1);
-  return `${capitalized}, using the ${first} skill`;
+  return `${capitalized}, using the ${first} skill${trailingPunc}`;
 }

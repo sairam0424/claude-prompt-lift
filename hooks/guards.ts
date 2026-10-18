@@ -219,6 +219,7 @@ export function postProcess(a: {
   outputTokens: number;
   cfg: Config;
   knownSkills: ReadonlySet<string>;
+  listedSkills: ReadonlySet<string>;
   descriptions: ReadonlyMap<string, string>;
   documents: string;
 }): PostResult {
@@ -233,7 +234,7 @@ export function postProcess(a: {
   const result = verdict.prompt;
 
   // Step 4: Truncated?
-  if (isTruncated(a.outputTokens, a.cfg.maxTokens, a.reply)) {
+  if (isTruncated(a.outputTokens, a.cfg.maxTokens, result)) {
     return {
       ok: false,
       toast: "prompt-master: reply hit the token cap, kept your prompt",
@@ -312,7 +313,7 @@ export function postProcess(a: {
   }
 
   // Step 12: Strip unknown skills
-  let processed = stripUnknownSkills(result, a.knownSkills);
+  let processed = stripUnknownSkills(result, a.listedSkills);
 
   // §5.4's prefixes: a line Enter would run instead of send (§2 anti-goal)
   if (startsWithCommandPrefix(processed, a.knownSkills)) {

@@ -154,6 +154,7 @@ export async function enhance(
       outputTokens: run.usage.output_tokens,
       cfg,
       knownSkills: prepared.knownSkills,
+      listedSkills: prepared.listedSkills,
       descriptions: prepared.descriptions,
       documents: prepared.documentsText,
     });
