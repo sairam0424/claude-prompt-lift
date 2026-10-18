@@ -82,8 +82,10 @@ export async function renderBand(
   const below = await next(e);
   const row = await drawRow($, e, cfg);
   const { Box } = $.ui.resolve(e);
+  // The mods beneath share this slot: one blank row keeps the band and their
+  // drawing apart; with nothing beneath the gap has no second child to open.
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" rowGap={1}>
       {row}
       {below}
     </Box>
