@@ -92,7 +92,7 @@ Settings live in `/config` under `pluginConfigs` → `prompt-master@claude-promp
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `models` | string | `fable,sonnet,haiku` | Comma-separated models to try in order: an alias (`fable`, `sonnet`, `haiku`), a full model id, or `session` for the session's model |
-| `effortModels` | string | `fable,sonnet` | Models that receive `effort: low`; others get no effort parameter (matched by exact id) |
+| `effortModels` | string | `fable,sonnet` | Models that accept the effort parameter; they are sent effort: low |
 | `maxTokens` | number | 2000 | Maximum tokens per model completion |
 | `timeoutMsFirst` | number | 30000 | Timeout for the first model attempt |
 | `timeoutMsNext` | number | 15000 | Timeout for fallback model attempts |
@@ -102,7 +102,7 @@ Settings live in `/config` under `pluginConfigs` → `prompt-master@claude-promp
 | `maxGrowthChars` | number | 1200 | Maximum character growth allowed |
 | `relevantSkills` | number | 8 | Number of relevant skill descriptions to include |
 | `instructionFileMaxChars` | number | 40000 | Maximum characters read from each instruction file |
-| `enhanceAction` | string | `app:cycleDiffBase` | Engine action the Enhance button carries (empty disables it) |
+| `enhanceAction` | string | `app:cycleDiffBase` | Engine keybinding action whose chord presses Enhance from the prompt (empty disables) |
 | `filePrefix` | string | `plain` | How file paths appear in the rewrite (`plain` or `at`) |
 | `skillPlacement` | string | `mention` | How a matched skill is named (`mention` mid-sentence, or `run` as a leading `/name`) |
 | `includeConversation` | boolean | false | Include recent conversation history |
@@ -110,6 +110,7 @@ Settings live in `/config` under `pluginConfigs` → `prompt-master@claude-promp
 | `skillPrefixAllow` | string | `""` | Skills allowed as a leading `/name` under `run` (empty for none) |
 | `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Instruction files to leave out |
 | `skillExclude` | string | `""` | Skill name patterns left out of the listing (`*` and `?` wildcards); empty sends every skill Claude lists |
+| `prices` | string | | JSON map of model id fragment to per-1M-token prices merged over the built-in table; invalid JSON is ignored with a log line |
 
 The chain falls back on a refused model, an empty reply, a rate limit, a server error and a timeout; never on your Cancel, never on a 400. The toast names every attempt.
 

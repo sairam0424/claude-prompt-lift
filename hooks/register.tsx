@@ -17,6 +17,9 @@ export const register: Register = (on, options) => {
         "Enhance the prompt from the project instructions and skills",
       argumentHint: "<text> | undo | model <id> | status | diff | probe",
     });
+    if (cfg.pricesIssue) {
+      $.ui.log(cfg.pricesIssue);
+    }
     await resetStuckPhase($, isCallInFlight());
     return next(e);
   });

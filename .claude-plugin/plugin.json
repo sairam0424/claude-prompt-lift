@@ -16,7 +16,7 @@
     "effortModels": {
       "type": "string",
       "title": "Effort Models",
-      "description": "Comma-separated models that receive effort: low; others get no effort parameter",
+      "description": "Models that accept the effort parameter; they are sent effort: low",
       "default": "fable,sonnet"
     },
     "maxTokens": {
@@ -76,7 +76,7 @@
     "enhanceAction": {
       "type": "string",
       "title": "Enhance Action",
-      "description": "Action to trigger after enhancement",
+      "description": "Engine keybinding action whose chord presses Enhance from the prompt (empty disables)",
       "default": "app:cycleDiffBase"
     },
     "filePrefix": {
@@ -127,6 +127,12 @@
       "type": "string",
       "title": "Skill Exclude",
       "description": "Comma-separated skill name patterns left out of the listing sent to the model (* and ? wildcards, e.g. sparc:*,gws-*); empty sends every skill Claude lists",
+      "default": ""
+    },
+    "prices": {
+      "type": "string",
+      "title": "Prices",
+      "description": "JSON map of model id fragment to per-1M-token prices {\"<key>\": {\"input\",\"output\",\"cacheWrite\",\"cacheRead\"}} merged over the built-in table; invalid JSON is ignored with a log line",
       "default": ""
     }
   }

@@ -49,6 +49,7 @@ export type Config = {
   maxGrowthChars: number;
   enhanceAction: string;
   prices: Readonly<Record<string, Price>>;
+  pricesIssue: string | undefined;
 };
 
 // The defaults are the engine's own aliases, so a fresh install works on every
@@ -69,6 +70,85 @@ export const ALIAS_PRICE_KEYS: Readonly<Record<string, string>> = {
   sonnet: "sonnet-5-5",
   haiku: "haiku-5-5",
 };
+
+/**
+ * Parse a JSON string of price overrides. Returns a Record of valid Price
+ * entries, or an empty object if the JSON is invalid. When `log` is provided,
+ * invalid input triggers exactly one call with a short reason.
+ */
+export function parsePrices(
+  json: string,
+  log?: (message: string) => void,
+): Record<string, Price> {
+  if (json === "") {
+    return {};
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    if (log) {
+      log("prompt-master: prices option ignored: invalid JSON");
+    }
+    return {};
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    if (log) {
+      log("prompt-master: prices option ignored: not an object");
+    }
+    return {};
+  }
+
+  const result: Record<string, Price> = {};
+  const entries = Object.entries(parsed);
+
+  for (const [key, value] of entries) {
+    if (typeof value !== "object" || value === null) {
+      if (log) {
+        log("prompt-master: prices option ignored: entry not an object");
+      }
+      return {};
+    }
+
+    const candidate = value as Record<string, unknown>;
+    const requiredFields = ["input", "output", "cacheWrite", "cacheRead"];
+
+    for (const field of requiredFields) {
+      if (!(field in candidate)) {
+        if (log) {
+          log(`prompt-master: prices option ignored: missing ${field} field`);
+        }
+        return {};
+      }
+
+      const fieldValue = candidate[field];
+      if (typeof fieldValue !== "number") {
+        if (log) {
+          log(`prompt-master: prices option ignored: ${field} is not a number`);
+        }
+        return {};
+      }
+
+      if (fieldValue < 0) {
+        if (log) {
+          log(`prompt-master: prices option ignored: ${field} is negative`);
+        }
+        return {};
+      }
+    }
+
+    result[key] = {
+      input: candidate.input as number,
+      output: candidate.output as number,
+      cacheWrite: candidate.cacheWrite as number,
+      cacheRead: candidate.cacheRead as number,
+    };
+  }
+
+  return result;
+}
 
 export function splitList(value: unknown): string[] {
   // If value is already an array, join it with commas first
@@ -94,6 +174,13 @@ export function parseOptions(options: PluginOptions): Config {
   const effortModelsArr = splitList(
     options.effortModels ?? models.slice(0, 2).join(","),
   );
+
+  let pricesIssue: string | undefined;
+  const pricesJson = typeof options.prices === "string" ? options.prices : "";
+  const parsedPrices = parsePrices(pricesJson, (msg) => {
+    pricesIssue = msg;
+  });
+  const prices = { ...DEFAULT_PRICES, ...parsedPrices };
 
   return {
     models,
@@ -145,7 +232,8 @@ export function parseOptions(options: PluginOptions): Config {
       typeof options.enhanceAction === "string"
         ? options.enhanceAction
         : "app:cycleDiffBase",
-    prices: DEFAULT_PRICES,
+    prices,
+    pricesIssue,
   };
 }
 
