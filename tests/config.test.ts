@@ -320,3 +320,16 @@ test("estimateUsd uses overridden prices", async () => {
   // With overridden prices: (1M * 1 + 1M * 2) / 1M = $3
   expect(cost).toBe(3);
 });
+
+
+test("parsePrices is all-or-nothing: one invalid entry returns empty object", async () => {
+  const logs: string[] = [];
+  const json = JSON.stringify({
+    "model-valid": { input: 1, output: 2, cacheWrite: 0.5, cacheRead: 0.05 },
+    "model-invalid": { input: -1, output: 2, cacheWrite: 1, cacheRead: 0.1 },
+  });
+  const result = parsePrices(json, (msg) => logs.push(msg));
+  expect(result).toEqual({});
+  expect(logs).toHaveLength(1);
+  expect(logs[0]).toContain("prompt-master: prices option ignored:");
+});

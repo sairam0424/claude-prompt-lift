@@ -4,6 +4,7 @@ import type { ModelCompleteResult } from "claude-code";
 import {
   answered,
   engine,
+  improve,
   phaseOnce,
   watch,
   BETTER,
@@ -56,15 +57,6 @@ function press($: Harness, args: string): Promise<unknown> {
 
 function undoCmd($: Harness): Promise<unknown> {
   return press($, "undo");
-}
-
-function improve(prompt: string): string {
-  return JSON.stringify({
-    verdict: "improve",
-    prompt,
-    why: "test",
-    applied: [],
-  });
 }
 
 function sendIo($: Harness): SendIo {
