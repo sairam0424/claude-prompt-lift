@@ -106,6 +106,12 @@ export type EngineOptions = {
   delay?: boolean;
   /** Make `prompt.fill` refuse instead of taking the text. */
   fill?: FillRefusal;
+  /**
+   * Make `prompt.fill` reject: the hook throws for this reason, so the kit
+   * skips it and, nothing else answering, the call rejects — the box dropped
+   * out from under a press after the model answered.
+   */
+  denyFill?: string;
   /** Make `session.messages` reject for this reason: enhance's failure path. */
   denyMessages?: string;
   /**
@@ -239,6 +245,9 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
   }));
   on("prompt.fill", ($, e) => {
     fills.push(e);
+    if (opts.denyFill !== undefined) {
+      throw new Error(opts.denyFill);
+    }
     if (opts.fill) {
       return opts.fill;
     }
