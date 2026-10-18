@@ -3,14 +3,12 @@ import {
   answered,
   engine,
   block,
-  localDay,
   press,
   BEDROCK,
   BETTER,
   DRAFT,
   FABLE,
   GOOD,
-  NOW_MS,
   SONNET,
   TODAY,
   USAGE,
@@ -18,13 +16,7 @@ import {
 } from "./engine";
 import { formatDollars } from "../hooks/chain";
 import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
-import {
-  addCall,
-  dayOf,
-  dayRow,
-  EMPTY_DAY,
-  type DayStats,
-} from "../hooks/stats";
+import { addCall, dayRow, EMPTY_DAY, type DayStats } from "../hooks/stats";
 
 // Spec G5 and C19: every call the chain paid for is recorded and its dollars
 // end every toast that follows it; `status` shows the last call, not the last
@@ -400,19 +392,4 @@ test("an error's message in the enhance-failed toast is cut to one short line", 
   expect(e.toasts[0]).toContain("line 0 line 1 ");
 });
 
-// --- R6: the stats day is the local day ---
-
-test("dayOf keys stats by the local, zero-padded day", async () => {
-  const lateUtc = Date.UTC(2026, 9, 16, 23, 30, 0);
-  // Independent check: dayOf uses local time, so compare with UTC adjusted by offset
-  const localMs = lateUtc - new Date(lateUtc).getTimezoneOffset() * 60_000;
-  const utcDate = new Date(localMs);
-  const expectedDay = `${utcDate.getUTCFullYear()}-${String(utcDate.getUTCMonth() + 1).padStart(2, "0")}-${String(utcDate.getUTCDate()).padStart(2, "0")}`;
-  expect(dayOf(lateUtc)).toBe(expectedDay);
-  // Also verify against the Date API for consistency (but Date-based)
-  expect(dayOf(lateUtc)).toBe(localDay(new Date(lateUtc)));
-  expect(dayOf(lateUtc)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-  // Built from local parts, so this literal holds in every zone
-  expect(dayOf(new Date(2026, 0, 5, 12).getTime())).toBe("2026-01-05");
-  expect(dayOf(NOW_MS)).toBe(TODAY);
-});
+// R6: the stats day tests moved to tests/stats-day.test.ts (file cap 400).
