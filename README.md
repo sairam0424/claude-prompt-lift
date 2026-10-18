@@ -58,11 +58,12 @@ The original is kept until you submit or `/clear`. Undo acts only when the box s
 - `/prompt-lift <text>` — enhance the text
 - `/prompt-lift undo` — restore the original draft
 - `/prompt-lift model <id|alias|reset>` — put a model first for this machine (`sonnet`, `haiku`, a full id) or `reset` to the configured chain
-- `/prompt-lift status` — the chain, the last call, session and per-day totals, the static block size and hash
+- `/prompt-lift cap <usd|off>` — cap this session's spend at `<usd>` (`off` lifts it); `cap` alone prints the caps. See Spend caps under Cost
+- `/prompt-lift status` — the chain, the last call, session and per-day totals, the caps, the engine's session total, the static block size and hash
 - `/prompt-lift diff` — word-level diff of the last enhancement
 - `/prompt-lift probe` — one tiny call per model in the chain, reporting `ok` or the refusal
 
-A sub-word is recognised only when it is the whole argument (any case): `/prompt-lift diff the two configs and explain` is a draft to enhance, not the diff. `model` takes exactly one token; `model the auth flow as a state machine` is a draft too.
+A sub-word is recognised only when it is the whole argument (any case): `/prompt-lift diff the two configs and explain` is a draft to enhance, not the diff. `model` and `cap` take exactly one token; `model the auth flow as a state machine` is a draft too.
 
 ### Keyboard
 
@@ -113,7 +114,7 @@ The mod reads files through `$.fs.read`, `$.fs.exists`, and `$.fs.list`, accessi
 
 Writes happen through `$.prompt.fill` (which writes the prompt box) and `$.prompt.submit` (which sends only when you press Send or run `/prompt-lift send`). Nothing is sent on a timer or while you type.
 
-Persistence is local to this machine: `$.state` holds the session's held pair, phase, last usage, and model choice; `$.store` holds the per-day press and cost rows, the chosen model, and the static-block hash.
+Persistence is local to this machine: `$.state` holds the session's held pair, phase, last usage, model choice, and session cap override; `$.store` holds the per-day press and cost rows, the chosen model, and the static-block hash.
 
 The mod uses no `$.http.fetch`, no `$.process.run`, no clipboard access, no telemetry, no analytics, and no file writes.
 
@@ -158,6 +159,8 @@ Settings live in `/config` under `pluginConfigs` → `prompt-lift@claude-prompt-
 | `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Instruction files to leave out |
 | `skillExclude` | string | `""` | Skill name patterns left out of the listing (`*` and `?` wildcards); empty sends every skill Claude lists |
 | `prices` | string | | A JSON **string** (quoted and escaped, not a bare object) mapping a model id fragment to per-1M-token prices, merged over the built-in table; invalid JSON or a malformed entry is ignored with a log line. See Cost for the exact form |
+| `sessionCapUsd` | number | 0 | Refuse a press once this session's priced presses reach these dollars; 0 is no cap. `/prompt-lift cap <usd|off>` overrides it for the session. See Spend caps under Cost |
+| `dayCapUsd` | number | 0 | Refuse a press once today's priced presses, across sessions on this machine, reach these dollars; 0 is no cap |
 
 The chain falls back on a refused model, an empty reply, a rate limit, a server error and a timeout; never on your Cancel, never on a 400. The toast names every attempt.
 
@@ -207,6 +210,17 @@ Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 
 The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars — a successful rewrite, `already specific, left as is`, every refusal, and a chain that failed after a paid rung — and `status` counts them all (a refused press cost the same as an accepted one). A press that fell back to a later rung is priced by every rung it paid for: `via fable 5.1: no text` on the toast means Fable's tokens are in the dollars too, not only the answering model's. `/prompt-lift model haiku` switches to Haiku.
 
+### Spend caps
+
+Two options cap what the mod spends; both are off (`0`) by default, and a negative or non-numeric value counts as off:
+
+- `sessionCapUsd` — this session's priced presses. `/prompt-lift cap <usd>` replaces it for the session (`/prompt-lift cap 2.50`), `/prompt-lift cap off` lifts it, and `/prompt-lift cap` alone prints the caps as `status` does. The override lives in session state, so a new session starts from the option again.
+- `dayCapUsd` — today's priced presses across every session on this machine (the per-day rows `status` shows). It has no override.
+
+A press is refused before any model call once a window's recorded spend meets its cap — `prompt-lift: session cap $0.10 reached · /prompt-lift cap off` or `prompt-lift: day cap $5.00 reached` — and records nothing. The check reads the mod's own ledger, never your account's rate limits, so it counts only what the price table priced: an unpriced press (`$?`) adds to `unpriced calls`, not to the dollars a cap sees. The cap is compared with what was spent *before* the press, so the press that crosses it still runs and the next one is refused.
+
+While a cap is active the band's idle and done rows end with what is left, ` · $0.85 left`; when the day cap is the tighter one the row shows its figure as ` · $0.35 left (day)`. `status` prints `caps: off` or `caps: session $1.00 ($0.85 left) · day $5.00 ($4.85 left)` after the `today:` line, then `session total (all tools): $N` when the engine has that figure — the whole session's cost as Claude Code's own `/cost` totals it, every tool included, distinct from the mod's ledger.
+
 ## Why was my draft refused?
 
 Each refusal is one toast and leaves the box exactly as typed.
@@ -217,6 +231,8 @@ Before any model call (nothing is spent):
 - `prompt-lift: that reads like an answer to Claude's question` — the draft opens like a reply (`yes`, `no`, `ok`, `sure`, `go ahead`, `option 2`, …) when under 12 words, or is under 12 words right after Claude asked a question. Answer with Enter.
 - `prompt-lift: under 3 words, nothing to enhance` — fewer than `minWords` words. Add a few, or lower `minWords`.
 - `prompt-lift: over 4000 characters, already specific` — longer than `maxDraftChars`. Send it as it is, or raise the cap.
+- `prompt-lift: session cap $0.10 reached · /prompt-lift cap off` — this session's priced presses have reached `sessionCapUsd` (or the cap `/prompt-lift cap` set). `/prompt-lift cap off` lifts it for the session, `/prompt-lift cap 2.50` moves it.
+- `prompt-lift: day cap $5.00 reached` — today's priced presses, across sessions, have reached `dayCapUsd`. Raise the option or wait for tomorrow; there is no override.
 
 After the call (the toast ends with what the call cost):
 

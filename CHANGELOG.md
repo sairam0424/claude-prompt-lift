@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Spend caps (R9): `sessionCapUsd` and `dayCapUsd` options (0 = off) refuse a press before any model call once the mod's own ledger of priced presses reaches them; `/prompt-lift cap <usd|off>` moves the session cap for this session; the band's idle and done rows end with `$Y left` (`(day)` when the day cap is tighter); `status` prints `caps:` and `session total (all tools):` lines.
+
 ### Changed
 - Renamed to prompt-lift (install id prompt-lift@claude-prompt-lift; marketplace claude-prompt-lift carries a renames map from prompt-master). State and day statistics start fresh after the rename.
 
