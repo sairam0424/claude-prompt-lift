@@ -1,5 +1,5 @@
 import { expect, test } from "claude-code/testing";
-import type { On } from "claude-code";
+import type { On, StateDollar } from "claude-code";
 import {
   engine,
   phaseOnce,
@@ -9,6 +9,7 @@ import {
   DRAFT,
   TODAY,
 } from "./engine";
+import { resetStuckPhase } from "../hooks/actions";
 import { asStats, STATS_STORE_KEY } from "../hooks/stats";
 
 // Spec §5.3 step 9 and §12, resilience: the pair Undo restores is held the
@@ -16,11 +17,15 @@ import { asStats, STATS_STORE_KEY } from "../hooks/stats";
 // write costs the bookkeeping and not the result; a call that answered is
 // recorded even when the press then throws (G5, C19); a `running` phase no
 // call backs (one a dropped environment left) is reset when a command runs,
-// while a call in flight is never reset. The band's side is in band.test.tsx.
+// while a call in flight is never reset, and a press counts as in flight
+// until its phase has settled. The band's side is in band.test.tsx.
 
 const RECORD_FAILED =
   "prompt-master: saved the result, but recording its cost failed";
 const RESTORED = "prompt-master: restored your draft";
+const ANSWER_LIKE =
+  "prompt-master: that reads like an answer to Claude's question";
+const BUSY = "prompt-master: already enhancing";
 /** The pair, in the order the success path writes it. */
 const PAIR = ["original", "enhanced", "isUndone", "lastDecorations"];
 /** The state recording the call writes, in order; the store row follows. */
@@ -146,4 +151,73 @@ test("a command leaves a running phase alone while its call is in flight", async
   expect(e.calls).toHaveLength(1);
   expect(e.box.text).toBe(BETTER);
   expect(phases).toEqual(["running", "done"]);
+});
+
+test("a press stays in flight until its phase has settled", async ($, on) => {
+  const e = engine(on);
+  const phases = watch(on, "phase");
+  // Settling begins by clearing runningModel; a press that arrives right then
+  // finds the first press's phase still `running` and must be told "busy",
+  // not run a second call: the first press is live until its phase is set.
+  let inWindow: Promise<unknown> | undefined;
+  on(
+    "state.set",
+    { plugin: "prompt-master", key: "runningModel" },
+    async (_, ev, next) => {
+      if (inWindow === undefined) {
+        inWindow = press($, DRAFT);
+        await inWindow;
+      }
+      return next(ev);
+    },
+  );
+
+  await press($, "ok do it now");
+
+  expect(inWindow).toBeDefined();
+  expect(e.calls).toHaveLength(0);
+  expect(e.toasts).toEqual([ANSWER_LIKE, BUSY]);
+  expect(phases).toEqual(["running", "idle"]);
+});
+
+/**
+ * A `$` of the state noun alone, every read answered with `phase` and every
+ * write kept. The noun's methods are generic over the contract, which a fake
+ * that answers one key cannot spell, hence the cast.
+ */
+function stateHolding(
+  phase: string,
+  onRead: () => void,
+): { $: StateDollar; writes: unknown[] } {
+  const writes: unknown[] = [];
+  const state = {
+    get: async () => {
+      onRead();
+      return { value: phase, version: 1 };
+    },
+    set: async (_ref: unknown, value: unknown) => {
+      writes.push(value);
+      return { isSet: true, version: 2 };
+    },
+  };
+  return { $: { state } as unknown as StateDollar, writes };
+}
+
+test("resetStuckPhase idles a running phase no call backs", async () => {
+  const { $, writes } = stateHolding("running", () => undefined);
+
+  await resetStuckPhase($, () => false);
+
+  expect(writes).toEqual(["idle"]);
+});
+
+test("resetStuckPhase asks whether a call is in flight after it has read the phase", async () => {
+  let isInFlight = false;
+  const { $, writes } = stateHolding("running", () => {
+    isInFlight = true;
+  });
+
+  await resetStuckPhase($, () => isInFlight);
+
+  expect(writes).toEqual([]);
 });

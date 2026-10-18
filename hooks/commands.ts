@@ -111,7 +111,7 @@ export async function runCommand(
   rawArgs: string,
 ): Promise<CommandRunResult> {
   // A `running` no call backs would freeze the band (§5.3 resets): idle first.
-  await resetStuckPhase($, isCallInFlight());
+  await resetStuckPhase($, isCallInFlight);
   const args = rawArgs.trim();
   if (args === "") {
     return { text: HINT };

@@ -20,7 +20,7 @@ export const register: Register = (on, options) => {
     if (cfg.pricesIssue) {
       $.ui.log(cfg.pricesIssue);
     }
-    await resetStuckPhase($, isCallInFlight());
+    await resetStuckPhase($, isCallInFlight);
     return next(e);
   });
 

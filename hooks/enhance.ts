@@ -83,7 +83,7 @@ export function cancel(): void {
 
 /**
  * Whether a press is under way: its controller is set before its first write
- * and cleared in its `finally`; the band and the resets ask.
+ * and cleared once its phase has settled; the band and the resets ask.
  */
 export function isCallInFlight(): boolean {
   return controller !== undefined;
@@ -111,6 +111,7 @@ export async function enhance(
   try {
     before = await read($, phase);
     const myId = await update($, requestId, (n) => n + 1);
+    // A same-value write (over a stale `running`) still redraws the band
     await update($, phase, () => "running");
     const draft = await readDraft($, source);
     const rows = await $.session.messages();
@@ -174,9 +175,14 @@ export async function enhance(
     $.ui.toast(capToast(`prompt-master: enhance failed (${message})`));
     $.ui.log(`prompt-master: enhance failed: ${String(err)}`, { to: "debug" });
   } finally {
-    busy = false;
-    controller = undefined;
-    await settle($, before);
+    // In flight until the phase has settled: a command in that window must
+    // not reset this press's phase, and a press then is rightly told "busy".
+    try {
+      await settle($, before);
+    } finally {
+      busy = false;
+      controller = undefined;
+    }
   }
 }
 

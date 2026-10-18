@@ -1,5 +1,5 @@
 import { atom, read, update } from "claude-code";
-import type { EngineInterface } from "claude-code";
+import type { EngineInterface, StateDollar } from "claude-code";
 import { armUndo, disarmUndo, undoArmedAt } from "./arm";
 import { capToast } from "./chain";
 import { cancel, type DraftReader } from "./enhance";
@@ -207,18 +207,17 @@ export async function clearHeld($: EngineInterface): Promise<void> {
 
 /**
  * A phase a dropped environment left at `running` goes back to `idle` at
- * session.start and when a command runs (§5.3 resets). The caller says
- * whether a call is in flight (enhance.ts owns that; importing it here would
- * make a cycle): a live call's phase is never reset.
+ * session.start and when a command runs (§5.3 resets). The caller hands in
+ * how to ask whether a call is in flight (enhance.ts owns that; importing it
+ * here would make a cycle), asked after the read: a live call's phase is
+ * never reset, not even one that began while the phase was being read.
  */
 export async function resetStuckPhase(
-  $: EngineInterface,
-  isInFlight: boolean,
+  $: StateDollar,
+  isInFlight: () => boolean,
 ): Promise<void> {
-  if (isInFlight) {
+  if ((await read($, phase)) !== "running" || isInFlight()) {
     return;
   }
-  if ((await read($, phase)) === "running") {
-    await update($, phase, () => "idle");
-  }
+  await update($, phase, () => "idle");
 }
