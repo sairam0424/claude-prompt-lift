@@ -124,7 +124,10 @@ export async function recordPress(
   });
 }
 
-/** The totals every paid press adds to: the session atoms and the day's row. */
+/**
+ * The totals every answered press adds to, priced or not: the session atoms
+ * and the day's row (an unpriced press counts, with no dollars).
+ */
 export async function recordSpend(
   $: EngineInterface,
   usd: number | undefined,

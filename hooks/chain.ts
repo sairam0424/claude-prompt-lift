@@ -196,8 +196,9 @@ export function cut(text: string, max: number): string {
 }
 
 /**
- * Every toast the mod shows passes through here (R2): whitespace and
- * newlines collapse to single spaces, then the one line is cut to TOAST_MAX.
+ * Every toast that carries model- or engine-supplied text passes through
+ * here (R2): whitespace and newlines collapse to single spaces, then the one
+ * line is cut to TOAST_MAX. The fixed toasts are one short line as written.
  */
 export function capToast(text: string): string {
   return cut(text.replace(/\s+/g, " ").trim(), TOAST_MAX);
