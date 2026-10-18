@@ -60,7 +60,8 @@ const TOAST_MISSING_PATH =
   "prompt-master: named a file that does not exist, kept your prompt";
 const TOAST_CANCELLED = "prompt-master: cancelled, draft unchanged";
 const TOAST_NO_MODELS = "prompt-master: no models configured";
-const TOAST_NOT_TAKEN = "prompt-master: the prompt box did not take the text";
+export const TOAST_NOT_TAKEN =
+  "prompt-master: the prompt box did not take the text";
 
 export type EnhanceSource = { kind: "box" } | { kind: "args"; text: string };
 

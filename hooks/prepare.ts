@@ -15,7 +15,7 @@ export type Prepared = {
   dynamicBlock: string;
   relevantCount: number;
   knownSkills: Set<string>;
-  listedSkills: Set<string>;
+  listedSkills: ReadonlySet<string>;
   descriptions: Map<string, string>;
   documentsText: string;
 };

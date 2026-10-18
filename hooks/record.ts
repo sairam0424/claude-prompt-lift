@@ -70,7 +70,8 @@ export async function recordSuccess(
 
 /** The usage line, or the failure line when the record could not be written. */
 async function recordOrFail($: EngineInterface, a: Success): Promise<string> {
-  if (!(await recordOrLog($, a.call, a.post))) {
+  const rewrite = { why: a.post.why, addedWords: a.post.addedWords };
+  if (!(await recordOrLog($, a.call, rewrite))) {
     return TOAST_RECORD_FAILED;
   }
   return capToast(

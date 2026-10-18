@@ -168,7 +168,8 @@ export async function recordCall(
   const facts: CallFacts = {
     run: call.run,
     relevantCount: call.relevantCount,
-    ...rewrite,
+    why: rewrite.why,
+    addedWords: rewrite.addedWords,
   };
   await update($, lastUsage, () =>
     toLastUsage(facts, call.usd, call.hashChanged),

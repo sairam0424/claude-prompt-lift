@@ -2,7 +2,7 @@ import { atom, read, update } from "claude-code";
 import type { EngineInterface, StateDollar } from "claude-code";
 import { armUndo, disarmUndo, undoArmedAt } from "./arm";
 import { capToast } from "./chain";
-import { cancel, type DraftReader } from "./enhance";
+import { cancel, TOAST_NOT_TAKEN, type DraftReader } from "./enhance";
 
 // Send, Undo/Redo, Cancel and the resets (spec §5.3; C3, C11, C13, C14).
 // The atoms are declared here as well as in enhance.ts: `read` and `update`
@@ -176,11 +176,7 @@ export async function undo($: EngineInterface): Promise<void> {
   });
   if (!filled.isFilled) {
     const cause = filled.refusal ?? "refused";
-    $.ui.toast(
-      capToast(
-        `prompt-master: the prompt box did not take the text (${cause})`,
-      ),
-    );
+    $.ui.toast(capToast(`${TOAST_NOT_TAKEN} (${cause})`));
     return;
   }
   await update($, isUndone, () => !isRedo);
