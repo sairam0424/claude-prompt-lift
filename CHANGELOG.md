@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-18
+
+### Changed
+- One blank row between prompt-master's band and whatever the mods beneath it draw in the shared above-prompt slot.
+
+### Documentation
+- README Limits explains the shared band: hooks nest in `enabledPlugins` order, a mod listed before prompt-master that draws without passing the band through hides it; move prompt-master's entry above it and `/reload-plugins`.
+- A repository `verify` skill records how to drive the mod in a sandbox Claude Code session.
+
 ## [0.3.0] - 2026-10-18
 
 ### Added
