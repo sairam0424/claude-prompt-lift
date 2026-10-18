@@ -80,6 +80,7 @@ const TOAST_MISSING_PATH =
   "prompt-master: named a file that does not exist, kept your prompt";
 const TOAST_CANCELLED = "prompt-master: cancelled, draft unchanged";
 const TOAST_NO_MODELS = "prompt-master: no models configured";
+const TOAST_NOT_TAKEN = "prompt-master: the prompt box did not take the text";
 const TOAST_RECORD_FAILED =
   "prompt-master: saved the result, but recording its cost failed";
 
@@ -316,12 +317,7 @@ async function verifyAndFill(
   });
   if (!filled.isFilled) {
     const cause = filled.refusal ?? "refused";
-    $.ui.toast(
-      withCost(
-        `prompt-master: the prompt box did not take the text (${cause})`,
-        a.usd,
-      ),
-    );
+    $.ui.toast(withCost(`${TOAST_NOT_TAKEN} (${cause})`, a.usd));
     return undefined;
   }
   return filled.text;
