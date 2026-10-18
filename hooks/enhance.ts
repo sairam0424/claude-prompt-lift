@@ -29,6 +29,7 @@ import {
   attemptsUsd,
   describeAttempt,
   recordCall,
+  recordOrLog,
   recordSpend,
   type AnsweredCall,
 } from "./stats";
@@ -129,6 +130,9 @@ export async function enhance(
   // Where the phase stood before this press: a refused or failed press goes
   // back there, so a held result keeps its Send and Undo (§5.1, C13).
   let before: Phase = "idle";
+  // Paid for whatever comes after the answer (G5, C19): owed until a record
+  // is attempted; a throw before that leaves it to the catch.
+  let unrecorded: AnsweredCall | undefined;
   try {
     before = await read($, phase);
     const myId = await update($, requestId, (n) => n + 1);
@@ -146,13 +150,13 @@ export async function enhance(
       await reportFailure($, cfg, run);
       return;
     }
-    // Paid for whatever the rewrite comes to (G5, C19): judged now, written
-    // once the outcome is known — after the pair when the box is filled.
+    // Judged now, written once the outcome is known: after the pair on a fill
     const call = await assessCall($, cfg, {
       run,
       staticBlock: prepared.staticBlock,
       relevantCount: prepared.relevantCount,
     });
+    unrecorded = call;
     const post = postProcess({
       draft,
       reply: run.text,
@@ -164,6 +168,7 @@ export async function enhance(
       documents: prepared.documentsText,
     });
     if (!post.ok) {
+      unrecorded = undefined;
       await recordCall($, call);
       $.ui.toast(withCost("fine" in post ? TOAST_FINE : post.toast, call.usd));
       return;
@@ -178,12 +183,17 @@ export async function enhance(
       usd: call.usd,
     });
     if (filledText === undefined) {
+      unrecorded = undefined;
       await recordCall($, call);
       return;
     }
     await holdPair($, { draft, filledText, decorations: post.decorations });
+    unrecorded = undefined;
     await recordSuccess($, { run, post, call });
   } catch (err) {
+    if (unrecorded !== undefined) {
+      await recordOrLog($, unrecorded);
+    }
     // The message is cut where it is composed (R2); capToast makes it one line
     const message = cut(errorMessage(err), ERROR_MAX);
     $.ui.toast(capToast(`prompt-master: enhance failed (${message})`));
@@ -343,10 +353,9 @@ async function holdPair(
 }
 
 /**
- * Step 9's rest: the call's record, the phase and the toast. The pair is
- * already held, so a record that fails to write costs the bookkeeping, not
- * the result: the phase still goes to `done` (Send and Undo stay) and the
- * toast says so instead of the usage line.
+ * Step 9's rest: record, phase, toast. The pair is already held, so a record
+ * that fails costs the bookkeeping, not the result: the phase still goes to
+ * `done` (Send and Undo stay) and the toast says so, not the usage line.
  */
 async function recordSuccess($: EngineInterface, a: Success): Promise<void> {
   const toast = await recordOrFail($, a);
@@ -356,13 +365,7 @@ async function recordSuccess($: EngineInterface, a: Success): Promise<void> {
 
 /** The usage line, or the failure line when the record could not be written. */
 async function recordOrFail($: EngineInterface, a: Success): Promise<string> {
-  try {
-    await recordCall($, a.call, a.post);
-  } catch (err) {
-    $.ui.log(
-      `prompt-master: recording the cost failed: ${errorMessage(err)}`,
-      { to: "debug" },
-    );
+  if (!(await recordOrLog($, a.call, a.post))) {
     return TOAST_RECORD_FAILED;
   }
   return capToast(

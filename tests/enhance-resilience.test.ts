@@ -1,13 +1,22 @@
 import { expect, test } from "claude-code/testing";
 import type { On } from "claude-code";
-import { engine, phaseOnce, press, watch, BETTER, DRAFT } from "./engine";
-import { STATS_STORE_KEY } from "../hooks/stats";
+import {
+  engine,
+  phaseOnce,
+  press,
+  watch,
+  BETTER,
+  DRAFT,
+  TODAY,
+} from "./engine";
+import { asStats, STATS_STORE_KEY } from "../hooks/stats";
 
 // Spec §5.3 step 9 and §12, resilience: the pair Undo restores is held the
 // moment the box is filled, before any cost is recorded, so a failed stats
-// write costs the bookkeeping and not the result; a `running` phase no call
-// backs (one a dropped environment left) is reset when a command runs, while
-// a call in flight is never reset. The band's side is in band.test.tsx.
+// write costs the bookkeeping and not the result; a call that answered is
+// recorded even when the press then throws (G5, C19); a `running` phase no
+// call backs (one a dropped environment left) is reset when a command runs,
+// while a call in flight is never reset. The band's side is in band.test.tsx.
 
 const RECORD_FAILED =
   "prompt-master: saved the result, but recording its cost failed";
@@ -70,6 +79,45 @@ test("a failed stats write keeps the pair: Undo restores the draft and the toast
 
   expect(e.box.text).toBe(DRAFT);
   expect(e.toasts).toEqual([RECORD_FAILED, RESTORED]);
+});
+
+test("a box that rejects the fill still has the call recorded", async ($, on) => {
+  const e = engine(on, { denyFill: "composer gone" });
+  const presses = watch(on, "sessionPresses");
+  const phases = watch(on, "phase");
+
+  await press($, DRAFT);
+
+  expect(e.fills).toHaveLength(1);
+  expect(e.box.text).toBe("");
+  expect(e.toasts).toHaveLength(1);
+  expect(e.toasts[0]?.startsWith("prompt-master: enhance failed (")).toBe(true);
+  // The kit's own rejection: a throwing hook is skipped, nothing else answers
+  expect(e.toasts[0]).toContain("prompt.fill");
+  // Paid for the answer (G5, C19): the totals and the day row still count it
+  expect(presses).toEqual([1]);
+  expect(asStats(e.store[STATS_STORE_KEY]).byDay[TODAY]?.presses).toBe(1);
+  expect(e.logs).toHaveLength(1);
+  expect(phases).toEqual(["running", "idle"]);
+});
+
+test("a record that fails on the failure path is logged, not toasted", async ($, on) => {
+  const e = engine(on, {
+    denyFill: "composer gone",
+    denyStoreSet: { key: STATS_STORE_KEY, reason: "disk full" },
+  });
+  const presses = watch(on, "sessionPresses");
+
+  await press($, DRAFT);
+
+  expect(e.toasts).toHaveLength(1);
+  expect(e.toasts[0]?.startsWith("prompt-master: enhance failed (")).toBe(true);
+  expect(presses).toEqual([1]);
+  expect(e.store[STATS_STORE_KEY]).toBeUndefined();
+  expect(e.logs).toHaveLength(2);
+  expect(e.logs[0]).toContain("recording the cost failed");
+  expect(e.logs[0]).toContain("disk full");
+  expect(e.logs[1]).toContain("enhance failed");
 });
 
 test("a command resets a running phase no call backs", async ($, on) => {

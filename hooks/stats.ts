@@ -5,6 +5,7 @@ import type { Config, Price } from "./config";
 import { estimateUsd, shortModel } from "./config";
 import type { Attempt, ChainOk } from "./chain";
 import { hashBlock } from "./context";
+import { errorMessage } from "./gather";
 
 // Usage bookkeeping (G5, C19): every call the chain paid for is recorded
 // whatever the rewrite came to — the last-call record the band and `status`
@@ -177,6 +178,27 @@ export async function recordCall(
   const uncached = isUncached(call.run.usage);
   await update($, noCacheStreak, (n) => (uncached ? n + 1 : 0));
   await recordSpend($, call.usd);
+}
+
+/**
+ * `recordCall` for a path that goes on whatever happens to the record: a
+ * write that fails is logged to debug and reported as false, never thrown.
+ */
+export async function recordOrLog(
+  $: EngineInterface,
+  call: AnsweredCall,
+  rewrite?: Rewrite,
+): Promise<boolean> {
+  try {
+    await recordCall($, call, rewrite);
+    return true;
+  } catch (err) {
+    $.ui.log(
+      `prompt-master: recording the cost failed: ${errorMessage(err)}`,
+      { to: "debug" },
+    );
+    return false;
+  }
 }
 
 /**
