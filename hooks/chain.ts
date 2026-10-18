@@ -40,13 +40,13 @@ export type ChainFail = {
 
 export type Complete = (
   req: ModelCompleteRequest,
-  opts: { signal: AbortSignal }
+  opts: { signal: AbortSignal },
 ) => Promise<ModelCompleteResult>;
 
 export function decide(
   r: ModelCompleteResult,
   previous: Attempt | undefined,
-  isCancelled: boolean
+  isCancelled: boolean,
 ): { outcome: string; action: "return" | "next" | "stop" } {
   // Answered → return
   if ("isAnswered" in r && r.isAnswered) {
@@ -111,7 +111,7 @@ export async function runChain(a: {
 
   for (let index = 0; index < a.chain.length; index++) {
     const model = a.chain[index];
-    
+
     // Call onAttempt callback if provided
     if (a.onAttempt) {
       a.onAttempt(model, index);
@@ -133,6 +133,7 @@ export async function runChain(a: {
       const attempt: Attempt = {
         model,
         outcome: decision.outcome,
+        // Fallback exists for `as never` test fixtures that omit usage
         usage: result.usage ?? NO_USAGE,
       };
       attempts.push(attempt);
@@ -230,8 +231,9 @@ export function usageText(a: {
   attempts: readonly Attempt[];
 }): string {
   const model = shortModel(a.model);
-  
-  const inputTokens = (a.usage.input_tokens ?? 0) + (a.usage.cache_creation_input_tokens ?? 0);
+
+  const inputTokens =
+    (a.usage.input_tokens ?? 0) + (a.usage.cache_creation_input_tokens ?? 0);
   const cachedTokens = a.usage.cache_read_input_tokens ?? 0;
   const outputTokens = a.usage.output_tokens ?? 0;
 
