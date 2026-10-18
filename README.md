@@ -115,7 +115,7 @@ Settings live in `/config` under `pluginConfigs` → `prompt-master@claude-promp
 | `skillPrefixAllow` | string | `""` | Skills allowed as a leading `/name` under `run` (empty for none) |
 | `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Instruction files to leave out |
 | `skillExclude` | string | `""` | Skill name patterns left out of the listing (`*` and `?` wildcards); empty sends every skill Claude lists |
-| `prices` | string | | JSON map of model id fragment to per-1M-token prices merged over the built-in table; invalid JSON is ignored with a log line |
+| `prices` | string | | A JSON **string** (quoted and escaped, not a bare object) mapping a model id fragment to per-1M-token prices, merged over the built-in table; invalid JSON or a malformed entry is ignored with a log line. See Cost for the exact form |
 
 The chain falls back on a refused model, an empty reply, a rate limit, a server error and a timeout; never on your Cancel, never on a 400. The toast names every attempt.
 
@@ -150,7 +150,13 @@ Prices are USD per 1M tokens, Bedrock `us.*` profiles, verified 2026-10-16:
 
 The table is Bedrock `us.*` cross-region pricing, which is Anthropic's list price plus 10%; on the Anthropic API expect about 10% less. An alias prices as the current generation of its family (`fable` as Fable 5.1, `sonnet` as Sonnet 5.5, `haiku` as Haiku 5.5); an unpriced model shows `$?` and `(no price)`.
 
-The built-in price table can be overridden with the `prices` configuration option (see Configuration).
+The built-in price table can be overridden with the `prices` configuration option (see Configuration). The value is a JSON **string**, so in `settings.json` it is quoted and escaped rather than written as a nested object:
+
+```json
+"prices": "{\"fable-5-1\": {\"input\": 10, \"output\": 50, \"cacheWrite\": 12.5, \"cacheRead\": 0.25}}"
+```
+
+Each key is a model id fragment (`priceFor` matches an alias whole and a full id by substring) and replaces the built-in row of the same name wholesale. Invalid JSON or a malformed entry leaves the whole table at its defaults and logs `prompt-master: prices option ignored: <reason>` once at session start. A bare object, or any other non-string value, never reaches the plugin: Claude Code checks the option's declared type before loading it and refuses with `Prices must be a string`.
 
 Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 - Fable: ≈ $0.13 cold / ≈ $0.04 warm
