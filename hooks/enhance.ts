@@ -23,7 +23,7 @@ import {
   assessCall,
   attemptsUsd,
   describeAttempt,
-  recordCall,
+  judgeCall,
   recordOrLog,
   recordSpend,
   type AnsweredCall,
@@ -134,12 +134,14 @@ export async function enhance(
       await reportFailure($, cfg, run);
       return;
     }
-    // Judged now, written once the outcome is known: after the pair on a fill
-    const call = await assessCall($, cfg, {
+    // Judged now, written once the outcome is known: after the pair on a fill.
+    // Owed from the answer on, so the read that judges the hash may throw.
+    unrecorded = judgeCall(cfg, {
       run,
       staticBlock: prepared.staticBlock,
       relevantCount: prepared.relevantCount,
     });
+    const call = await assessCall($, unrecorded);
     unrecorded = call;
     const post = postProcess({
       draft,
@@ -151,9 +153,10 @@ export async function enhance(
       descriptions: prepared.descriptions,
       documents: prepared.documentsText,
     });
+    // A record that fails costs the bookkeeping, never the verdict's toast
     if (!post.ok) {
       unrecorded = undefined;
-      await recordCall($, call);
+      await recordOrLog($, call);
       $.ui.toast(withCost("fine" in post ? TOAST_FINE : post.toast, call.usd));
       return;
     }
@@ -168,7 +171,7 @@ export async function enhance(
     });
     if (filledText === undefined) {
       unrecorded = undefined;
-      await recordCall($, call);
+      await recordOrLog($, call);
       return;
     }
     await holdPair($, { draft, filledText, decorations: post.decorations });

@@ -1,3 +1,5 @@
+import type { PromptDecoration } from "claude-code";
+
 // Word-level diffs over one longest-common-subsequence table: the inserted
 // runs as character offsets into the result (the fill's decorations, C15) and
 // the removed and inserted runs as lines (`/prompt-lift diff`).
@@ -97,6 +99,18 @@ export function wordDiffInsertions(
   }
 
   return runs;
+}
+
+/** The inserted runs as the fill paints them (C15): bold and underlined. */
+export function insertionDecorations(
+  from: string,
+  to: string,
+): PromptDecoration[] {
+  return wordDiffInsertions(from, to).map((run) => ({
+    ...run,
+    bold: true,
+    underline: true,
+  }));
 }
 
 function words(text: string): string[] {

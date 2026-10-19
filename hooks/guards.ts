@@ -1,6 +1,6 @@
 import type { Config } from "./config";
 import type { PromptDecoration } from "claude-code";
-import { wordDiffInsertions } from "./diff";
+import { insertionDecorations, wordDiffInsertions } from "./diff";
 import {
   protectedTokens as _protectedTokens,
   pathTokens as _pathTokens,
@@ -336,14 +336,7 @@ export function postProcess(a: {
     return { ok: false, fine: true };
   }
 
-  // Decorations via wordDiffInsertions
-  const runs = wordDiffInsertions(a.draft, processed);
-  const decorations: PromptDecoration[] = runs.map((r) => ({
-    start: r.start,
-    end: r.end,
-    bold: true,
-    underline: true,
-  }));
+  const decorations = insertionDecorations(a.draft, processed);
 
   const addedWords = Math.max(0, wordCount(processed) - wordCount(a.draft));
 

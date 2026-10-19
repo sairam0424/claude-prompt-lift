@@ -157,20 +157,33 @@ export async function spentUsd(
 }
 
 /**
- * An answered call judged before anything is written: its dollars, block 0's
- * hash, and whether that hash changed. Reads only, so a fill can hold the
- * pair before `recordCall` writes (§5.3 step 9).
+ * An answered call judged from the reply alone: its dollars and block 0's
+ * hash, with the hash taken as unchanged. Pure, so the record is owed from
+ * the answer on (G5): a throw in `assessCall`'s read still leaves one.
+ */
+export function judgeCall(
+  cfg: Config,
+  a: { run: ChainOk; staticBlock: string; relevantCount: number },
+): AnsweredCall {
+  return {
+    ...a,
+    usd: callUsd(a.run, cfg.prices),
+    hash: hashBlock(a.staticBlock),
+    hashChanged: false,
+  };
+}
+
+/**
+ * The judged call with whether block 0's hash changed. Reads only, so a fill
+ * can hold the pair before `recordCall` writes (§5.3 step 9).
  */
 export async function assessCall(
   $: EngineInterface,
-  cfg: Config,
-  a: { run: ChainOk; staticBlock: string; relevantCount: number },
+  judged: AnsweredCall,
 ): Promise<AnsweredCall> {
-  const usd = callUsd(a.run, cfg.prices);
-  const hash = hashBlock(a.staticBlock);
   const previousHash = await read($, blockHash);
-  const hashChanged = previousHash !== "" && previousHash !== hash;
-  return { ...a, usd, hash, hashChanged };
+  const hashChanged = previousHash !== "" && previousHash !== judged.hash;
+  return { ...judged, hashChanged };
 }
 
 /**

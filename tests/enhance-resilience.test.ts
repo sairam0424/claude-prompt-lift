@@ -1,27 +1,39 @@
 import { expect, test } from "claude-code/testing";
 import type { On, StateDollar } from "claude-code";
 import {
+  answered,
   engine,
   phaseOnce,
   press,
   watch,
   BETTER,
   DRAFT,
+  FABLE,
   TODAY,
+  USAGE,
 } from "./engine";
 import { resetStuckPhase } from "../hooks/actions";
+import { formatDollars } from "../hooks/chain";
+import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 import { asStats, STATS_STORE_KEY } from "../hooks/stats";
 
 // Spec §5.3 step 9 and §12, resilience: the pair Undo restores is held the
 // moment the box is filled, before any cost is recorded, so a failed stats
-// write costs the bookkeeping and not the result; a call that answered is
-// recorded even when the press then throws (G5, C19); a `running` phase no
-// call backs (one a dropped environment left) is reset when a command runs,
-// while a call in flight is never reset, and a press counts as in flight
-// until its phase has settled. The band's side is in band.test.tsx.
+// write costs the bookkeeping and not the result, on every path that
+// answered; a call that answered is recorded even when the press then
+// throws (G5, C19); a `running` phase no call backs (one a dropped
+// environment left) is reset when a command runs, while a call in flight is
+// never reset, and a press counts as in flight until its phase has settled.
+// The band's side is in band.test.tsx.
 
 const RECORD_FAILED =
   "prompt-lift: saved the result, but recording its cost failed";
+const BAND_FAILED =
+  "prompt-lift: saved the result, but the band could not be updated";
+const FINE = "prompt-lift: already specific, left as is";
+const NOT_TAKEN = "prompt-lift: the prompt box did not take the text (refused)";
+/** What a Fable press that answers with USAGE costs: on every toast (C19). */
+const COST = formatDollars(estimateUsd(USAGE, FABLE, DEFAULT_PRICES));
 const RESTORED = "prompt-lift: restored your draft";
 const ANSWER_LIKE =
   "prompt-lift: that reads like an answer to Claude's question";
@@ -123,6 +135,85 @@ test("a record that fails on the failure path is logged, not toasted", async ($,
   expect(e.logs[0]).toContain("recording the cost failed");
   expect(e.logs[0]).toContain("disk full");
   expect(e.logs[1]).toContain("enhance failed");
+});
+
+test("a failed stats write on a fine verdict still toasts the verdict with its cost", async ($, on) => {
+  const e = engine(on, {
+    replies: [answered(JSON.stringify({ verdict: "fine" }))],
+    denyStoreSet: { key: STATS_STORE_KEY, reason: "disk full" },
+  });
+
+  await press($, DRAFT);
+
+  expect(e.fills).toHaveLength(0);
+  expect(e.toasts).toEqual([`${FINE} · ${COST}`]);
+  expect(e.logs).toHaveLength(1);
+  expect(e.logs[0]).toContain("recording the cost failed");
+  expect(e.logs[0]).toContain("disk full");
+});
+
+test("a failed stats write after a refused fill leaves the refusal toast alone", async ($, on) => {
+  const e = engine(on, {
+    fill: { isFilled: false },
+    denyStoreSet: { key: STATS_STORE_KEY, reason: "disk full" },
+  });
+
+  await press($, DRAFT);
+
+  expect(e.fills).toHaveLength(1);
+  expect(e.toasts).toEqual([`${NOT_TAKEN} · ${COST}`]);
+  expect(e.logs).toHaveLength(1);
+  expect(e.logs[0]).toContain("recording the cost failed");
+});
+
+test("a failed done write after the record keeps the result and says so", async ($, on) => {
+  const e = engine(on);
+  on("state.set", { plugin: "prompt-lift", key: "phase" }, ($, ev, next) =>
+    ev.value === "done" ? { deny: "state gone" } : next(ev),
+  );
+
+  await press($, DRAFT);
+
+  expect(e.box.text).toBe(BETTER);
+  expect(e.toasts).toEqual([BAND_FAILED]);
+  expect(e.logs).toHaveLength(1);
+  expect(e.logs[0]).toContain("state gone");
+  expect(asStats(e.store[STATS_STORE_KEY]).byDay[TODAY]?.presses).toBe(1);
+
+  // The pair was held: Undo still restores the draft
+  await press($, "undo");
+
+  expect(e.box.text).toBe(DRAFT);
+  expect(e.toasts).toEqual([BAND_FAILED, RESTORED]);
+});
+
+test("a hash read that throws after the answer still records the call", async ($, on) => {
+  const e = engine(on);
+  const presses = watch(on, "sessionPresses");
+  // The first read of blockHash is assessCall's, after the model answered
+  let isPending = true;
+  on(
+    "state.get",
+    { plugin: "prompt-lift", key: "blockHash" },
+    ($, ev, next) => {
+      if (!isPending) {
+        return next(ev);
+      }
+      isPending = false;
+      return { deny: "state gone" };
+    },
+  );
+
+  await press($, DRAFT);
+
+  expect(e.calls).toHaveLength(1);
+  expect(e.fills).toHaveLength(0);
+  expect(e.toasts).toHaveLength(1);
+  expect(e.toasts[0]?.startsWith("prompt-lift: enhance failed (")).toBe(true);
+  expect(e.toasts[0]).toContain("state gone");
+  // Paid for the answer (G5, C19): the totals and the day row count it
+  expect(presses).toEqual([1]);
+  expect(asStats(e.store[STATS_STORE_KEY]).byDay[TODAY]?.presses).toBe(1);
 });
 
 test("a command resets a running phase no call backs", async ($, on) => {

@@ -2,6 +2,8 @@ import { atom, read, update } from "claude-code";
 import type { EngineInterface, PromptDecoration } from "claude-code";
 import { disarmUndo } from "./arm";
 import { capToast, usageText, type ChainOk } from "./chain";
+import { insertionDecorations } from "./diff";
+import { errorMessage } from "./gather";
 import type { PostOk } from "./guards";
 import { recordOrLog, type AnsweredCall } from "./stats";
 
@@ -31,6 +33,8 @@ const lastDecorations = atom(
 
 const TOAST_RECORD_FAILED =
   "prompt-lift: saved the result, but recording its cost failed";
+const TOAST_PHASE_FAILED =
+  "prompt-lift: saved the result, but the band could not be updated";
 
 /** A press the box took: the chain's reply, the rewrite and the judged call. */
 export type Success = { run: ChainOk; post: PostOk; call: AnsweredCall };
@@ -43,13 +47,18 @@ export async function holdPair(
   $: EngineInterface,
   a: { draft: string; filledText: string; decorations: PromptDecoration[] },
 ): Promise<void> {
+  // A press on the enhanced text keeps the first original (§5.3): Redo then
+  // paints everything added since it, not this round alone.
   const previousEnhanced = await read($, enhanced);
-  if (previousEnhanced !== a.draft) {
+  const kept = previousEnhanced === a.draft ? await read($, original) : null;
+  if (kept === null) {
     await update($, original, () => a.draft);
   }
   await update($, enhanced, () => a.filledText);
   await update($, isUndone, () => false);
-  await update($, lastDecorations, () => a.decorations);
+  await update($, lastDecorations, () =>
+    kept === null ? a.decorations : insertionDecorations(kept, a.filledText),
+  );
   // A pending Undo confirm referred to the pair this fill replaced (C13).
   disarmUndo();
 }
@@ -57,15 +66,32 @@ export async function holdPair(
 /**
  * Step 9's rest: record, phase, toast. The pair is already held, so a record
  * that fails costs the bookkeeping, not the result: the phase still goes to
- * `done` (Send and Undo stay) and the toast says so, not the usage line.
+ * `done` (Send and Undo stay) and the toast says so, not the usage line. A
+ * `done` write that fails is the same kind of loss: the toast says so too.
  */
 export async function recordSuccess(
   $: EngineInterface,
   a: Success,
 ): Promise<void> {
   const toast = await recordOrFail($, a);
-  await update($, phase, () => "done");
-  $.ui.toast(toast);
+  $.ui.toast(await markDoneOrFail($, toast));
+}
+
+/** `toast` once the phase is `done`, or the failure line when it could not be. */
+async function markDoneOrFail(
+  $: EngineInterface,
+  toast: string,
+): Promise<string> {
+  try {
+    await update($, phase, () => "done");
+    return toast;
+  } catch (err) {
+    $.ui.log(
+      `prompt-lift: marking the result done failed: ${errorMessage(err)}`,
+      { to: "debug" },
+    );
+    return TOAST_PHASE_FAILED;
+  }
 }
 
 /** The usage line, or the failure line when the record could not be written. */
