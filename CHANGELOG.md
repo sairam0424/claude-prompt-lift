@@ -52,6 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rule 3 and the `fix the login bug` and `fix the typo in README` examples no longer name `CLAUDE.md` or `README.md` (`per the project's test-first rule`, `Fix the typo in README.`), so a copy is no longer refused as `named a file that does not exist` in a project with no root `CLAUDE.md` or `README.md`.
 - The static block changes once per user at upgrade.
 
+### Documentation
+- README `### Upgrading from prompt-master` walks a 0.3.x install to `prompt-lift@claude-prompt-lift` and its moved `enabledPlugins` and `pluginConfigs` keys.
+
 ## [0.3.1] - 2026-10-18
 
 ### Changed
