@@ -1,5 +1,9 @@
 # prompt-lift
 
+![prompt-lift demo: Enhance rewrites the draft, Undo and Redo swap it back, /prompt-lift status shows the chain](docs/demo.gif)
+
+Recorded from a real Claude Code session; re-record with `bash scripts/demo.sh --plugin-dir "$PWD"` (one real Enhance call, about $0.01 to $0.20).
+
 A Claude Code mod that turns a vague prompt into a specific one before you send it. It reads the instruction files your session loaded (the `CLAUDE.md` tree and rules files) and the skills Claude can trigger, asks a model for the smallest edit that adds the missing facts, puts the result back in the prompt box with the inserted words highlighted, and sends only when you press Send or Enter. The mod tracks costs with prompt caching support, falls back through a model chain on failures, and validates rewrites against safety guards.
 
 The band row appears above the prompt: `[ Enhance (e) ] [ Send (s) ] [ Undo (u) ]`; `Cancel (c)` while a call runs; `Send (queues)` while a turn runs; `Redo (u)` after an Undo. Nothing runs while idle: no timers, no per-keystroke hooks, a model call happens only on a press or a command.
@@ -321,6 +325,12 @@ claude plugin eval . --ablation none --no-publish
 `--ablation none` drops the default no-plugin baseline arm, which sends the same text to the session model as plain chat: it costs money and says nothing about this plugin. `--no-publish` keeps the HTML report local; without it the report is also published to claude.ai when the account supports that. Add `--trust-plugin` to skip the first-run trust prompt in CI. Results go to `evals/results/`, which is gitignored.
 
 Measured on 2026-10-19 with Claude Code 2.1.303: 7 runs in 47 s, 3 of 3 cases passing, and the harness billed $0.00, because the one model call is made by the mod and priced by the mod (its toast showed $0.01 in that run, $0.03 in an earlier one). The same suite with the default baseline arm cost $0.42, all of it in the baseline arms.
+
+### Demo
+
+`scripts/demo.sh` records `docs/demo.cast` and converts it to `docs/demo.gif`. It builds a throwaway project, loads this checkout with `--plugin-dir` (it refuses any other path, so the live install is never recorded), drives a real session in an isolated tmux server (`tmux -L pldemo`) under `asciinema rec`, and converts the take with `agg`. It needs `tmux`, `asciinema`, `agg` (`brew install agg`) and `jq`, and the provider variables of a working Claude Code login.
+
+The take makes one real Enhance call (about $0.01 to $0.20), never presses Send, and enters nothing but `/prompt-lift status`. Pass `--shots-dir DIR` to keep a screen capture of each step. Before conversion the script replaces the account name and home path in the cast with same-length placeholders (the status output lists `~/.claude/rules` files) and drops the tmux detach line from the end.
 
 ## License
 
