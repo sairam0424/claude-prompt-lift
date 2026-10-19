@@ -3,7 +3,7 @@ import { engine, press, BETTER, DRAFT, NOW_MS } from "./engine";
 import { decideUndo, sendRefusal, UNDO_REARM_MS } from "../hooks/actions";
 
 // Send's Enter-only guard (C10, C11) and Undo's fallback for a half-held pair
-// (§12): the cases the 0.3.0 final review parked. send-undo.test.ts holds
+// (§12): Enter-only refusal and half-held Undo fallback. send-undo.test.ts holds
 // the rest of Send and Undo and must not grow.
 
 const ENTER_TOAST =

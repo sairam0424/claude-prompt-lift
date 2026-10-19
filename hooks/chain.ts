@@ -133,8 +133,7 @@ export async function runChain(a: {
       const attempt: Attempt = {
         model,
         outcome: decision.outcome,
-        // Fallback exists for `as never` test fixtures that omit usage
-        usage: result.usage ?? NO_USAGE,
+        usage: result.usage,
       };
       attempts.push(attempt);
 

@@ -63,7 +63,7 @@ test("timeout falls back, cancel does not", async () => {
   const fakeCompleteTimeout: Complete = async (req) => {
     calls.push(req.model);
     if (calls.length === 1) {
-      return { isAnswered: false, reason: "aborted" } as never;
+      return { isAnswered: false, reason: "aborted", usage: NO_USAGE } as never;
     }
     return {
       isAnswered: true,
@@ -94,7 +94,7 @@ test("timeout falls back, cancel does not", async () => {
   calls.length = 0;
   const fakeCompleteCancel: Complete = async (req) => {
     calls.push(req.model);
-    return { isAnswered: false, reason: "aborted" } as never;
+    return { isAnswered: false, reason: "aborted", usage: NO_USAGE } as never;
   };
 
   const result2 = await runChain({
@@ -122,7 +122,7 @@ test("empty-reply falls back and names the refusal", async () => {
   const fakeComplete: Complete = async (req) => {
     calls.push(req.model);
     if (calls.length === 1) {
-      return { isAnswered: false, reason: "empty-reply" } as never;
+      return { isAnswered: false, reason: "empty-reply", usage: NO_USAGE } as never;
     }
     return {
       isAnswered: true,
@@ -257,7 +257,7 @@ test("effort is omitted for models outside effortModels and timeouts differ per 
   const requests: ModelCompleteRequest[] = [];
   const fakeComplete: Complete = async (req) => {
     requests.push(req);
-    return { isAnswered: false, reason: "aborted" } as never;
+    return { isAnswered: false, reason: "aborted", usage: NO_USAGE } as never;
   };
 
   await runChain({
@@ -364,7 +364,7 @@ test("decide rules", async () => {
 
   // Aborted with cancel stops
   decision = decide(
-    { isAnswered: false, reason: "aborted" } as never,
+    { isAnswered: false, reason: "aborted", usage: NO_USAGE } as never,
     undefined,
     true
   );
@@ -372,7 +372,7 @@ test("decide rules", async () => {
 
   // Aborted without cancel falls back
   decision = decide(
-    { isAnswered: false, reason: "aborted" } as never,
+    { isAnswered: false, reason: "aborted", usage: NO_USAGE } as never,
     undefined,
     false
   );
@@ -380,7 +380,7 @@ test("decide rules", async () => {
 
   // Empty reply falls back
   decision = decide(
-    { isAnswered: false, reason: "empty-reply" } as never,
+    { isAnswered: false, reason: "empty-reply", usage: NO_USAGE } as never,
     undefined,
     false
   );
@@ -388,7 +388,7 @@ test("decide rules", async () => {
 
   // Invalid request stops
   decision = decide(
-    { isAnswered: false, reason: "api-error", error: "invalid_request", status: 400 } as never,
+    { isAnswered: false, reason: "api-error", error: "invalid_request", status: 400, usage: NO_USAGE } as never,
     undefined,
     false
   );
@@ -396,7 +396,7 @@ test("decide rules", async () => {
 
   // First authentication_failed falls back
   decision = decide(
-    { isAnswered: false, reason: "api-error", error: "authentication_failed", status: 401 } as never,
+    { isAnswered: false, reason: "api-error", error: "authentication_failed", status: 401, usage: NO_USAGE } as never,
     undefined,
     false
   );
@@ -404,7 +404,7 @@ test("decide rules", async () => {
 
   // Second consecutive authentication_failed stops
   decision = decide(
-    { isAnswered: false, reason: "api-error", error: "authentication_failed", status: 401 } as never,
+    { isAnswered: false, reason: "api-error", error: "authentication_failed", status: 401, usage: NO_USAGE } as never,
     { model: "x", outcome: "authentication_failed", usage: NO_USAGE },
     false
   );
@@ -412,7 +412,7 @@ test("decide rules", async () => {
 
   // Other api errors fall back
   decision = decide(
-    { isAnswered: false, reason: "api-error", error: "rate_limit", status: 429 } as never,
+    { isAnswered: false, reason: "api-error", error: "rate_limit", status: 429, usage: NO_USAGE } as never,
     undefined,
     false
   );
@@ -420,7 +420,7 @@ test("decide rules", async () => {
 
   // Unknown error with status
   decision = decide(
-    { isAnswered: false, reason: "api-error", error: "unknown", status: 503 } as never,
+    { isAnswered: false, reason: "api-error", error: "unknown", status: 503, usage: NO_USAGE } as never,
     undefined,
     false
   );

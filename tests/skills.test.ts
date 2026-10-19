@@ -7,7 +7,7 @@ import {
 import { parseOptions } from "../hooks/config";
 
 // A leading path never reaches the demotion: `startsWithCommandPrefix`
-// refuses it first (the §2 anti-goal), through postProcess (ruling, Task 6)
+// refuses it first (the §2 anti-goal), through postProcess (C13: leading path refusal, via postProcess)
 test("postProcess refuses a rewrite that leads with a path such as /src/auth.ts", () => {
   const cfg = parseOptions({});
   const draft = "fix the login bug in /src/auth.ts";

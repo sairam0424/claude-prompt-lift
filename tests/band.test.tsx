@@ -411,13 +411,14 @@ test(
     const ui = await mount($);
 
     // Press and verify running state shows cancel
-    ui.press({ key: "enhance" });
+    const run = ui.press({ key: "enhance" });
     await e.modelCalled;
     await ui.drawn();
     expect(await keys(ui)).toContain("cancel");
 
     // After reply, verify done state (no cancel)
     e.release();
+    await run;
     await ui.drawn();
     expect(await keys(ui)).not.toContain("cancel");
     expect(await keys(ui)).toContain("enhance");
