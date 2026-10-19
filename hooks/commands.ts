@@ -90,7 +90,8 @@ export async function runCommand(
     return { text: HINT };
   }
 
-  // Check if this is a model command before other routing (Task 10b)
+  // `model` routes first: alone or with one argument it is the sub-command,
+  // with more words it is a draft to enhance.
   const [first = ""] = args.split(/\s+/);
   if (first.toLowerCase() === "model") {
     const modelParse = parseModelArg(args);

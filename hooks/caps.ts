@@ -78,7 +78,7 @@ export async function readCapStatus(
   const override = await read($, capOverride);
   const session = sessionCap(cfg, override);
   const day = cfg.dayCapUsd;
-  // Fold-in from Task 3 review: skip the ledger when both caps are off
+  // With both caps off there is nothing to compare, so the ledger is not read.
   if (session === 0 && day === 0) {
     return {};
   }
@@ -145,7 +145,7 @@ export function parseCapArg(args: string): CapArg {
   if (value.toLowerCase() === "off") {
     return { kind: "set", usd: 0 };
   }
-  // Fold-in from Task 3 review: strict decimal validation (reject hex, scientific, negative zero)
+  // Plain decimals only: hex, scientific notation and a negative zero are invalid.
   if (!/^\d+(\.\d+)?$/.test(value)) {
     return { kind: "invalid" };
   }

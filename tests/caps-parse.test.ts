@@ -1,7 +1,8 @@
 import { expect, test } from "claude-code/testing";
 import { parseCapArg, CAP_USAGE } from "../hooks/caps";
 
-// Fold-in tests from Task 3 review: parseCapArg must reject non-decimal formats.
+// parseCapArg takes plain decimals only and rejects hex, scientific notation
+// and a negative zero.
 
 test("parseCapArg accepts valid decimal", () => {
   const r1 = parseCapArg("cap 2.50");

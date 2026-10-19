@@ -109,7 +109,7 @@ test("capToast makes one line of at most TOAST_MAX chars", async () => {
   expect(capToast(lines.join("\n"))).toBe(lines.join(" "));
 });
 
-// R2: the toast is one line of at most 200 chars (moved from enhance-cost.test.ts, Task 7)
+// R2: the toast is one line of at most 200 chars
 
 test("a long, multi-line why is cut and the toast stays one line", async ($, on) => {
   const why = Array.from({ length: 60 }, (_, i) => `reason ${i}`).join("\n");

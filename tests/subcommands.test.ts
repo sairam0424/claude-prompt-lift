@@ -60,7 +60,7 @@ test("parseModelArg classifies reset, aliases, ids, junk and prose", () => {
   });
 });
 
-// --- parseModelArg (Task 10b) ---
+// --- /prompt-lift model with prose is a draft, not a model command ---
 
 test("/prompt-lift model with prose enhances instead of storing a model", async ($, on) => {
   const e = engine(on);
