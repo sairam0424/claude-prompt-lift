@@ -1,32 +1,14 @@
 import { expect, test } from "claude-code/testing";
 import type { Engine as Harness } from "claude-code/testing";
-import type { ModelCompleteResult } from "claude-code";
-import { engine, HOME, ZERO_USAGE } from "./engine";
+import { engine } from "./engine";
 import { parseModelArg, parseTailArg } from "../hooks/subcommands";
 
-
 const COMMAND = "prompt-lift";
-const OPUS = "us.anthropic.claude-opus-4-1";
-const MODEL_USAGE = "model <id|alias|reset>";
-const MEMORY_FILE = `${HOME}/.claude/projects/x/memory/MEMORY.md`;
-const NOTHING_TO_UNDO = "prompt-lift: nothing to undo";
-const RATE_LIMITED: ModelCompleteResult = {
-  isAnswered: false,
-  reason: "api-error",
-  status: 429,
-  error: "rate_limit",
-  usage: ZERO_USAGE,
-};
 
 async function press($: Harness, args: string): Promise<string | undefined> {
   const r = await $.command.run({ command: COMMAND, args } as never);
   return (r as { text?: string }).text;
 }
-
-function improve(prompt: string): string {
-  return JSON.stringify({ verdict: "improve", prompt, why: "", applied: [] });
-}
-
 
 // --- parseModelArg ---
 

@@ -9,18 +9,12 @@ import {
   BEDROCK,
   FABLE,
   HAIKU,
-  HOME,
-  PROJECT_FILE,
-  RULES_FILE,
   SONNET,
   ZERO_USAGE,
 } from "./engine";
 import { wordDiffLines } from "../hooks/diff";
-import { parseModelArg } from "../hooks/subcommands";
 import { probeText } from "../hooks/commands";
 import { matchRungs } from "../hooks/gather";
-import { statusText, type StatusInput } from "../hooks/status";
-import type { LastUsage } from "../types";
 import { HINT } from "../hooks/register";
 
 // The sub-words of /prompt-lift beyond <text> and undo (spec §5.2, C18):
@@ -29,7 +23,6 @@ import { HINT } from "../hooks/register";
 const COMMAND = "prompt-lift";
 const OPUS = "us.anthropic.claude-opus-4-1";
 const MODEL_USAGE = "model <id|alias|reset>";
-const MEMORY_FILE = `${HOME}/.claude/projects/x/memory/MEMORY.md`;
 const NOTHING_TO_UNDO = "prompt-lift: nothing to undo";
 const RATE_LIMITED: ModelCompleteResult = {
   isAnswered: false,
