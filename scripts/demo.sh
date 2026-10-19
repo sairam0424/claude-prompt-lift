@@ -283,8 +283,8 @@ convert() {
   for speed_fps in "1 20" "1.25 20" "1.25 12" "1.5 12"; do
     read -r speed fps <<<"$speed_fps"
     agg -q --font-size "$FONT_SIZE" --speed "$speed" --fps-cap "$fps" \
-      --idle-time-limit "$CAST_IDLE_LIMIT_S" --last-frame-duration "$END_PAUSE_S" "$CAST" "$GIF"
-    size="$(size_of "$GIF")"
+      --idle-time-limit "$CAST_IDLE_LIMIT_S" --last-frame-duration "$END_PAUSE_S" "$CAST" "$GIF" || die "agg failed (exit $?) at --speed $speed --fps-cap $fps"
+    size="$(size_of "$GIF")" || die "agg wrote no GIF at --speed $speed --fps-cap $fps"
     echo "demo.sh: agg --speed $speed --fps-cap $fps -> $size bytes"
     [ "$size" -lt "$GIF_LIMIT_BYTES" ] && return 0
   done
