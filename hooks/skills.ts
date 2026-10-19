@@ -137,6 +137,9 @@ export function demoteLeadingSkill(
   // the leading token carried (`/review,`).
   const marks = /[.!?]+$/.exec(rest)?.[0] ?? "";
   const body = rest.slice(0, rest.length - marks.length);
+  if (body.length === 0) {
+    return result;
+  }
 
   // Capitalize first word of rest
   const capitalized = body.charAt(0).toUpperCase() + body.slice(1);

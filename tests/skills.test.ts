@@ -98,3 +98,25 @@ test("isTruncated on verdict.prompt, not raw reply: JSON ending in } not truncat
   // The raw reply ends in }, but verdict.prompt ends with ., so not truncated
   expect(result.ok).toBe(true);
 });
+
+
+// Task 7 fold-in: demotion keeps a mark-only rewrite (§12 R7)
+test("demoteLeadingSkill keeps /skill... unchanged when rest is only marks", () => {
+  const cfg = parseOptions({});
+  const descriptions = new Map([
+    ["review", "Pre-landing PR review"],
+    ["code-review", "Staff-engineer code review"],
+  ]);
+  
+  expect(demoteLeadingSkill("/review...", {
+    draft: "review the PR",
+    cfg,
+    descriptions,
+  })).toBe("/review...");
+  
+  expect(demoteLeadingSkill("/code-review?!", {
+    draft: "code-review please",
+    cfg,
+    descriptions,
+  })).toBe("/code-review?!");
+});

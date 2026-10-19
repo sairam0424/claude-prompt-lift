@@ -328,3 +328,34 @@ test("resetStuckPhase asks whether a call is in flight after it has read the pha
 
   expect(writes).toEqual([]);
 });
+
+
+// Task 7 fold-in: resetStuckPhase done branch via /prompt-lift status (C11 §5.3)
+test("with a held pair and phase running, /prompt-lift status resets to done", async ($, on) => {
+  const e = engine(on);
+  const phases = watch(on, "phase");
+  phaseOnce(on, "running");
+  
+  // Set up a held pair: register hooks to return held values once
+  let originalRead = false;
+  let enhancedRead = false;
+  on("state.get", { plugin: "prompt-lift", key: "original" }, ($, ev, next) => {
+    if (originalRead) {
+      return next(ev);
+    }
+    originalRead = true;
+    return { value: { value: DRAFT, version: 0 } };
+  });
+  on("state.get", { plugin: "prompt-lift", key: "enhanced" }, ($, ev, next) => {
+    if (enhancedRead) {
+      return next(ev);
+    }
+    enhancedRead = true;
+    return { value: { value: BETTER, version: 0 } };
+  });
+
+  await press($, "status");
+
+  expect(phases).toEqual(["done"]);
+  expect(e.calls).toHaveLength(0);
+});
