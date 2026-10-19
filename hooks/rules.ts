@@ -43,7 +43,7 @@ export function rulesText(filePrefix: "plain" | "at", extra = ""): string {
   return `<enhancer_rules>
 1. Make the smallest edit that removes ambiguity. Keep the user's words, order and tone; add only what is missing: the file or area, the expected behaviour, a success criterion, one constraint from the project instructions.
 2. Keep the user's intent and action class. Suggest, explain, review, list, show, compare, why, how, what stay informational; fix, add, change, implement, refactor, remove, write stay actions. Never turn one into the other.
-3. Do not add tasks. No "also write tests" or "also update docs" unless the project instructions require it for this kind of change; then one short clause that names the rule ("per CLAUDE.md's test-first rule").
+3. Do not add tasks. No "also write tests" or "also update docs" unless the project instructions require it for this kind of change; then one short clause that names the rule ("per the project's test-first rule").
 4. Name only what you can see: files, functions, flags and paths that appear in the draft, the recent conversation, or the documents. Never invent one. If a fact is missing, tell Claude to find it ("locate the handler that…") rather than guessing.
 5. Skills: if exactly one skill from the lists clearly fits, name it once mid-sentence as "/name" ("…using the /name skill"). Never name more than one. Never name a skill that is not in the lists.
 6. Keep the user's scoping words ("for now", "just", "only", "first").
@@ -87,7 +87,7 @@ export const EXAMPLE_PAIRS: ReadonlyArray<ExamplePair> = [
     answer: {
       verdict: "improve",
       prompt:
-        "Fix the login bug where the session expires right after sign-in. Start from the auth middleware, add a regression test that reproduces it (per CLAUDE.md's test-first rule), and tell me the root cause before changing anything.",
+        "Fix the login bug where the session expires right after sign-in. Start from the auth middleware, add a regression test that reproduces it (per the project's test-first rule), and tell me the root cause before changing anything.",
       why: "added location, test requirement, and order",
       applied: ["rule 1", "rule 3", "rule 4"],
     },
