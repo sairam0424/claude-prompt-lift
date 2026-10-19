@@ -10,9 +10,10 @@ set -euo pipefail
 
 readonly COLS=110 ROWS=30                 # also the GIF grid; keep both tmux servers equal
 readonly DEMO_SOCKET=pldemo REC_SOCKET=plrec SESSION=w REC_SESSION=rec
-# Vague on purpose. The growth guard allows n + min(1200, max(400, 150 + 3n))
-# characters (417 for 17), so even a one-line draft can grow into a full rewrite.
-readonly DRAFT="fix the flaky test that fails every few CI runs"
+# The mod's own first example, vague on purpose. The growth guard allows
+# n + min(1200, max(400, 150 + 3n)) characters (417 for these 17), so even a
+# one-line draft can grow into a full rewrite.
+readonly DRAFT="fix the login bug"
 readonly STATUS_CMD="/prompt-lift status"
 readonly TRUST_TIMEOUT_S=60 BAND_TIMEOUT_S=120 ENHANCE_TIMEOUT_S=120 STEP_TIMEOUT_S=20
 readonly SETTLE_S=3 IDLE_PAUSE_S=2 READ_PAUSE_S=4 END_PAUSE_S=5 TYPE_DELAY_S=0.07
