@@ -302,6 +302,7 @@ After the call (the toast ends with what the call cost):
 - **One band above the prompt, shared by every mod.** The engine draws the above-prompt band once; hooks run in the order of `enabledPlugins` in `~/.claude/settings.json` (earlier = outer). prompt-lift always passes the band through and stacks its row above whatever the mods beneath draw, but a mod listed *before* it that draws without passing through (the playground `token-weather` does) hides prompt-lift's row entirely: no buttons, no `ctrl+x b`, only the `/prompt-lift …` commands. Fix: move the `prompt-lift@claude-prompt-lift` line above that mod's line in `enabledPlugins`, then `/reload-plugins` (or restart). `/prompt-lift status` still works while the band is hidden.
 - Terminal only (no desktop footer, no VS Code)
 - No timers, no per-keystroke hooks
+- The idle row's day figure (` · $Y left (day)`, shown while a day cap is on) is read when the band renders and no timer redraws it, so a session that crosses midnight keeps the previous day's figure until the next press
 - One band row
 - Shares your account's model quota with the main turn (a rate limit on the first rung falls back to the next and the toast says so)
 - The mod sends instruction file text to the model; a hostile `CLAUDE.md` in a cloned repository can attempt prompt injection. The mod neutralizes tag-like markup and instructs the model to treat context as data, but the residual risk is yours to weigh when enhancing in untrusted repositories.

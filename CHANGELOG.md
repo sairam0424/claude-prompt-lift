@@ -5,13 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- Spend caps (R9): `sessionCapUsd` and `dayCapUsd` options (0 = off) refuse a press before any model call once the mod's own ledger of priced presses reaches them; `/prompt-lift cap <usd|off>` moves the session cap for this session; the band's idle and done rows end with `$Y left` (`(day)` when the day cap is tighter); `status` prints `caps:` and `session total (all tools):` lines.
+## [0.4.0] - 2026-10-19
 
 ### Changed
-- Renamed to prompt-lift (install id prompt-lift@claude-prompt-lift; marketplace claude-prompt-lift carries a renames map from prompt-master). State and day statistics start fresh after the rename.
+- Renamed from prompt-master to prompt-lift: install id `prompt-lift@claude-prompt-lift`, command `/prompt-lift`. The marketplace `claude-prompt-lift` carries a `renames` map from prompt-master. State and day statistics start fresh after the rename.
+- `scripts/typecheck.sh` now enforces `noUncheckedIndexedAccess`; the 31 errors it exposed are fixed with local narrowings, no `!` assertions.
+- Test suite reorganised into smaller files (commands, status, sub-commands, caps, toast), chain fixtures typed, sub-command parsing moved to `hooks/subcommands.ts`.
+
+### Added
+- Spend caps: `sessionCapUsd` and `dayCapUsd` options (0 = off) refuse a press before any model call once the mod's own ledger of priced presses reaches them; `/prompt-lift cap <usd|off>` moves the session cap for this session (plain decimals only); the band's idle and done rows end with ` · $Y left` (`(day)` when the day cap is tighter); `status` prints `caps:` and `session total (all tools):` lines.
+- `/prompt-lift tail on|off|<N>` controls the conversation tail for this session; the idle and done rows show ` · tail N` while it is active and `status` prints `conversation: off` or `conversation: last N messages`.
+- `extraRules` option: project preferences appended to the rewrite rules as rule 11 (up to 1,000 characters, tag-like markup neutralised); the default text is unchanged when it is empty.
+- `/prompt-lift preview <draft>` prints the dynamic and static blocks a press would send, with no model call, no cost and no state change.
+- `evals/`: three headless cases for `claude plugin eval` (`01-status`, `02-preview`, `03-enhance`); `evals/results/` is ignored.
+- Demo recording `docs/demo.gif` (and its cast) with `scripts/demo.sh`, which refuses any plugin path but this checkout, sanitises the account name and home path, and leaves the committed take untouched when a re-record fails.
+- README `## Data handling` disclosure, a `### Keyboard` recipe for a single-key binding, and `homepage`, `repository`, `license` and `keywords` in the manifest.
+
+### Fixed
+- Non-success paths record and toast: an `already specific`, refused or not-taken verdict records through the guarded path, so a failing stats write no longer replaces the verdict and its cost with `enhance failed`.
+- A stale running phase is reset to done when the original is held (idle otherwise), so Undo stays reachable.
+- Re-enhancing an enhanced draft keeps the original's decorations: Redo highlights everything added since the original.
+- Undo with only the original held (the enhanced half missing) restores the draft, and Redo then answers `nothing to undo`.
+- Toast truncation counts code points, so an emoji on the cut stays whole.
+- Send refuses `@~/` and `@server:resource` mentions as well as `@file`; email addresses stay sendable.
+- A `prices` key you set wins over a built-in key it contains.
+- Skill demotion names the bare skill and moves the whole trailing `[.!?]+` run after the clause (`Write a commit.` becomes `Write a commit, using the /x skill.`); a rewrite that is only the skill and its marks (`/review...`) is left as it is; an unreachable branch is gone.
+- The `done` phase write after a recorded result is guarded: on failure the result stays and the toast says `saved the result, but the band could not be updated`; a hash read that throws after the answer still records the call.
+- `types/index.d.ts` no longer redeclares `PromptDecoration`; the engine's exported type is used.
+- A short draft may grow by at least 400 characters (`max(400, 150 + 3 × draft length)`, still capped by `maxGrowthChars`), so the first built-in example (a rewrite of `fix the login bug`) is no longer refused as `rewrite too long` after the press was billed.
+- The `write a commit` example names `/commit-commands:commit` only when the session has that skill, and shows a plain rewrite otherwise, so a copy is no longer refused as `added a command or link you did not write`.
+- Rule 3 and the first example say `per the project's test-first rule` instead of naming `CLAUDE.md`, so a copy is no longer refused as `named a file that does not exist` in a project with no root `CLAUDE.md`. The static block changes once per user at upgrade.
 
 ## [0.3.1] - 2026-10-18
 
