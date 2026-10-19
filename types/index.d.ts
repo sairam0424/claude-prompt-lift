@@ -14,13 +14,6 @@ export type LastUsage = {
 };
 
 declare module "claude-code" {
-  interface PromptDecoration {
-    start: number;
-    end: number;
-    bold?: boolean;
-    underline?: boolean;
-  }
-
   interface PluginState {
     "prompt-lift": {
       phase: "idle" | "running" | "done";

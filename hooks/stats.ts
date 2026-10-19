@@ -142,13 +142,14 @@ export async function recordSpend(
   await recordPress($, usd);
 }
 
+/** What the two windows have spent in priced dollars (unpriced presses add nothing). */
+export type Spent = { session: number; day: number };
+
 /**
  * What the session and the day have spent in priced dollars: the windows the
  * spend caps are checked against (R9). An unpriced press adds nothing here.
  */
-export async function spentUsd(
-  $: EngineInterface,
-): Promise<{ session: number; day: number }> {
+export async function spentUsd($: EngineInterface): Promise<Spent> {
   const stats = asStats(await $.store.get(STATS_STORE_KEY));
   return {
     session: await read($, sessionUsd),

@@ -1,7 +1,7 @@
 import { atom, read } from "claude-code";
 import type { EngineInterface } from "claude-code";
 import type { Config } from "./config";
-import { spentUsd } from "./stats";
+import { spentUsd, type Spent } from "./stats";
 
 // Spend caps (R9): a press is refused before any model call once the mod's
 // own ledger — never the account's rate limits — shows a window at its cap,
@@ -27,9 +27,6 @@ export type CapStatus = {
   day?: CapWindow;
   reached?: "session" | "day";
 };
-
-/** What the two windows have spent in priced dollars (unpriced presses add nothing). */
-export type Spent = { session: number; day: number };
 
 export type CapArg =
   | { kind: "show" }
