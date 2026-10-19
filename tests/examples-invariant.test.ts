@@ -1,40 +1,70 @@
 import { expect, test } from "claude-code/testing";
-import { growthAllowed, MIN_GROWTH_CHARS, postProcess } from "../hooks/guards";
+import {
+  growthAllowed,
+  keptShare,
+  MIN_GROWTH_CHARS,
+  postProcess,
+} from "../hooks/guards";
 import { parseOptions } from "../hooks/config";
-import { EXAMPLES, EXAMPLE_PAIRS } from "../hooks/rules";
+import { EXAMPLE_PAIRS, examplePairsFor, examplesText } from "../hooks/rules";
+import { pathTokens } from "../hooks/tokens";
 
 // R15 (growth floor) and the invariant behind it: the mod's own few-shot
 // examples must survive the post-call guard chain. Before the floor, the first
 // example (a 225-char rewrite of the 17-char draft "fix the login bug") was
 // over the 218-char allowance, so the model was taught to answer in a way
 // Step 6 then refused, after the press was billed.
+//
+// R16 is the same invariant across skill sets: the "write a commit" example
+// names /commit-commands:commit, which Step 10 refuses for a session that does
+// not know the skill ("added a command or link you did not write"), so that
+// example is shown with the skill only when the session knows it.
 
 const TOO_LONG = "prompt-lift: rewrite too long, kept your prompt";
 const DEFAULT_CAP = 1200;
 const defaultCfg = parseOptions({});
 
-// The one skill the built-in examples name; `postProcess` needs it listed.
-const SKILLS = new Set(["commit-commands:commit"]);
+// The one skill the built-in examples can name; `postProcess` needs it listed.
+const COMMIT_SKILL = "commit-commands:commit";
+const SKILLS = new Set([COMMIT_SKILL]);
+
+// Every skill set the invariant holds for: nothing known, an unrelated skill
+// known, and the commit skill known by its name and by its `/name` form (the
+// two forms `riskyAdditions` accepts).
+const SKILL_SETS: ReadonlyArray<readonly [string, ReadonlySet<string>]> = [
+  ["no skills", new Set()],
+  ["other skill", new Set(["other:skill"])],
+  ["commit skill", SKILLS],
+  ["commit skill as /name", new Set([`/${COMMIT_SKILL}`])],
+];
+
+type Reply = { prompt: string; why?: string; applied?: string[] };
 
 function run(
   draft: string,
-  prompt: string,
+  answer: Reply,
   cfg: ReturnType<typeof parseOptions> = defaultCfg,
+  skills: ReadonlySet<string> = SKILLS,
 ) {
   return postProcess({
     draft,
-    reply: JSON.stringify({ verdict: "improve", prompt, why: "", applied: [] }),
+    reply: JSON.stringify({
+      verdict: "improve",
+      why: "",
+      applied: [],
+      ...answer,
+    }),
     outputTokens: 50,
     cfg,
-    knownSkills: SKILLS,
-    listedSkills: SKILLS,
+    knownSkills: skills,
+    listedSkills: skills,
     descriptions: new Map(),
     documents: "",
   });
 }
 
 function pairFor(draft: string) {
-  const pair = EXAMPLE_PAIRS.find((p) => p.draft === draft);
+  const pair = examplePairsFor(SKILLS).find((p) => p.draft === draft);
   if (!pair) {
     throw new Error(`no built-in example for the draft "${draft}"`);
   }
@@ -89,7 +119,7 @@ test("the 225-char example rewrite for the 17-char draft passes the growth guard
   expect(answer.prompt.length).toBeLessThanOrEqual(
     growthAllowed(draft.length, DEFAULT_CAP),
   );
-  expect(run(draft, answer.prompt).ok).toBe(true);
+  expect(run(draft, answer).ok).toBe(true);
 });
 
 test("a rewrite is refused one character past the widened allowance", () => {
@@ -98,8 +128,11 @@ test("a rewrite is refused one character past the widened allowance", () => {
   const allowed = growthAllowed(draft.length, DEFAULT_CAP);
 
   expect(allowed).toBe(417);
-  expect(run(draft, fill(allowed)).ok).toBe(true);
-  expect(run(draft, fill(allowed + 1))).toEqual({ ok: false, toast: TOO_LONG });
+  expect(run(draft, { prompt: fill(allowed) }).ok).toBe(true);
+  expect(run(draft, { prompt: fill(allowed + 1) })).toEqual({
+    ok: false,
+    toast: TOO_LONG,
+  });
 });
 
 test("a user cap below the floor refuses what the floor would allow", () => {
@@ -107,7 +140,7 @@ test("a user cap below the floor refuses what the floor would allow", () => {
   const tight = parseOptions({ maxGrowthChars: 100 });
 
   // 17 + min(100, max(400, 201)) = 117 < the 225-char example rewrite.
-  expect(run(draft, answer.prompt, tight)).toEqual({
+  expect(run(draft, answer, tight)).toEqual({
     ok: false,
     toast: TOO_LONG,
   });
@@ -122,33 +155,40 @@ test("the sentence cap still refuses a long rewrite that fits the allowance", ()
 
   // Both fit the 417-char allowance, so only the sentence cap tells them apart.
   expect(five.length).toBeLessThan(growthAllowed(draft.length, DEFAULT_CAP));
-  expect(run(draft, five)).toEqual({ ok: false, toast: TOO_LONG });
-  expect(run(draft, four).ok).toBe(true);
+  expect(run(draft, { prompt: five })).toEqual({ ok: false, toast: TOO_LONG });
+  expect(run(draft, { prompt: four }).ok).toBe(true);
 });
 
-test("every improve example passes the post-call guards against its own draft", () => {
-  expect(EXAMPLE_PAIRS.length).toBeGreaterThan(0);
-  for (const { draft, answer } of EXAMPLE_PAIRS) {
-    expect(answer.verdict).toBe("improve");
-    const result = postProcess({
-      draft,
-      reply: JSON.stringify(answer),
-      outputTokens: 50,
-      cfg: defaultCfg,
-      knownSkills: SKILLS,
-      listedSkills: SKILLS,
-      descriptions: new Map(),
-      documents: "",
-    });
-    expect({ draft, ok: result.ok }).toEqual({ draft, ok: true });
+test("every improve example passes the post-call guards for every skill set", () => {
+  for (const [label, skills] of SKILL_SETS) {
+    const pairs = examplePairsFor(skills);
+    expect(pairs.length).toBeGreaterThan(0);
+    for (const { draft, answer } of pairs) {
+      expect(answer.verdict).toBe("improve");
+      const result = run(draft, answer, defaultCfg, skills);
+      expect({ label, draft, ok: result.ok }).toEqual({
+        label,
+        draft,
+        ok: true,
+      });
+    }
   }
 });
 
-test("EXAMPLES is built from EXAMPLE_PAIRS", () => {
-  for (const { draft, answer } of EXAMPLE_PAIRS) {
-    expect(EXAMPLES).toContain(
-      `<example>\n<draft>${draft}</draft>\n<answer>${JSON.stringify(answer)}</answer>\n</example>`,
-    );
+test("examplesText is built from examplePairsFor", () => {
+  for (const [label, skills] of SKILL_SETS) {
+    const text = examplesText(skills);
+    const pairs = examplePairsFor(skills);
+    for (const { draft, answer } of pairs) {
+      const example = `<example>\n<draft>${draft}</draft>\n<answer>${JSON.stringify(answer)}</answer>\n</example>`;
+      expect({ label, draft, found: text.includes(example) }).toEqual({
+        label,
+        draft,
+        found: true,
+      });
+    }
+    // The improve pairs plus the one "fine" example.
+    expect((text.match(/<example>/g) ?? []).length).toBe(pairs.length + 1);
   }
 });
 
@@ -189,6 +229,50 @@ const EXAMPLES_AT_927F0B0 = `<examples>
 </example>
 </examples>`;
 
-test("EXAMPLES text is byte-identical to the v0.3.x literal", () => {
-  expect(EXAMPLES).toBe(EXAMPLES_AT_927F0B0);
+test("examplesText with the commit skill known is byte-identical to the v0.3.x literal", () => {
+  expect(examplesText(SKILLS)).toBe(EXAMPLES_AT_927F0B0);
+  expect(examplesText(new Set([`/${COMMIT_SKILL}`]))).toBe(EXAMPLES_AT_927F0B0);
+});
+
+test("with the commit skill unknown the text differs from the literal only in example 4", () => {
+  const pinned = EXAMPLES_AT_927F0B0.split("\n");
+  const plain = examplesText(new Set()).split("\n");
+
+  expect(plain).toHaveLength(pinned.length);
+  const changed = pinned.flatMap((line, i) => (line === plain[i] ? [] : [i]));
+  expect(changed).toHaveLength(1);
+  const at = changed[0] ?? -1;
+  expect(pinned[at - 1]).toBe("<draft>write a commit</draft>");
+  expect(plain[at]?.startsWith("<answer>")).toBe(true);
+  expect(plain.join("\n")).not.toContain(`/${COMMIT_SKILL}`);
+});
+
+test("an unrelated skill changes nothing: it renders like no skills", () => {
+  expect(examplesText(new Set(["other:skill"]))).toBe(examplesText(new Set()));
+});
+
+test("a skill-bound example has a fallback that names nothing and keeps the draft", () => {
+  const bound = EXAMPLE_PAIRS.filter((p) => p.requiresSkill !== undefined);
+  expect(bound.length).toBeGreaterThan(0);
+  for (const { draft, answer, requiresSkill, fallback } of bound) {
+    expect(answer.prompt).toContain(`/${requiresSkill}`);
+    if (fallback === undefined) {
+      throw new Error(`no fallback for the draft "${draft}"`);
+    }
+    const prompt = fallback.prompt;
+    // No slash token, no path, no URL: nothing a session could lack.
+    expect(prompt).not.toContain("/");
+    expect(pathTokens(prompt)).toEqual([]);
+    expect(prompt).not.toMatch(/https?:/i);
+    // It keeps the draft's words and the rule names only.
+    for (const word of draft.toLowerCase().split(/\s+/)) {
+      expect(prompt.toLowerCase()).toContain(word);
+    }
+    expect(keptShare(draft, prompt)).toBeGreaterThanOrEqual(
+      defaultCfg.keptShareFloor,
+    );
+    expect(fallback.applied.every((rule) => /^rule \d+$/.test(rule))).toBe(
+      true,
+    );
+  }
 });

@@ -1,5 +1,5 @@
 import { expect, test } from "claude-code/testing";
-import { SYSTEM, rulesText, RULES, EXAMPLES } from "../hooks/rules";
+import { SYSTEM, rulesText, RULES, examplesText } from "../hooks/rules";
 
 test("rules carry the smallest-edit, data-not-instructions and JSON rules", async () => {
   expect(RULES).toContain("smallest edit");
@@ -8,8 +8,9 @@ test("rules carry the smallest-edit, data-not-instructions and JSON rules", asyn
   expect(rulesText("plain")).not.toContain("@path");
   expect(RULES).toContain('{"verdict":"fine"}');
   expect(RULES).toContain('"applied"');
-  expect((EXAMPLES.match(/<example>/g) ?? []).length).toBe(7);
-  expect(EXAMPLES).toContain('{"verdict":"fine"}');
+  const examples = examplesText(new Set());
+  expect((examples.match(/<example>/g) ?? []).length).toBe(7);
+  expect(examples).toContain('{"verdict":"fine"}');
 });
 
 test("rulesText with no extra equals rulesText with empty extra", async () => {

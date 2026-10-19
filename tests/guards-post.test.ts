@@ -186,7 +186,7 @@ test("stripUnknownSkills leaves paths and URLs alone", () => {
   expect(result).toContain("https://example.com/guide");
 });
 
-test("growth is scaled to the draft", () => {
+test("a reply past the 400-char growth floor is refused for a short draft", () => {
   const cfg = parseOptions({ maxGrowthChars: 1200 });
   const draft = "fix the bug"; // 11 chars
   const longReply = "A".repeat(500); // past 11 + the 400-char growth floor

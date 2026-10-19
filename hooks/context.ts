@@ -1,5 +1,5 @@
 import type { Config } from "./config";
-import { EXAMPLES } from "./rules";
+import { examplesText } from "./rules";
 
 export type MemoryFile = {
   path: string;
@@ -255,11 +255,24 @@ export function subprojectDir(
   return undefined;
 }
 
+/**
+ * Every skill name the session lists and every command name: what the
+ * post-call guards accept as a skill, and what the examples in the static
+ * block are rendered against, so the two cannot disagree.
+ */
+export function knownSkillSet(ctx: {
+  skillNames: readonly string[];
+  commands: readonly { name: string }[];
+}): Set<string> {
+  return new Set([...ctx.skillNames, ...ctx.commands.map((c) => c.name)]);
+}
+
 export function buildStaticBlock(a: {
   rules: string;
   project: string;
   documents: readonly { path: string; text: string }[];
   skillNames: readonly string[];
+  knownSkills: ReadonlySet<string>;
 }): string {
   let block = "";
 
@@ -267,7 +280,7 @@ export function buildStaticBlock(a: {
   block += a.rules + "\n\n";
 
   // 2. Examples
-  block += EXAMPLES + "\n\n";
+  block += examplesText(a.knownSkills) + "\n\n";
 
   // 3. Project
   block += `<project>${neutralizeTags(a.project)}</project>\n\n`;

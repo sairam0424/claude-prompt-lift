@@ -13,6 +13,7 @@ import {
   RULES_FILE,
   RULES_TEXT,
 } from "./engine";
+import { examplePairsFor } from "../hooks/rules";
 
 // Spec §6: what reaches block 0 and block 1 — the selected instruction files,
 // the conversation tail only when enabled, a named subproject's CLAUDE.md, and
@@ -150,3 +151,66 @@ test(
     expect(first).toContain("12. Answer with one JSON object");
   },
 );
+
+// R16: the "write a commit" example names /commit-commands:commit only when
+// the session knows that skill, so the example never teaches an answer the
+// guards then refuse ("added a command or link you did not write").
+
+const COMMIT_DRAFT = "write a commit";
+
+function commitPrompt(skills: ReadonlySet<string>): string {
+  const pair = examplePairsFor(skills).find((p) => p.draft === COMMIT_DRAFT);
+  if (!pair) {
+    throw new Error("no built-in example for the draft 'write a commit'");
+  }
+  return pair.answer.prompt;
+}
+
+test("block 0 teaches the commit skill when the session has it", async ($, on) => {
+  const e = engine(on);
+
+  await press($, COMMIT_DRAFT);
+
+  const first = block(e, 0, 0);
+  expect(first).toContain(commitPrompt(new Set(["commit-commands:commit"])));
+  expect(first).toContain("using the /commit-commands:commit skill");
+});
+
+test("block 0 shows a plain commit rewrite when the session lacks the skill", async ($, on) => {
+  const e = engine(on, { skills: [], commands: [] });
+
+  await press($, COMMIT_DRAFT);
+
+  const first = block(e, 0, 0);
+  expect(first).toContain(commitPrompt(new Set()));
+  expect(first).not.toContain("/commit-commands:commit");
+});
+
+test("the plain commit example is not refused in a session without the skill", async ($, on) => {
+  const e = engine(on, {
+    skills: [],
+    commands: [],
+    replies: [answered(improve(commitPrompt(new Set())))],
+  });
+
+  await press($, COMMIT_DRAFT);
+
+  expect(e.fills).toHaveLength(1);
+  expect(e.toasts.join("\n")).not.toContain("you did not write");
+});
+
+test("the skill commit example is refused in a session without the skill", async ($, on) => {
+  const skilled = commitPrompt(new Set(["commit-commands:commit"]));
+  const e = engine(on, {
+    skills: [],
+    commands: [],
+    replies: [answered(improve(skilled))],
+  });
+
+  await press($, COMMIT_DRAFT);
+
+  expect(e.fills).toHaveLength(0);
+  expect(e.toasts.join("\n")).toContain(
+    "prompt-lift: added a command or link you did not write, kept your prompt",
+  );
+});

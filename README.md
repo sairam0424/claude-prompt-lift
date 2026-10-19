@@ -103,6 +103,8 @@ This binds ctrl+e to the same action, which presses Enhance whenever the band is
 - A subproject's `CLAUDE.md` when the draft names a top-level directory of the project that has one.
 - The draft. Never your conversation unless `includeConversation` is on.
 
+The built-in commit example names the `commit-commands:commit` skill only when that skill is loaded in the session; otherwise a plain rewrite is shown.
+
 
 ### Conversation tail
 

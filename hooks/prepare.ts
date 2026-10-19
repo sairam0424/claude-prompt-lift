@@ -1,7 +1,12 @@
 import type { EngineInterface, SessionMessage } from "claude-code";
 import type { Config } from "./config";
 import { rulesText } from "./rules";
-import { buildDynamicBlock, buildStaticBlock, matchSkills } from "./context";
+import {
+  buildDynamicBlock,
+  buildStaticBlock,
+  knownSkillSet,
+  matchSkills,
+} from "./context";
 import { basename, gatherContext } from "./gather";
 
 // Step 4 of the Enhance flow (spec §5.3): the two prompt blocks a press sends
@@ -27,11 +32,13 @@ export async function prepare(
   rows: readonly SessionMessage[],
 ): Promise<Prepared> {
   const ctx = await gatherContext($, cfg, draft, rows);
+  const knownSkills = knownSkillSet(ctx);
   const staticBlock = buildStaticBlock({
     rules: rulesText(cfg.filePrefix, cfg.extraRules),
     project: basename(ctx.root),
     documents: ctx.documents,
     skillNames: ctx.skillNames,
+    knownSkills,
   });
   const relevant = matchSkills(
     draft,
@@ -51,10 +58,7 @@ export async function prepare(
     staticBlock,
     dynamicBlock,
     relevantCount: relevant.length,
-    knownSkills: new Set([
-      ...ctx.skillNames,
-      ...ctx.commands.map((c) => c.name),
-    ]),
+    knownSkills,
     listedSkills: new Set(ctx.skillNames),
     descriptions: ctx.descriptions,
     documentsText: ctx.documentsText,

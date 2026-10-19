@@ -57,21 +57,31 @@ ${extraRule}${jsonRuleNumber}. Answer with one JSON object and nothing else: {"v
 
 export const RULES = rulesText("plain");
 
+type Answer = {
+  verdict: "improve";
+  prompt: string;
+  why: string;
+  applied: string[];
+};
+
+/**
+ * One few-shot example: a draft and the answer the model is taught to give
+ * for it. A pair whose answer names a skill says which (`requiresSkill`) and
+ * carries a `fallback` that names nothing a session could lack (R16).
+ */
+type ExamplePair = { draft: string; answer: Answer } & (
+  | { requiresSkill?: undefined; fallback?: undefined }
+  | { requiresSkill: string; fallback: Answer }
+);
+
 /**
  * The few-shot examples as data: every `improve` pair is a draft and the
- * answer the model is taught to give for it. `EXAMPLES` is built from these,
- * and tests/examples-invariant.test.ts holds each one to the post-call guards,
- * so the model is never taught an answer the guards then refuse.
+ * answer the model is taught to give for it. `examplesText` is built from
+ * these, and tests/examples-invariant.test.ts holds each one to the post-call
+ * guards for every skill set, so the model is never taught an answer the
+ * guards then refuse.
  */
-export const EXAMPLE_PAIRS: ReadonlyArray<{
-  draft: string;
-  answer: {
-    verdict: "improve";
-    prompt: string;
-    why: string;
-    applied: string[];
-  };
-}> = [
+export const EXAMPLE_PAIRS: ReadonlyArray<ExamplePair> = [
   {
     draft: "fix the login bug",
     answer: {
@@ -111,6 +121,14 @@ export const EXAMPLE_PAIRS: ReadonlyArray<{
       why: "named the skill that fits",
       applied: ["rule 5"],
     },
+    requiresSkill: "commit-commands:commit",
+    fallback: {
+      verdict: "improve",
+      prompt:
+        "Write a conventional commit for the staged changes only: one logical change, a subject under 70 characters and a body that says why.",
+      why: "added scope and message format",
+      applied: ["rule 1"],
+    },
   },
   {
     draft: "why is auth/session.ts so slow",
@@ -145,10 +163,37 @@ function renderExample(example: { draft: string; answer: object }): string {
   return `<example>\n<draft>${example.draft}</draft>\n<answer>${JSON.stringify(example.answer)}</answer>\n</example>`;
 }
 
-const ORDERED_EXAMPLES = [
-  ...EXAMPLE_PAIRS.slice(0, FINE_EXAMPLE_AFTER),
-  FINE_EXAMPLE,
-  ...EXAMPLE_PAIRS.slice(FINE_EXAMPLE_AFTER),
-];
+// `riskyAdditions` accepts a skill as `name` or `/name`; so does this.
+function isKnownSkill(known: ReadonlySet<string>, name: string): boolean {
+  const bare = name.startsWith("/") ? name.slice(1) : name;
+  return known.has(bare) || known.has(`/${bare}`);
+}
 
-export const EXAMPLES = `<examples>\n${ORDERED_EXAMPLES.map(renderExample).join("\n")}\n</examples>`;
+/**
+ * The improve pairs a session is shown: a pair that needs a skill appears as
+ * written when the session knows the skill and as its fallback otherwise.
+ * `knownSkills` is the set the post-call guards use (`knownSkillSet`), so what
+ * is taught and what is accepted cannot disagree.
+ */
+export function examplePairsFor(
+  knownSkills: ReadonlySet<string>,
+): ReadonlyArray<{ draft: string; answer: Answer }> {
+  return EXAMPLE_PAIRS.map((pair) => ({
+    draft: pair.draft,
+    answer:
+      pair.requiresSkill === undefined ||
+      isKnownSkill(knownSkills, pair.requiresSkill)
+        ? pair.answer
+        : pair.fallback,
+  }));
+}
+
+export function examplesText(knownSkills: ReadonlySet<string>): string {
+  const pairs = examplePairsFor(knownSkills);
+  const ordered = [
+    ...pairs.slice(0, FINE_EXAMPLE_AFTER),
+    FINE_EXAMPLE,
+    ...pairs.slice(FINE_EXAMPLE_AFTER),
+  ];
+  return `<examples>\n${ordered.map(renderExample).join("\n")}\n</examples>`;
+}
