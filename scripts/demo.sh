@@ -21,7 +21,7 @@ readonly POLL_S=0.5 BACKSPACES=400 CAST_IDLE_LIMIT_S=2 GIF_LIMIT_BYTES=1048576 F
 # Frame-readability waits, not synchronisation (wait_until does that).
 readonly TYPE_SETTLE_S=1.5 STEP_PAUSE_S=1 FOCUS_SETTLE_S=0.5
 # The directory submission treats 256 KiB as a per-file limit for non-image files.
-readonly CAST_WARN_BYTES=245760
+readonly CAST_LIMIT_BYTES=$((256 * 1024)) CAST_WARN_BYTES=$((240 * 1024))
 # A nested session must not inherit the parent session's identity variables.
 readonly PARENT_SESSION_VARS=(CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESSAGING_SOCKET
   CLAUDE_CODE_MESSAGING_TOKEN CLAUDE_CODE_CHILD_SESSION CLAUDE_PID CLAUDE_CODE_ENTRYPOINT
@@ -297,7 +297,7 @@ check_cast() {
     grep -Eq -- "$want" "$CAST" || die "the cast never shows: $want"
   done
   local bytes; bytes="$(size_of "$CAST")"
-  [ "$bytes" -le "$CAST_WARN_BYTES" ] || echo "demo.sh: WARNING: the cast is $bytes bytes, over 240 KiB; the directory submission limits files to 256 KiB" >&2
+  [ "$bytes" -le "$CAST_WARN_BYTES" ] || echo "demo.sh: WARNING: the cast is $bytes bytes, over $((CAST_WARN_BYTES / 1024)) KiB; the directory submission limits files to $((CAST_LIMIT_BYTES / 1024)) KiB" >&2
 }
 
 main() {
