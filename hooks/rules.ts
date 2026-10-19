@@ -1,4 +1,6 @@
-import { neutralizeTags } from "./context";
+// neutralizeTags from context.ts only handles envelope tags (whitelist).
+// User input in extraRules needs ALL tags neutralized, so we define a separate
+// neutralizeAllTags function here rather than modifying the shared utility.
 
 export const SYSTEM =
   "You are a prompt editor for Claude Code. You rewrite a developer's draft prompt so Claude Code can act on it without guessing. You never answer the draft; you only improve it.";
@@ -6,6 +8,8 @@ export const SYSTEM =
 /**
  * Neutralize any tag-like markup (angle brackets that look like XML/HTML tags)
  * by escaping the opening bracket: <tag> → <\tag>, </tag> → <\/tag>
+ * Unlike neutralizeTags from context.ts which whitelists envelope tags,
+ * this escapes ALL tags for untrusted user input (extraRules).
  */
 function neutralizeAllTags(text: string): string {
   // Match opening tags: <tagname> or <tagname attrs>

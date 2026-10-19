@@ -16,7 +16,8 @@ import {
   ZERO_USAGE,
 } from "./engine";
 import { wordDiffLines } from "../hooks/diff";
-import { parseModelArg, probeText } from "../hooks/commands";
+import { parseModelArg } from "../hooks/subcommands";
+import { probeText } from "../hooks/commands";
 import { matchRungs } from "../hooks/gather";
 import { statusText, type StatusInput } from "../hooks/status";
 import type { LastUsage } from "../types";
