@@ -1,0 +1,443 @@
+{
+  "schemaVersion": 1,
+  "claudeVersion": "2.1.303",
+  "startedAt": "2026-10-19T08:25:47.737Z",
+  "durationSeconds": 216,
+  "costUsd": 0.42139545,
+  "partial": false,
+  "suite": {
+    "root": "/Users/sairamugge/src/prompt-master-wt/v0.4.0",
+    "ablation": "with-without",
+    "threshold": 1,
+    "concurrency": 1,
+    "plugins": [
+      {
+        "name": "prompt-lift",
+        "version": "0.3.1",
+        "path": "/Users/sairamugge/src/prompt-master-wt/v0.4.0"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "01-status",
+      "dir": "evals/01-status",
+      "source": "prose",
+      "promptMarkdown": "/prompt-lift status",
+      "runsPerCase": 3,
+      "timeoutSeconds": 60,
+      "maxTurns": 5,
+      "graders": [
+        {
+          "name": "reports-chain",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "trace",
+            "pattern": "chain:",
+            "flags": "",
+            "match": "contains"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 0,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-19T08:25:47.766Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-aqHyGH/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "reports-chain",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched chain:",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 0,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-19T08:25:53.844Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-ZrLmLv/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "reports-chain",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched chain:",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 0,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-19T08:25:59.794Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-y51Qhp/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "reports-chain",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched chain:",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 1,
+            "costUsd": 0.061184999999999996,
+            "judgeCostUsd": 0,
+            "durationSeconds": 14,
+            "startedAt": "2026-10-19T08:26:05.506Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-rWz1fg/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "reports-chain",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in trace",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 2,
+            "costUsd": 0.05223555,
+            "judgeCostUsd": 0,
+            "durationSeconds": 22,
+            "startedAt": "2026-10-19T08:26:19.478Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-IdaUyR/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "reports-chain",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in trace",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 3,
+            "costUsd": 0.05151315,
+            "judgeCostUsd": 0,
+            "durationSeconds": 22,
+            "startedAt": "2026-10-19T08:26:41.372Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-dfHfiF/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "reports-chain",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in trace",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 0,
+        "passRateWithout": 0,
+        "delta": 1
+      }
+    },
+    {
+      "name": "02-preview",
+      "dir": "evals/02-preview",
+      "source": "prose",
+      "promptMarkdown": "/prompt-lift preview write a commit",
+      "runsPerCase": 3,
+      "timeoutSeconds": 60,
+      "maxTurns": 5,
+      "graders": [
+        {
+          "name": "shows-dynamic-block",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "trace",
+            "pattern": "dynamic block \\(sent uncached\\)",
+            "flags": "",
+            "match": "contains"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 0,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-19T08:27:02.993Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-oDh0uh/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "shows-dynamic-block",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched dynamic block \\(sent uncached\\)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 0,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-19T08:27:08.990Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-0xbBXO/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "shows-dynamic-block",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched dynamic block \\(sent uncached\\)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 1,
+            "passed": true,
+            "turns": 0,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 6,
+            "startedAt": "2026-10-19T08:27:14.906Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-ogsUFw/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "shows-dynamic-block",
+                "passed": true,
+                "weight": 1,
+                "explanation": "matched dynamic block \\(sent uncached\\)",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 5,
+            "costUsd": 0.08215335,
+            "judgeCostUsd": 0,
+            "durationSeconds": 37,
+            "startedAt": "2026-10-19T08:27:20.650Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-9Mj9JC/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "shows-dynamic-block",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in trace",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 3,
+            "costUsd": 0.0558813,
+            "judgeCostUsd": 0,
+            "durationSeconds": 23,
+            "startedAt": "2026-10-19T08:27:57.405Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-5svb1P/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "shows-dynamic-block",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in trace",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          },
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 3,
+            "costUsd": 0.054084600000000004,
+            "judgeCostUsd": 0,
+            "durationSeconds": 23,
+            "startedAt": "2026-10-19T08:28:20.035Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-KoRGR5/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "shows-dynamic-block",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in trace",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 1,
+        "passRate": 1,
+        "scoreWithout": 0,
+        "passRateWithout": 0,
+        "delta": 1
+      }
+    },
+    {
+      "name": "03-enhance",
+      "dir": "evals/03-enhance",
+      "source": "prose",
+      "promptMarkdown": "/prompt-lift write a commit",
+      "runsPerCase": 1,
+      "timeoutSeconds": 120,
+      "maxTurns": 10,
+      "graders": [
+        {
+          "name": "invokes-enhance",
+          "type": "regex",
+          "weight": 1,
+          "config": {
+            "target": "trace",
+            "pattern": "using the /",
+            "flags": "",
+            "match": "contains"
+          }
+        }
+      ],
+      "arms": {
+        "with": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 0,
+            "costUsd": 0,
+            "judgeCostUsd": 0,
+            "durationSeconds": 13,
+            "startedAt": "2026-10-19T08:28:43.325Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-GfpmOS/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "invokes-enhance",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in trace",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ],
+        "without": [
+          {
+            "score": 0,
+            "passed": false,
+            "turns": 4,
+            "costUsd": 0.0643425,
+            "judgeCostUsd": 0,
+            "durationSeconds": 27,
+            "startedAt": "2026-10-19T08:28:56.200Z",
+            "error": null,
+            "tracePath": "/private/tmp/e-6PI8J0/out/trace.jsonl",
+            "skippedPaidGraders": false,
+            "graders": [
+              {
+                "name": "invokes-enhance",
+                "passed": false,
+                "weight": 1,
+                "explanation": "pattern not found in trace",
+                "withOnly": false,
+                "scored": true
+              }
+            ]
+          }
+        ]
+      },
+      "aggregates": {
+        "score": 0,
+        "passRate": 0,
+        "scoreWithout": 0,
+        "passRateWithout": 0,
+        "delta": 0
+      }
+    }
+  ],
+  "aggregates": {
+    "casesTotal": 3,
+    "casesPassed": 2,
+    "overallScore": 0.6666666666666666,
+    "overallPassRate": 0.6666666666666666,
+    "meanDelta": 0.6666666666666666
+  }
+}

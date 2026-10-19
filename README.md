@@ -304,6 +304,10 @@ After the call (the toast ends with what the call cost):
 
 The plugin is read live from its folder. `claude plugin validate .` reads the manifest and the hooks module the way the engine will; `claude plugin test .` runs `tests/*.test.ts(x)`. Neither type-checks, so `bash scripts/typecheck.sh` is the type gate, best-effort: it finds the newest `claude-code.d.ts` Claude Code extracted with its plugin-authoring skill (under `/private/tmp/claude-*/bundled-skills/`, so absent after a reboot until that skill loads again in a session), writes a temporary tsconfig over that file plus `hooks/`, `types/` and `tests/`, and runs `tsc --noEmit` through `npx`. It prints the types file it used. With no types file on the machine it says so and exits 0; with only an older cached copy it says STALE, and an error it then reports may be the old build's rather than this code's.
 
+### Evals
+
+The `evals/` directory holds cases for `claude plugin eval .`, which tests the plugin's slash commands against a with-plugin vs. without-plugin baseline and reports uplift (Δ). Each case runs the prompt and scores the output with regex graders on the trace. The two no-model-call cases (status and preview) are cheap to run; the enhance case calls the Fable model once per run. Run from a shell with Bedrock credentials (Anthropic keys work too). The first run asks you to trust the plugin directory; add `--trust-plugin` for CI. Cost for a full 3-run suite: ~$0.42 (most from the enhance case). See `claude plugin eval --help` for filtering and concurrency options.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Sairam Ugge.

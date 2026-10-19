@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# noUncheckedIndexedAccess: 33 errors as of 2026-10-19; deferred because
+# the fixes would exceed 60 lines and many would introduce behavior changes
+# (guards on loop-bounded array accesses that cannot fail in practice).
+#
 # Best-effort type check of hooks/ and tests/ against the engine's own
 # claude-code.d.ts. `claude plugin test` does not type-check, so this is the
 # one type gate; it is a dev aid, not a test gate: with no types file on the
