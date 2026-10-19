@@ -2,11 +2,9 @@ import { expect, test } from "claude-code/testing";
 import type { Engine as Harness } from "claude-code/testing";
 import type { ModelCompleteResult } from "claude-code";
 import {
-  answered,
   engine,
-  BETTER,
-  DRAFT,
   BEDROCK,
+  DRAFT,
   FABLE,
   HAIKU,
   HOME,
@@ -15,13 +13,8 @@ import {
   SONNET,
   ZERO_USAGE,
 } from "./engine";
-import { wordDiffLines } from "../hooks/diff";
-import { parseModelArg } from "../hooks/subcommands";
-import { probeText } from "../hooks/commands";
-import { matchRungs } from "../hooks/gather";
 import { statusText, type StatusInput } from "../hooks/status";
 import type { LastUsage } from "../types";
-import { HINT } from "../hooks/register";
 
 
 const COMMAND = "prompt-lift";
