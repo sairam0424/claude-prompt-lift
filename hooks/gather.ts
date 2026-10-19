@@ -9,6 +9,7 @@ import {
   type MemoryFile,
 } from "./context";
 import { isFileLike, pathTokens } from "./tokens";
+import { readTailCount } from "./tail";
 
 // Reads what an Enhance press needs from the engine: the instruction files the
 // session loaded, the skill listing, the command list, the root's directories,
@@ -205,9 +206,8 @@ export async function gatherContext(
   const root = await $.session.root();
   const rootDirs = await listRootDirs($, root);
   const subproject = await readSubproject($, root, draft, rootDirs);
-  const conversation = cfg.includeConversation
-    ? conversationTail(rows, cfg.conversationMessages)
-    : undefined;
+  const count = await readTailCount($, cfg);
+  const conversation = count > 0 ? conversationTail(rows, count) : undefined;
   return {
     root,
     documents,

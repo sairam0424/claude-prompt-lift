@@ -49,88 +49,112 @@ function improve(prompt: string): string {
 
 // --- model ---
 
-test("/prompt-lift model sonnet changes the first rung and reset restores it", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
+test(
+  "/prompt-lift model sonnet changes the first rung and reset restores it",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
 
-  const set = await press($, "model sonnet");
-  expect(set).toBe(
-    `prompt-lift: first rung ${SONNET} · chain ${SONNET} → ${FABLE} → ${HAIKU}`,
-  );
-  expect(e.store.model).toBe(SONNET);
-  await press($, DRAFT);
-  expect(e.calls[0]?.model).toBe(SONNET);
-  expect(e.calls[0]?.effort).toBe("low");
-  expect(e.toasts[0]).toContain("prompt-lift: sonnet 5.5");
-  expect(e.toasts[0]).toContain("$0.007");
+    const set = await press($, "model sonnet");
+    expect(set).toBe(
+      `prompt-lift: first rung ${SONNET} · chain ${SONNET} → ${FABLE} → ${HAIKU}`,
+    );
+    expect(e.store.model).toBe(SONNET);
+    await press($, DRAFT);
+    expect(e.calls[0]?.model).toBe(SONNET);
+    expect(e.calls[0]?.effort).toBe("low");
+    expect(e.toasts[0]).toContain("prompt-lift: sonnet 5.5");
+    expect(e.toasts[0]).toContain("$0.007");
 
-  const reset = await press($, "model reset");
-  expect(reset).toBe(
-    `prompt-lift: first rung ${FABLE} · chain ${FABLE} → ${SONNET} → ${HAIKU}`,
-  );
-  expect(e.store.model).toBeUndefined();
-  e.box.text = "";
-  await press($, DRAFT);
-  expect(e.calls[1]?.model).toBe(FABLE);
-});
+    const reset = await press($, "model reset");
+    expect(reset).toBe(
+      `prompt-lift: first rung ${FABLE} · chain ${FABLE} → ${SONNET} → ${HAIKU}`,
+    );
+    expect(e.store.model).toBeUndefined();
+    e.box.text = "";
+    await press($, DRAFT);
+    expect(e.calls[1]?.model).toBe(FABLE);
+  },
+);
 
-test("model Haiku names its rung whatever the case", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
+test(
+  "model Haiku names its rung whatever the case",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
 
-  const text = await press($, "model Haiku");
+    const text = await press($, "model Haiku");
 
-  expect(text).toBe(
-    `prompt-lift: first rung ${HAIKU} · chain ${HAIKU} → ${FABLE} → ${SONNET}`,
-  );
-  expect(e.store.model).toBe(HAIKU);
-});
+    expect(text).toBe(
+      `prompt-lift: first rung ${HAIKU} · chain ${HAIKU} → ${FABLE} → ${SONNET}`,
+    );
+    expect(e.store.model).toBe(HAIKU);
+  },
+);
 
-test("model with a word no rung carries stores nothing and says so", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
+test(
+  "model with a word no rung carries stores nothing and says so",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
 
-  const text = await press($, "model sonet");
+    const text = await press($, "model sonet");
 
-  expect(text).toBe(
-    `prompt-lift: sonet is neither a rung of ${FABLE} → ${SONNET} → ${HAIKU} nor a full model id · use /prompt-lift ${MODEL_USAGE}`,
-  );
-  expect(e.store.model).toBeUndefined();
-  await press($, DRAFT);
-  expect(e.calls[0]?.model).toBe(FABLE);
-});
+    expect(text).toBe(
+      `prompt-lift: sonet is neither a rung of ${FABLE} → ${SONNET} → ${HAIKU} nor a full model id · use /prompt-lift ${MODEL_USAGE}`,
+    );
+    expect(e.store.model).toBeUndefined();
+    await press($, DRAFT);
+    expect(e.calls[0]?.model).toBe(FABLE);
+  },
+);
 
-test("model with a word several rungs carry stores nothing", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
+test(
+  "model with a word several rungs carry stores nothing",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
 
-  const text = await press($, "model claude");
+    const text = await press($, "model claude");
 
-  expect(text).toBe(
-    `prompt-lift: claude names several rungs (${FABLE}, ${SONNET}, ${HAIKU}) · use /prompt-lift ${MODEL_USAGE}`,
-  );
-  expect(e.store.model).toBeUndefined();
-  expect(e.calls).toHaveLength(0);
-});
+    expect(text).toBe(
+      `prompt-lift: claude names several rungs (${FABLE}, ${SONNET}, ${HAIKU}) · use /prompt-lift ${MODEL_USAGE}`,
+    );
+    expect(e.store.model).toBeUndefined();
+    expect(e.calls).toHaveLength(0);
+  },
+);
 
-test("model with a full id outside the chain pins it as given", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
+test(
+  "model with a full id outside the chain pins it as given",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
 
-  const text = await press($, `model ${OPUS}`);
+    const text = await press($, `model ${OPUS}`);
 
-  expect(text).toBe(
-    `prompt-lift: first rung ${OPUS} · chain ${OPUS} → ${FABLE} → ${SONNET} → ${HAIKU}`,
-  );
-  expect(e.store.model).toBe(OPUS);
-  await press($, DRAFT);
-  expect(e.calls[0]?.model).toBe(OPUS);
-});
+    expect(text).toBe(
+      `prompt-lift: first rung ${OPUS} · chain ${OPUS} → ${FABLE} → ${SONNET} → ${HAIKU}`,
+    );
+    expect(e.store.model).toBe(OPUS);
+    await press($, DRAFT);
+    expect(e.calls[0]?.model).toBe(OPUS);
+  },
+);
 
-test("an alias left in the store leads the chain as the rung it names", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
-  e.store.model = "haiku";
+test(
+  "an alias left in the store leads the chain as the rung it names",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
+    e.store.model = "haiku";
 
-  await press($, DRAFT);
+    await press($, DRAFT);
 
-  expect(e.calls[0]?.model).toBe(HAIKU);
-  expect(e.toasts[0]).toContain("prompt-lift: haiku 5.5");
-});
+    expect(e.calls[0]?.model).toBe(HAIKU);
+    expect(e.toasts[0]).toContain("prompt-lift: haiku 5.5");
+  },
+);
 
 test("matchRungs takes the id spelled in full, else every id containing the word", () => {
   const ids = [FABLE, SONNET, HAIKU];
@@ -148,26 +172,34 @@ test("matchRungs takes the id spelled in full, else every id containing the word
   ).toEqual(["claude-sonnet-4-5"]);
 });
 
-test("a stored model that is already a rung is not repeated", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
+test(
+  "a stored model that is already a rung is not repeated",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
 
-  const text = await press($, `model ${SONNET}`);
+    const text = await press($, `model ${SONNET}`);
 
-  expect(text).toBe(
-    `prompt-lift: first rung ${SONNET} · chain ${SONNET} → ${FABLE} → ${HAIKU}`,
-  );
-  expect(e.calls).toHaveLength(0);
-});
+    expect(text).toBe(
+      `prompt-lift: first rung ${SONNET} · chain ${SONNET} → ${FABLE} → ${HAIKU}`,
+    );
+    expect(e.calls).toHaveLength(0);
+  },
+);
 
-test("/prompt-lift model alone names the first rung", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on);
+test(
+  "/prompt-lift model alone names the first rung",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on);
 
-  const text = await press($, "model");
+    const text = await press($, "model");
 
-  expect(text).toContain(FABLE);
-  expect(text).toContain("model <id|alias|reset>");
-  expect(e.store.model).toBeUndefined();
-});
+    expect(text).toContain(FABLE);
+    expect(text).toContain("model <id|alias|reset>");
+    expect(e.store.model).toBeUndefined();
+  },
+);
 
 test("parseModelArg classifies reset, aliases, ids, junk and prose", () => {
   expect(parseModelArg("model reset")).toEqual({ kind: "reset" });
@@ -201,34 +233,38 @@ test("parseModelArg classifies reset, aliases, ids, junk and prose", () => {
 
 // --- status ---
 
-test("/prompt-lift status lists chain, last call and skills included", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on, {
-    skillCounts: { included: 2, total: 3 },
-    memoryFiles: [
-      { path: PROJECT_FILE, type: "Project", tokens: 100 },
-      { path: RULES_FILE, type: "User", tokens: 50 },
-      { path: MEMORY_FILE, type: "AutoMem", tokens: 6000 },
-    ],
-  });
-  await press($, DRAFT);
+test(
+  "/prompt-lift status lists chain, last call and skills included",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on, {
+      skillCounts: { included: 2, total: 3 },
+      memoryFiles: [
+        { path: PROJECT_FILE, type: "Project", tokens: 100 },
+        { path: RULES_FILE, type: "User", tokens: 50 },
+        { path: MEMORY_FILE, type: "AutoMem", tokens: 6000 },
+      ],
+    });
+    await press($, DRAFT);
 
-  const text = await press($, "status");
+    const text = await press($, "status");
 
-  expect(text).toContain(`chain: ${FABLE} → ${SONNET} → ${HAIKU}`);
-  expect(text).toContain(
-    "last call: fable 5.1 · 6.8k cached · 1.4k in · 310 out · $",
-  );
-  expect(text).toContain("cache hit");
-  expect(text).toContain("session: 1 press · $");
-  expect(text).toContain("today: 1 press · $");
-  expect(text).toContain("skills 2/3");
-  expect(text).toContain(
-    `included: ${PROJECT_FILE} (100 tokens), ${RULES_FILE} (50 tokens)`,
-  );
-  expect(text).toContain(`excluded: ${MEMORY_FILE} (6000 tokens)`);
-  expect(text).toMatch(/static block: \d+ chars · hash [0-9a-f]+/);
-  expect(e.calls).toHaveLength(1);
-});
+    expect(text).toContain(`chain: ${FABLE} → ${SONNET} → ${HAIKU}`);
+    expect(text).toContain(
+      "last call: fable 5.1 · 6.8k cached · 1.4k in · 310 out · $",
+    );
+    expect(text).toContain("cache hit");
+    expect(text).toContain("session: 1 press · $");
+    expect(text).toContain("today: 1 press · $");
+    expect(text).toContain("skills 2/3");
+    expect(text).toContain(
+      `included: ${PROJECT_FILE} (100 tokens), ${RULES_FILE} (50 tokens)`,
+    );
+    expect(text).toContain(`excluded: ${MEMORY_FILE} (6000 tokens)`);
+    expect(text).toMatch(/static block: \d+ chars · hash [0-9a-f]+/);
+    expect(e.calls).toHaveLength(1);
+  },
+);
 
 test("status before any press says so and calls no model", async ($, on) => {
   const e = engine(on);
@@ -265,6 +301,7 @@ test("statusText lays the lines out", () => {
     skills: { included: 2, total: 3 },
     included: [{ path: PROJECT_FILE, type: "Project", tokens: 100 }],
     excluded: [{ path: MEMORY_FILE, type: "AutoMem", tokens: 6000 }],
+    tail: 0,
   };
 
   expect(statusText(a)).toBe(
@@ -275,6 +312,7 @@ test("statusText lays the lines out", () => {
       "session: 2 presses · $0.08",
       "today: 5 presses · $0.20",
       "caps: off",
+      "conversation: off",
       "static block: 5120 chars · hash ab12cd34",
       "skills 2/3 (included/total)",
       `instruction files included: ${PROJECT_FILE} (100 tokens)`,
@@ -344,49 +382,57 @@ test("probeText lists one line per rung", () => {
   ).toBe(`prompt-lift probe\n${FABLE}: ok\n${SONNET}: timeout`);
 });
 
-test("/prompt-lift probe calls each rung once with 8 tokens and reports", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on, {
-    replies: [answered("pong"), RATE_LIMITED, answered("pong")],
-  });
+test(
+  "/prompt-lift probe calls each rung once with 8 tokens and reports",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on, {
+      replies: [answered("pong"), RATE_LIMITED, answered("pong")],
+    });
 
-  const text = await press($, "probe");
+    const text = await press($, "probe");
 
-  expect(e.calls.map((c) => c.model)).toEqual([FABLE, SONNET, HAIKU]);
-  for (const call of e.calls) {
-    expect(call.prompt).toBe("ping");
-    expect(call.maxTokens).toBe(8);
-    expect(call.promptBlocks).toBeUndefined();
-    expect(call.system).toBeUndefined();
-    expect(call.effort).toBeUndefined();
-  }
-  expect(e.calls[0]?.timeoutMs).toBe(30000);
-  expect(e.calls[1]?.timeoutMs).toBe(15000);
-  expect(e.calls[2]?.timeoutMs).toBe(15000);
-  expect(text).toBe(
-    `prompt-lift probe\n${FABLE}: ok\n${SONNET}: rate_limit\n${HAIKU}: ok`,
-  );
-  expect(e.fills).toHaveLength(0);
-  expect(e.toasts).toHaveLength(0);
-});
+    expect(e.calls.map((c) => c.model)).toEqual([FABLE, SONNET, HAIKU]);
+    for (const call of e.calls) {
+      expect(call.prompt).toBe("ping");
+      expect(call.maxTokens).toBe(8);
+      expect(call.promptBlocks).toBeUndefined();
+      expect(call.system).toBeUndefined();
+      expect(call.effort).toBeUndefined();
+    }
+    expect(e.calls[0]?.timeoutMs).toBe(30000);
+    expect(e.calls[1]?.timeoutMs).toBe(15000);
+    expect(e.calls[2]?.timeoutMs).toBe(15000);
+    expect(text).toBe(
+      `prompt-lift probe\n${FABLE}: ok\n${SONNET}: rate_limit\n${HAIKU}: ok`,
+    );
+    expect(e.fills).toHaveLength(0);
+    expect(e.toasts).toHaveLength(0);
+  },
+);
 
-test("probe reports a rung whose call is refused", { options: BEDROCK }, async ($, on) => {
-  const e = engine(on, {
-    replies: [
-      answered("pong"),
-      { deny: "blocked by policy" },
-      answered("pong"),
-    ],
-  });
+test(
+  "probe reports a rung whose call is refused",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on, {
+      replies: [
+        answered("pong"),
+        { deny: "blocked by policy" },
+        answered("pong"),
+      ],
+    });
 
-  const text = await press($, "probe");
+    const text = await press($, "probe");
 
-  expect(text).toBe(
-    `prompt-lift probe\n${FABLE}: ok\n${SONNET}: refused\n${HAIKU}: ok`,
-  );
-  expect(e.calls).toHaveLength(3);
-  expect(e.logs).toHaveLength(1);
-  expect(e.logs[0]).toContain("blocked by policy");
-});
+    expect(text).toBe(
+      `prompt-lift probe\n${FABLE}: ok\n${SONNET}: refused\n${HAIKU}: ok`,
+    );
+    expect(e.calls).toHaveLength(3);
+    expect(e.logs).toHaveLength(1);
+    expect(e.logs[0]).toContain("blocked by policy");
+  },
+);
 
 // --- routing ---
 
@@ -446,33 +492,37 @@ test("/prompt-lift model with an invalid token answers the reason and writes not
   expect(e.calls).toHaveLength(0);
 });
 
-test("a draft that merely starts with a sub-word is enhanced", { options: BEDROCK }, async ($, on) => {
-  const drafts = [
-    "undo the last migration",
-    "status of the nightly build",
-    "diff the two configs and explain",
-    "probe the API for rate limits",
-  ];
-  const e = engine(on, {
-    replies: drafts.map((d) => answered(improve(`${d} carefully`))),
-  });
+test(
+  "a draft that merely starts with a sub-word is enhanced",
+  { options: BEDROCK },
+  async ($, on) => {
+    const drafts = [
+      "undo the last migration",
+      "status of the nightly build",
+      "diff the two configs and explain",
+      "probe the API for rate limits",
+    ];
+    const e = engine(on, {
+      replies: drafts.map((d) => answered(improve(`${d} carefully`))),
+    });
 
-  for (const draft of drafts) {
-    e.box.text = "";
-    expect(await press($, draft)).toBeUndefined();
-    expect(e.box.text).toBe(`${draft} carefully`);
-  }
+    for (const draft of drafts) {
+      e.box.text = "";
+      expect(await press($, draft)).toBeUndefined();
+      expect(e.box.text).toBe(`${draft} carefully`);
+    }
 
-  expect(e.calls).toHaveLength(4);
-  for (const call of e.calls) {
-    expect(call.promptBlocks).toHaveLength(2);
-    expect(call.maxTokens).toBe(2000);
-  }
-  expect(e.toasts).not.toContain(NOTHING_TO_UNDO);
-  expect(e.toasts.every((t) => t.startsWith("prompt-lift: fable 5.1 ·"))).toBe(
-    true,
-  );
-});
+    expect(e.calls).toHaveLength(4);
+    for (const call of e.calls) {
+      expect(call.promptBlocks).toHaveLength(2);
+      expect(call.maxTokens).toBe(2000);
+    }
+    expect(e.toasts).not.toContain(NOTHING_TO_UNDO);
+    expect(
+      e.toasts.every((t) => t.startsWith("prompt-lift: fable 5.1 ·")),
+    ).toBe(true);
+  },
+);
 
 test("sub-words match whatever the case and spacing", async ($, on) => {
   const e = engine(on);

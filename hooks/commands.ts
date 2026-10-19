@@ -21,6 +21,7 @@ import {
   CAP_USAGE,
   type CapArg,
 } from "./caps";
+import { tailOverride, readTailCount } from "./tail";
 
 // The one registered command's sub-words (spec §5.2, C18): bare → the hint;
 // `undo`, `status`, `diff`, `probe` when the whole argument is that word
@@ -44,6 +45,13 @@ const capOverride = atom(
   { plugin: "prompt-lift", key: "capOverride" } as const,
   null,
 );
+const tailOverrideAtom = atom(
+  { plugin: "prompt-lift", key: "tailOverride" } as const,
+  null,
+);
+
+const TAIL_USAGE =
+  "prompt-lift: tail takes on, off or a count 1-50, e.g. /prompt-lift tail 6";
 
 export const HINT =
   "prompt-lift: type /prompt-lift <your prompt>, press ctrl+x b, or click Enhance";
@@ -59,6 +67,14 @@ const MODEL_ID_PATTERN = /^(?:[\w-]+\.)*claude-/i;
 const ALIAS_PATTERN = /^(fable|sonnet|haiku|opus)$/i;
 // Valid model id pattern: starts with letter/digit, then letters/digits/.:_-
 const VALID_ID_PATTERN = /^[a-z0-9][a-z0-9.:_-]*$/i;
+
+export type TailArg =
+  | { kind: "show" }
+  | { kind: "on" }
+  | { kind: "off" }
+  | { kind: "set"; count: number }
+  | { kind: "invalid" }
+  | { kind: "prose" };
 
 export type ProbeResult = { model: string; outcome: string };
 
@@ -160,6 +176,12 @@ export async function runCommand(
   const capArg = parseCapArg(args);
   if (capArg.kind !== "prose") {
     return runCap($, cfg, capArg);
+  }
+
+  // `tail` follows the same rule (R10): one argument is a control, more is prose
+  const tailArg = parseTailArg(args);
+  if (tailArg.kind !== "prose") {
+    return runTail($, cfg, tailArg);
   }
 
   switch (args.toLowerCase()) {
@@ -296,4 +318,70 @@ async function probeRung(
     });
     return "refused";
   }
+}
+
+/**
+ * Parse `/prompt-lift tail <on|off|N>`: one token → control, more → prose.
+ */
+export function parseTailArg(args: string): TailArg {
+  const tokens = args.trim().split(/\s+/);
+  const [first = "", second = ""] = tokens;
+
+  // First token must be "tail"
+  if (first.toLowerCase() !== "tail") {
+    return { kind: "prose" };
+  }
+
+  // Zero further tokens → show status
+  if (tokens.length === 1) {
+    return { kind: "show" };
+  }
+
+  // Three or more tokens → prose
+  if (tokens.length >= 3) {
+    return { kind: "prose" };
+  }
+
+  // Second token: on, off, or count
+  if (second.toLowerCase() === "on") {
+    return { kind: "on" };
+  }
+  if (second.toLowerCase() === "off") {
+    return { kind: "off" };
+  }
+
+  // Try parsing as number
+  const count = Number(second);
+  if (Number.isInteger(count) && count >= 1 && count <= 50) {
+    return { kind: "set", count };
+  }
+
+  return { kind: "invalid" };
+}
+
+async function runTail(
+  $: EngineInterface,
+  cfg: Config,
+  arg: Exclude<TailArg, { kind: "prose" }>,
+): Promise<CommandRunResult> {
+  if (arg.kind === "show") {
+    const count = await readTailCount($, cfg);
+    const state =
+      count === 0 ? "conversation off" : `conversation last ${count} messages`;
+    return { text: `prompt-lift: ${state} · /prompt-lift tail on|off|<count>` };
+  }
+
+  if (arg.kind === "invalid") {
+    return { text: TAIL_USAGE };
+  }
+
+  if (arg.kind === "off") {
+    await update($, tailOverrideAtom, () => 0);
+    return { text: "prompt-lift: tail off this session" };
+  }
+
+  // arg.kind === "on" or "set"
+  const count = arg.kind === "on" ? cfg.conversationMessages : arg.count;
+  await update($, tailOverrideAtom, () => count);
+  return { text: `prompt-lift: tail on · last ${count} messages this session` };
 }

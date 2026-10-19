@@ -40,6 +40,8 @@ declare module "claude-code" {
       sessionUnpriced: number;
       /** The session cap `/prompt-lift cap` set (0 = off); null = the option (R9). */
       capOverride: number | null;
+      /** The conversation tail `/prompt-lift tail` set; null = the option (R10). */
+      tailOverride: number | null;
     };
   }
 }

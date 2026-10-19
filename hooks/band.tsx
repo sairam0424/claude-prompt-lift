@@ -8,6 +8,7 @@ import { enhance, isCallInFlight } from "./enhance";
 import { cancel, send, undo } from "./actions";
 import { resolveChain } from "./gather";
 import { leftText, readCapStatus } from "./caps";
+import { readTailCount } from "./tail";
 
 // The band (spec §5.1; C12, C17, C19): one row above the prompt, chained
 // above whatever the engine and the plugins beneath draw there. It redraws
@@ -43,10 +44,21 @@ const NO_CACHE_HINT = "cache not hitting — consider /prompt-lift model haiku";
 export type BandEvent = RenderInput<"AbovePrompt">;
 export type BandNext = (e: BandEvent) => Promise<RenderElement>;
 
-/** The idle row: the keys and the first rung, then what a cap leaves (R9). */
-export function idleRowText(firstRung: string, left?: string): string {
+/** The idle row: the keys and the first rung, then what a cap leaves (R9) and tail N (R10). */
+export function idleRowText(
+  firstRung: string,
+  left?: string,
+  tail?: number,
+): string {
   const row = `ctrl+x b · or ctrl+x tab, e · prompt-lift: ${shortModel(firstRung)}`;
-  return left === undefined ? row : `${row} · ${left}`;
+  const parts = [row];
+  if (left !== undefined) {
+    parts.push(left);
+  }
+  if (tail !== undefined && tail > 0) {
+    parts.push(`tail ${tail}`);
+  }
+  return parts.join(" · ");
 }
 
 export function runningRowText(modelId: string): string {
@@ -59,12 +71,13 @@ function plural(count: number, noun: string): string {
 
 /**
  * The done row: the last call's usage, what the rewrite added, then what a
- * cap leaves (R9); the no-cache hint stays last.
+ * cap leaves (R9), tail N (R10); the no-cache hint stays last.
  */
 export function doneRowText(
   usage: LastUsage,
   streak: number,
   left?: string,
+  tail?: number,
 ): string {
   const hint = streak >= NO_CACHE_HINT_AFTER ? [NO_CACHE_HINT] : [];
   return [
@@ -76,6 +89,7 @@ export function doneRowText(
     `+${plural(usage.addedWords, "word")}`,
     plural(usage.skills, "skill"),
     ...(left === undefined ? [] : [left]),
+    ...(tail !== undefined && tail > 0 ? [`tail ${tail}`] : []),
     ...hint,
   ].join(" · ");
 }
@@ -135,6 +149,7 @@ async function drawRow(
     );
   }
   const left = leftText(await readCapStatus($, cfg));
+  const tail = await readTailCount($, cfg);
   const action = cfg.enhanceAction === "" ? {} : { action: cfg.enhanceAction };
   const enhanceButton = (
     <Button
@@ -150,7 +165,7 @@ async function drawRow(
       <Box gap={1}>
         {enhanceButton}
         <Text dimColor wrap="truncate-end">
-          {idleRowText(await firstRung($, cfg), left)}
+          {idleRowText(await firstRung($, cfg), left, tail)}
         </Text>
       </Box>
     );
@@ -158,7 +173,7 @@ async function drawRow(
   const undone = await read($, isUndone);
   const usage = await read($, lastUsage);
   const streak = await read($, noCacheStreak);
-  const summary = usage === null ? "" : doneRowText(usage, streak, left);
+  const summary = usage === null ? "" : doneRowText(usage, streak, left, tail);
   return (
     <Box gap={1}>
       {enhanceButton}

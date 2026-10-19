@@ -14,6 +14,7 @@ import {
   STATS_STORE_KEY,
   type DayStats,
 } from "./stats";
+import { readTailCount } from "./tail";
 
 // `/prompt-lift status` (spec §5.2, §12): what the mod would send and what
 // it has spent, read from the engine, the state and the store; no model call.
@@ -58,6 +59,8 @@ export type StatusInput = {
   skills: { included: number; total: number };
   included: readonly MemoryFile[];
   excluded: readonly MemoryFile[];
+  /** The effective tail count (R10). */
+  tail: number;
 };
 
 function cacheWord(last: LastUsage): string {
@@ -101,6 +104,10 @@ function filesText(files: readonly MemoryFile[]): string {
 }
 
 export function statusText(a: StatusInput): string {
+  const conversation =
+    a.tail === 0
+      ? "conversation: off"
+      : `conversation: last ${a.tail} messages`;
   return [
     "prompt-lift status",
     `chain: ${a.chain.join(" → ")}`,
@@ -108,6 +115,7 @@ export function statusText(a: StatusInput): string {
     `session: ${totalsText(a.session)}`,
     `today: ${totalsText(a.today)}`,
     capsLine(a.caps),
+    conversation,
     ...(a.sessionTotal === undefined
       ? []
       : [`session total (all tools): ${formatDollars(a.sessionTotal)}`]),
@@ -147,5 +155,6 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
     },
     included,
     excluded: files.filter((file) => !includedPaths.has(file.path)),
+    tail: await readTailCount($, cfg),
   });
 }

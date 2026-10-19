@@ -208,12 +208,15 @@ test("statusText prints the caps after today and the engine's total after", () =
     skills: { included: 0, total: 0 },
     included: [],
     excluded: [],
+    tail: 0,
   };
   expect(statusText(a)).toContain(
-    `today: 1 press · $0.15\n${SESSION_LINE}\nsession total (all tools): $12.34\nstatic block:`,
+    `today: 1 press · $0.15\n${SESSION_LINE}\nconversation: off\nsession total (all tools): $12.34\nstatic block:`,
   );
   const off = statusText({ ...a, caps: {}, sessionTotal: undefined });
-  expect(off).toContain("today: 1 press · $0.15\ncaps: off\nstatic block:");
+  expect(off).toContain(
+    "today: 1 press · $0.15\ncaps: off\nconversation: off\nstatic block:",
+  );
   expect(off).not.toContain("session total");
 });
 

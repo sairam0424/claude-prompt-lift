@@ -78,7 +78,14 @@ export async function readCapStatus(
   $: EngineInterface,
   cfg: Config,
 ): Promise<CapStatus> {
-  return capStatus(await spentUsd($), await read($, capOverride), cfg);
+  const override = await read($, capOverride);
+  const session = sessionCap(cfg, override);
+  const day = cfg.dayCapUsd;
+  // Fold-in from Task 3 review: skip the ledger when both caps are off
+  if (session === 0 && day === 0) {
+    return {};
+  }
+  return capStatus(await spentUsd($), override, cfg);
 }
 
 /** Dollars as the caps show them: to the cent, always (`$0.10`). */
@@ -140,6 +147,10 @@ export function parseCapArg(args: string): CapArg {
   }
   if (value.toLowerCase() === "off") {
     return { kind: "set", usd: 0 };
+  }
+  // Fold-in from Task 3 review: strict decimal validation (reject hex, scientific, negative zero)
+  if (!/^\d+(\.\d+)?$/.test(value)) {
+    return { kind: "invalid" };
   }
   const usd = Number(value);
   return Number.isFinite(usd) && usd >= 0
