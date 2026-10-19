@@ -7,6 +7,10 @@
 const ALIAS_PATTERN = /^(fable|sonnet|haiku|opus)$/i;
 // Valid model id pattern: starts with letter/digit, then letters/digits/.:_-
 const VALID_ID_PATTERN = /^[a-z0-9][a-z0-9.:_-]*$/i;
+const PLAIN_COUNT = /^\d+$/;
+// The messages a `tail` count may ask for
+const TAIL_MIN = 1;
+const TAIL_MAX = 50;
 
 export type ParseModelResult =
   | { kind: "reset" }
@@ -35,7 +39,7 @@ export type PreviewArg =
  */
 export function parseModelArg(args: string): ParseModelResult {
   const tokens = args.trim().split(/\s+/);
-  const [first = "", second = ""] = tokens;
+  const [first = "", token = ""] = tokens;
 
   // First token must be "model"
   if (first.toLowerCase() !== "model") {
@@ -55,10 +59,7 @@ export function parseModelArg(args: string): ParseModelResult {
     return { kind: "not-a-model-command" };
   }
 
-  // Exactly two tokens: "model <token>"
-  const token = tokens[1]!;
-
-  // Check if it's "reset"
+  // Exactly two tokens: "model <token>". Is it "reset"?
   if (token.toLowerCase() === "reset") {
     return { kind: "reset" };
   }
@@ -105,10 +106,13 @@ export function parseTailArg(args: string): TailArg {
     return { kind: "off" };
   }
 
-  // Try parsing as number
-  const count = Number(second);
-  if (Number.isInteger(count) && count >= 1 && count <= 50) {
-    return { kind: "set", count };
+  // A count is plain digits, as `parseCapArg` takes plain decimals only:
+  // `Number` would also take 0x6, 1e1, 6.0 and +6
+  if (PLAIN_COUNT.test(second)) {
+    const count = Number(second);
+    if (count >= TAIL_MIN && count <= TAIL_MAX) {
+      return { kind: "set", count };
+    }
   }
 
   return { kind: "invalid" };

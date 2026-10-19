@@ -39,3 +39,33 @@ test(
     );
   },
 );
+
+test("the slash menu hint lists every sub-word, tail and preview included", async ($, on) => {
+  const hints: (string | undefined)[] = [];
+  on("session.start", ($, e) => ({ cwd: e.cwd }));
+  on("command.register", ($, e) => {
+    hints.push(e.argumentHint);
+    return { value: { command: e.name } };
+  });
+
+  await $.session.start({
+    cwd: ROOT,
+    surface: "terminal",
+    isInteractive: true,
+  } as never);
+
+  expect(hints).toHaveLength(1);
+  const hint = hints[0] ?? "";
+  for (const word of [
+    "undo",
+    "model <id>",
+    "cap <usd|off>",
+    "tail <on|off|N>",
+    "preview <draft>",
+    "status",
+    "diff",
+    "probe",
+  ]) {
+    expect(hint).toContain(word);
+  }
+});

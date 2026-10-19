@@ -2,7 +2,7 @@ import { expect, test } from "claude-code/testing";
 import type { Engine as Harness } from "claude-code/testing";
 import type { ModelCompleteResult } from "claude-code";
 import { engine, HOME, ZERO_USAGE } from "./engine";
-import { parseModelArg } from "../hooks/subcommands";
+import { parseModelArg, parseTailArg } from "../hooks/subcommands";
 
 
 const COMMAND = "prompt-lift";
@@ -84,3 +84,40 @@ test("/prompt-lift model with an invalid token answers the reason and writes not
   expect(e.calls).toHaveLength(0);
 });
 
+
+// --- parseTailArg: a count is plain digits, like parseCapArg's plain decimals ---
+
+test("parseTailArg takes on, off, a plain count 1-50, and nothing else", () => {
+  expect(parseTailArg("tail")).toEqual({ kind: "show" });
+  expect(parseTailArg("TAIL On")).toEqual({ kind: "on" });
+  expect(parseTailArg("tail off")).toEqual({ kind: "off" });
+  expect(parseTailArg("tail 6")).toEqual({ kind: "set", count: 6 });
+  expect(parseTailArg("tail 06")).toEqual({ kind: "set", count: 6 });
+  expect(parseTailArg("tail 50")).toEqual({ kind: "set", count: 50 });
+  expect(parseTailArg("tail 1")).toEqual({ kind: "set", count: 1 });
+  expect(parseTailArg("tail the auth flow")).toEqual({ kind: "prose" });
+  expect(parseTailArg("fix the tail")).toEqual({ kind: "prose" });
+});
+
+test("parseTailArg refuses every number spelling but plain digits", () => {
+  const refused = [
+    "0x6",
+    "1e1",
+    "6.0",
+    "+6",
+    "-6",
+    "6.",
+    ".6",
+    "0",
+    "51",
+    "99999999999999999999",
+    "six",
+    "6a",
+  ];
+  for (const word of refused) {
+    expect({ word, parsed: parseTailArg(`tail ${word}`) }).toEqual({
+      word,
+      parsed: { kind: "invalid" },
+    });
+  }
+});

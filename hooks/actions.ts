@@ -210,10 +210,10 @@ export async function clearHeld($: EngineInterface): Promise<void> {
 }
 
 /**
- * A phase a dropped environment left at `running` goes back to `idle` at
- * session.start and when a command runs (§5.3 resets), or to `done` while a
- * pair is held: a pair is held (this press's or an earlier one's), so the row that belongs to a held pair is `done`, so its Send and Undo row
- * comes back after a hot reload. The caller hands in how to ask whether a
+ * A phase a dropped environment left at `running` is reset at session.start
+ * and when a command runs (§5.3 resets). With a pair held (this press's or an
+ * earlier one's) the phase goes to `done`, so the Send/Undo row returns after
+ * a hot reload; otherwise to `idle`. The caller hands in how to ask whether a
  * call is in flight (enhance.ts owns that; importing it here would make a
  * cycle), asked after the reads: a live call's phase is never reset, not
  * even one that began while the phase was being read.

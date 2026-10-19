@@ -277,11 +277,12 @@ export function priceFor(
 ): Price | undefined {
   // An alias on its own prices as its family's current generation
   const alias = model.toLowerCase();
-  if (Object.hasOwn(ALIAS_PRICE_KEYS, alias)) {
-    const aliased = prices[ALIAS_PRICE_KEYS[alias]!];
-    if (aliased !== undefined) {
-      return aliased;
-    }
+  const aliasKey = Object.hasOwn(ALIAS_PRICE_KEYS, alias)
+    ? ALIAS_PRICE_KEYS[alias]
+    : undefined;
+  const aliased = aliasKey === undefined ? undefined : prices[aliasKey];
+  if (aliased !== undefined) {
+    return aliased;
   }
   // Else the first key that is a substring of the model, in the table's own
   // order (`mergePrices` puts the person's rows first)

@@ -222,7 +222,8 @@ export async function gatherContext(
 }
 
 /**
- * Spec §9.11: every file the result names that the draft did not must exist.
+ * Spec §9.11: every file the result names that the draft (or the person's own
+ * `extraRules`) did not must exist.
  * Only file-looking tokens are asked of the filesystem (`isFileLike`), so
  * prose such as `CI/CD` or `and/or` is not refused as a missing file.
  */
@@ -231,12 +232,14 @@ export async function namedPathsExist(
   a: {
     root: string;
     draft: string;
+    userRules: string;
     result: string;
     rootDirs: readonly string[];
   },
 ): Promise<boolean> {
   const dirs = new Set(a.rootDirs);
-  const inDraft = new Set(pathTokens(a.draft));
+  // A path in the person's own `extraRules` is theirs as much as the draft's
+  const inDraft = new Set(pathTokens(`${a.draft}\n${a.userRules}`));
   const fresh = [...new Set(pathTokens(a.result))].filter(
     (token) => !inDraft.has(token) && isFileLike(token, dirs),
   );

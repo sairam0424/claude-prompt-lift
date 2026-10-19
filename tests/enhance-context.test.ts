@@ -152,6 +152,77 @@ test(
   },
 );
 
+// The processed extraRules text is the user's own configuration: a link or a
+// path they wrote into it counts as written by them for the post-call guards.
+
+const RULE_URL = "https://wiki.example.test/style";
+const LINKED = `Fix the login bug in src/auth.ts where the session expires after sign-in; follow ${RULE_URL}.`;
+const RULE_PATH = "docs/STYLE.md";
+const PATHED = `Fix the login bug in src/auth.ts where the session expires after sign-in; follow ${RULE_PATH}.`;
+
+test(
+  "a link the user wrote into extraRules is accepted from the model",
+  { options: { extraRules: `Always link ${RULE_URL}` } },
+  async ($, on) => {
+    const e = engine(on, { replies: [answered(improve(LINKED))] });
+
+    await press($, DRAFT);
+
+    expect(e.fills).toHaveLength(1);
+    expect(e.fills[0]?.text).toBe(LINKED);
+    expect(e.toasts.join("\n")).not.toContain("you did not write");
+  },
+);
+
+test("the same link is refused when extraRules is empty", async ($, on) => {
+  const e = engine(on, { replies: [answered(improve(LINKED))] });
+
+  await press($, DRAFT);
+
+  expect(e.fills).toHaveLength(0);
+  expect(e.toasts.join("\n")).toContain(
+    "prompt-lift: added a command or link you did not write, kept your prompt",
+  );
+});
+
+test(
+  "a link in extraRules does not excuse a different link",
+  { options: { extraRules: `Always link ${RULE_URL}` } },
+  async ($, on) => {
+    const other = LINKED.replace(RULE_URL, "https://evil.example.test/x");
+    const e = engine(on, { replies: [answered(improve(other))] });
+
+    await press($, DRAFT);
+
+    expect(e.fills).toHaveLength(0);
+    expect(e.toasts.join("\n")).toContain("you did not write");
+  },
+);
+
+test(
+  "a path the user wrote into extraRules passes the path guard",
+  { options: { extraRules: `Style notes live in ${RULE_PATH}` } },
+  async ($, on) => {
+    const e = engine(on, { replies: [answered(improve(PATHED))] });
+
+    await press($, DRAFT);
+
+    expect(e.fills).toHaveLength(1);
+    expect(e.toasts.join("\n")).not.toContain("does not exist");
+  },
+);
+
+test("the same path is refused as missing when extraRules is empty", async ($, on) => {
+  const e = engine(on, { replies: [answered(improve(PATHED))] });
+
+  await press($, DRAFT);
+
+  expect(e.fills).toHaveLength(0);
+  expect(e.toasts.join("\n")).toContain(
+    "prompt-lift: named a file that does not exist, kept your prompt",
+  );
+});
+
 // R16: the "write a commit" example names /commit-commands:commit only when
 // the session knows that skill, so the example never teaches an answer the
 // guards then refuse ("added a command or link you did not write").

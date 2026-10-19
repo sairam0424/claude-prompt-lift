@@ -1,22 +1,40 @@
-// neutralizeTags from context.ts only handles envelope tags (whitelist).
-// User input in extraRules needs ALL tags neutralized, so we define a separate
-// neutralizeAllTags function here rather than modifying the shared utility.
+// extraRules is untrusted-shaped text, so every tag is neutralised, not only
+// the envelope's.
 
 export const SYSTEM =
   "You are a prompt editor for Claude Code. You rewrite a developer's draft prompt so Claude Code can act on it without guessing. You never answer the draft; you only improve it.";
 
 /**
  * Neutralize any tag-like markup (angle brackets that look like XML/HTML tags)
- * by escaping the opening bracket: <tag> → <\tag>, </tag> → <\/tag>
- * Unlike neutralizeTags from context.ts which whitelists envelope tags,
- * this escapes ALL tags for untrusted user input (extraRules).
+ * by escaping the opening bracket: <tag> → <\tag>, </tag> → <\/tag>.
+ * Whitespace after the bracket (`< tag>`, `</ tag>`) and a self-closing slash
+ * (`<tag/>`) are tag forms too. Unlike neutralizeTags from context.ts, which
+ * whitelists envelope tags, this escapes ALL tags (extraRules).
  */
 function neutralizeAllTags(text: string): string {
-  // Match opening tags: <tagname> or <tagname attrs>
-  // Match closing tags: </tagname>
+  // Closing tags: </tag>, </ tag>
+  // Opening tags: <tag>, < tag>, <tag attrs>, <tag/>, <tag attrs/>
   return text
-    .replace(/<\s*\/\s*([a-zA-Z_][\w:-]*)\s*>/g, "<\\/$1>") // closing tags
-    .replace(/<([a-zA-Z_][\w:-]*)((?:\s[^>]*)?)>/g, "<\\$1$2>"); // opening tags
+    .replace(/<\s*\/\s*([a-zA-Z_][\w:-]*)\s*>/g, "<\\/$1>")
+    .replace(/<\s*([a-zA-Z_][\w:-]*)((?:\s[^>]*|\/)?)>/g, "<\\$1$2>");
+}
+
+const EXTRA_RULES_MAX_CHARS = 1000;
+
+/**
+ * The `extraRules` option as rule 11 carries it: tags neutralised, newlines
+ * collapsed to spaces, cut at 1,000 characters with an ellipsis; "" when
+ * blank. The same text is what the post-call guards count as the user's own.
+ */
+export function processExtraRules(extra: string): string {
+  const trimmed = extra.trim();
+  if (trimmed === "") {
+    return "";
+  }
+  const processed = neutralizeAllTags(trimmed).replace(/\s+/g, " ");
+  return processed.length > EXTRA_RULES_MAX_CHARS
+    ? `${processed.slice(0, EXTRA_RULES_MAX_CHARS)}…`
+    : processed;
 }
 
 export function rulesText(filePrefix: "plain" | "at", extra = ""): string {
@@ -25,18 +43,11 @@ export function rulesText(filePrefix: "plain" | "at", extra = ""): string {
       ? "Files are written as plain paths exactly as they appear in the draft or the documents."
       : "Files are written as @path so Claude Code attaches them; never write a path you have not seen.";
 
-  // Process extra rules if provided
-  let extraRule = "";
-  const trimmed = extra.trim();
-  if (trimmed !== "") {
-    // Neutralize tags and collapse newlines to spaces
-    let processed = neutralizeAllTags(trimmed).replace(/\s+/g, " ");
-    // Truncate to 1000 chars with ellipsis
-    if (processed.length > 1000) {
-      processed = processed.slice(0, 1000) + "…";
-    }
-    extraRule = `11. Project preferences from the user: ${processed}\n`;
-  }
+  const processed = processExtraRules(extra);
+  const extraRule =
+    processed === ""
+      ? ""
+      : `11. Project preferences from the user: ${processed}\n`;
 
   const jsonRuleNumber = extraRule === "" ? "11" : "12";
 

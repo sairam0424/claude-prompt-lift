@@ -151,7 +151,7 @@ export async function enhance(
       knownSkills: prepared.knownSkills,
       listedSkills: prepared.listedSkills,
       descriptions: prepared.descriptions,
-      documents: prepared.documentsText,
+      documents: `${prepared.documentsText}\n${prepared.userRulesText}`,
     });
     // A record that fails costs the bookkeeping, never the verdict's toast
     if (!post.ok) {
@@ -165,6 +165,7 @@ export async function enhance(
       draft,
       root: prepared.root,
       rootDirs: prepared.rootDirs,
+      userRules: prepared.userRulesText,
       post,
       myId,
       usd: call.usd,
@@ -290,6 +291,7 @@ async function verifyAndFill(
     draft: string;
     root: string;
     rootDirs: readonly string[];
+    userRules: string;
     post: PostOk;
     myId: number;
     usd: number | undefined;
@@ -298,6 +300,7 @@ async function verifyAndFill(
   const hasPaths = await namedPathsExist($, {
     root: a.root,
     draft: a.draft,
+    userRules: a.userRules,
     result: a.post.text,
     rootDirs: a.rootDirs,
   });

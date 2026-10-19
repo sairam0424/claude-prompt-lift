@@ -1,6 +1,6 @@
 import type { EngineInterface, SessionMessage } from "claude-code";
 import type { Config } from "./config";
-import { rulesText } from "./rules";
+import { processExtraRules, rulesText } from "./rules";
 import {
   buildDynamicBlock,
   buildStaticBlock,
@@ -23,6 +23,8 @@ export type Prepared = {
   listedSkills: ReadonlySet<string>;
   descriptions: Map<string, string>;
   documentsText: string;
+  /** The user's own `extraRules`, as block 0 carries it (rule 11). */
+  userRulesText: string;
 };
 
 export async function prepare(
@@ -62,5 +64,6 @@ export async function prepare(
     listedSkills: new Set(ctx.skillNames),
     descriptions: ctx.descriptions,
     documentsText: ctx.documentsText,
+    userRulesText: processExtraRules(cfg.extraRules),
   };
 }
