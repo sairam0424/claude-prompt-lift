@@ -1,6 +1,13 @@
 import { expect, test } from "claude-code/testing";
 import type { ModelUsage } from "claude-code";
 import {
+  answered,
+  engine,
+  press,
+  BETTER,
+  DRAFT,
+} from "./engine";
+import {
   capToast,
   costText,
   cut,
@@ -100,4 +107,47 @@ test("capToast makes one line of at most TOAST_MAX chars", async () => {
   // Whitespace collapses before the cut, so wrapped text is not cut short
   const lines = Array.from({ length: 60 }, () => "ab");
   expect(capToast(lines.join("\n"))).toBe(lines.join(" "));
+});
+
+// R2: the toast is one line of at most 200 chars (moved from enhance-cost.test.ts, Task 7)
+
+test("a long, multi-line why is cut and the toast stays one line", async ($, on) => {
+  const why = Array.from({ length: 60 }, (_, i) => `reason ${i}`).join("\n");
+  const e = engine(on, {
+    replies: [
+      answered(
+        JSON.stringify({
+          verdict: "improve",
+          prompt: BETTER,
+          why,
+          applied: [],
+        }),
+      ),
+    ],
+  });
+
+  await press($, DRAFT);
+
+  expect(why.length).toBeGreaterThan(500);
+  expect(e.box.text).toBe(BETTER);
+  expect(e.toasts).toHaveLength(1);
+  expect(e.toasts[0]?.length).toBeLessThan(201);
+  expect(e.toasts[0]).not.toContain("\n");
+  expect(e.toasts[0]).toContain(" · reason 0 reason 1 ");
+  expect(e.toasts[0]).toContain("…");
+});
+
+test("an error's message in the enhance-failed toast is cut to one short line", async ($, on) => {
+  const reason = Array.from({ length: 30 }, (_, i) => `line ${i}`).join("\n");
+  const e = engine(on, { denyMessages: reason });
+
+  await press($, DRAFT);
+
+  expect(reason.length).toBeGreaterThan(200);
+  expect(e.toasts).toHaveLength(1);
+  expect(e.toasts[0]?.startsWith("prompt-lift: enhance failed (")).toBe(true);
+  expect(e.toasts[0]?.endsWith("…)")).toBe(true);
+  expect(e.toasts[0]?.length).toBeLessThan(32 + 80 + 1);
+  expect(e.toasts[0]).not.toContain("\n");
+  expect(e.toasts[0]).toContain("line 0 line 1 ");
 });
