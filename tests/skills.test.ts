@@ -45,7 +45,9 @@ test("demoteLeadingSkill moves trailing punctuation after the skill clause", () 
     cfg,
     descriptions,
   });
-  expect(result).toBe("Write a commit, using the /commit-commands:commit skill.");
+  expect(result).toBe(
+    "Write a commit, using the /commit-commands:commit skill.",
+  );
 });
 
 test("demoteLeadingSkill moves the whole run of trailing marks and mentions the bare skill", () => {
@@ -84,7 +86,8 @@ test("stripUnknownSkills strips against listed names, not the full known set", (
 test("isTruncated on verdict.prompt, not raw reply: JSON ending in } not truncated when prompt ends with period", () => {
   const cfg = parseOptions({});
   const draft = "write a test";
-  const reply = '{"verdict":"improve","prompt":"Write a unit test for the auth module.","why":"","applied":[]}';
+  const reply =
+    '{"verdict":"improve","prompt":"Write a unit test for the auth module.","why":"","applied":[]}';
   const result = postProcess({
     draft,
     reply,
@@ -99,24 +102,27 @@ test("isTruncated on verdict.prompt, not raw reply: JSON ending in } not truncat
   expect(result.ok).toBe(true);
 });
 
-
-// Task 7 fold-in: demotion keeps a mark-only rewrite (§12 R7)
+// demotion keeps a mark-only rewrite (§12 R7)
 test("demoteLeadingSkill keeps /skill... unchanged when rest is only marks", () => {
   const cfg = parseOptions({});
   const descriptions = new Map([
     ["review", "Pre-landing PR review"],
     ["code-review", "Staff-engineer code review"],
   ]);
-  
-  expect(demoteLeadingSkill("/review...", {
-    draft: "review the PR",
-    cfg,
-    descriptions,
-  })).toBe("/review...");
-  
-  expect(demoteLeadingSkill("/code-review?!", {
-    draft: "code-review please",
-    cfg,
-    descriptions,
-  })).toBe("/code-review?!");
+
+  expect(
+    demoteLeadingSkill("/review...", {
+      draft: "review the PR",
+      cfg,
+      descriptions,
+    }),
+  ).toBe("/review...");
+
+  expect(
+    demoteLeadingSkill("/code-review?!", {
+      draft: "code-review please",
+      cfg,
+      descriptions,
+    }),
+  ).toBe("/code-review?!");
 });

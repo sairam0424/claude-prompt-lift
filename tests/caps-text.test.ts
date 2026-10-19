@@ -1,11 +1,6 @@
 import { expect, test } from "claude-code/testing";
 import { parseOptions, type Config } from "../hooks/config";
-import {
-  capReachedToast,
-  capsLine,
-  capStatus,
-  leftText,
-} from "../hooks/caps";
+import { capReachedToast, capsLine, capStatus, leftText } from "../hooks/caps";
 
 const SESSION_REACHED =
   "prompt-lift: session cap $0.10 reached · /prompt-lift cap off";
@@ -73,7 +68,7 @@ test("capReachedToast, leftText and capsLine spell the caps out", () => {
   );
 });
 
-// Task 7 fold-in: capsLine with day only, leftText tie (C11 §12.2, R7)
+// capsLine with day only, leftText tie (C11 §12.2, R7)
 test("capsLine renders day-only cap", () => {
   const day = { cap: 5, left: 4.5 };
   expect(capsLine({ day })).toBe("caps: day $5.00 ($4.50 left)");

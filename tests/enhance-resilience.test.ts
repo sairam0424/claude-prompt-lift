@@ -54,14 +54,10 @@ const RECORD = [
 function watchWrites(on: On, keys: readonly string[]): string[] {
   const order: string[] = [];
   for (const key of keys) {
-    on(
-      "state.set",
-      { plugin: "prompt-lift", key } as never,
-      ($, ev, next) => {
-        order.push(key);
-        return next(ev);
-      },
-    );
+    on("state.set", { plugin: "prompt-lift", key } as never, ($, ev, next) => {
+      order.push(key);
+      return next(ev);
+    });
   }
   return order;
 }
@@ -329,13 +325,12 @@ test("resetStuckPhase asks whether a call is in flight after it has read the pha
   expect(writes).toEqual([]);
 });
 
-
-// Task 7 fold-in: resetStuckPhase done branch via /prompt-lift status (C11 §5.3)
+// resetStuckPhase done branch via /prompt-lift status (C11 §5.3)
 test("with a held pair and phase running, /prompt-lift status resets to done", async ($, on) => {
   const e = engine(on);
   const phases = watch(on, "phase");
   phaseOnce(on, "running");
-  
+
   // Set up a held pair: register hooks to return held values once
   let originalRead = false;
   let enhancedRead = false;
