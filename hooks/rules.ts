@@ -144,7 +144,7 @@ export const EXAMPLE_PAIRS: ReadonlyArray<ExamplePair> = [
     draft: "fix the typo in README",
     answer: {
       verdict: "improve",
-      prompt: "Fix the typo in README.md.",
+      prompt: "Fix the typo in README.",
       why: "minimal change, kept restraint",
       applied: ["rule 1"],
     },

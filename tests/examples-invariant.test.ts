@@ -163,25 +163,27 @@ test("the sentence cap still refuses a long rewrite that fits the allowance", ()
 // What the path guard (namedPathsExist) asks the filesystem about: a path-like
 // token the draft did not carry that looks like a file. A copy of such a token
 // is refused ("named a file that does not exist") in a project without it.
-// One known gap: example 6 extends the bare "README" to README.md, so a project
-// without a README.md refuses a copy of it. Its answer is kept as shipped for
-// 0.4.0, and this carve-out covers that one draft and that one file, nothing
-// else. Follow-up: answer "Fix the typo in README.", re-pin EXAMPLES_PINNED
-// (new count and sha256), and delete KEPT_AS_SHIPPED and its filter below.
-const KEPT_AS_SHIPPED = {
-  draft: "fix the typo in README",
-  file: "README.md",
-} as const;
+// Slash tokens are covered too: the guard reads `a/b` as a file when the
+// project root has a directory `a`, which no example can know, so the root set
+// below is the worst case, the first segment of every slash token. The one
+// slash token let through is prose: example 2's `before/after numbers`, looked
+// up only in a project with a top-level `before` directory.
+const SLASH_PROSE: ReadonlySet<string> = new Set(["before/after"]);
 
-test("no example answer names a file the draft did not, bar the README.md of example 6, so the path guard has nothing else to look up", () => {
+test("no example answer names a file or a slash path the draft did not, bar the prose before/after, so the path guard has nothing to look up", () => {
   for (const [label, skills] of SKILL_SETS) {
     for (const { draft, answer } of examplePairsFor(skills)) {
       const inDraft = new Set(pathTokens(draft));
-      const lookedUp = pathTokens(answer.prompt).filter(
-        (token) =>
-          !inDraft.has(token) &&
-          isFileLike(token, new Set()) &&
-          !(draft === KEPT_AS_SHIPPED.draft && token === KEPT_AS_SHIPPED.file),
+      const named = pathTokens(answer.prompt).filter(
+        (token) => !inDraft.has(token),
+      );
+      const rootDirs = new Set(
+        named
+          .filter((token) => token.includes("/"))
+          .map((token) => token.split("/")[0] ?? ""),
+      );
+      const lookedUp = named.filter(
+        (token) => !SLASH_PROSE.has(token) && isFileLike(token, rootDirs),
       );
       expect({ label, draft, lookedUp }).toEqual({
         label,
@@ -236,12 +238,13 @@ test("examplesText is built from examplePairsFor", () => {
 // This is the text v0.4.0 emits. It is the literal v0.3.x shipped at 927f0b0
 // (1995 chars, sha256 c774b97c6dc0f4a788d6cafbe40769b19f71329c53bf0c6ef8eaaf9832062b48)
 // with example 1's `(per CLAUDE.md's test-first rule)` reworded to
-// `(per the project's test-first rule)`, so no example answer names a file
-// the path guard would look up. Captured by evaluating hooks/rules.ts with
+// `(per the project's test-first rule)` and example 6's `README.md` written as
+// the draft's bare `README`, so no example answer names a file the path guard
+// would look up. Captured by evaluating hooks/rules.ts with
 // `node --experimental-strip-types` and writing
-// `examplesText(new Set(["commit-commands:commit"]))` out unchanged: 1997
-// chars (all ASCII, so 1997 bytes), sha256
-// 26bacbc24d8919edb232d736e00b6a9e7c039d22a7a59b87bdafd2358b5b8e23.
+// `examplesText(new Set(["commit-commands:commit"]))` out unchanged: 1994
+// chars (all ASCII, so 1994 bytes), sha256
+// 67eb15a2db8d51f8d143b182cb27453d1eee4d51330535294b902853ad040c1a.
 const EXAMPLES_PINNED = `<examples>
 <example>
 <draft>fix the login bug</draft>
@@ -269,7 +272,7 @@ const EXAMPLES_PINNED = `<examples>
 </example>
 <example>
 <draft>fix the typo in README</draft>
-<answer>{"verdict":"improve","prompt":"Fix the typo in README.md.","why":"minimal change, kept restraint","applied":["rule 1"]}</answer>
+<answer>{"verdict":"improve","prompt":"Fix the typo in README.","why":"minimal change, kept restraint","applied":["rule 1"]}</answer>
 </example>
 </examples>`;
 

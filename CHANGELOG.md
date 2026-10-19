@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `types/index.d.ts` no longer redeclares `PromptDecoration`; the engine's exported type is used.
 - A short draft may grow by at least 400 characters (`max(400, 150 + 3 × draft length)`, still capped by `maxGrowthChars`), so the first built-in example (a rewrite of `fix the login bug`) is no longer refused as `rewrite too long` after the press was billed.
 - The `write a commit` example names `/commit-commands:commit` only when the session has that skill, and shows a plain rewrite otherwise, so a copy is no longer refused as `added a command or link you did not write`.
-- Rule 3 and the first example say `per the project's test-first rule` instead of naming `CLAUDE.md`, so a copy is no longer refused as `named a file that does not exist` in a project with no root `CLAUDE.md`. The static block changes once per user at upgrade.
+- Rule 3 and the first example say `per the project's test-first rule` instead of naming `CLAUDE.md`, and the `fix the typo in README` example answers `Fix the typo in README.` instead of naming `README.md`, so a copy is no longer refused as `named a file that does not exist` in a project with no root `CLAUDE.md` or `README.md`. The static block changes once per user at upgrade.
 
 ## [0.3.1] - 2026-10-18
 
