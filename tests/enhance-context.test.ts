@@ -51,7 +51,6 @@ test("AutoMem and excluded globals never enter block 0", async ($, on) => {
   expect(first).not.toContain(globalFile);
 });
 
-
 test("conversation tail is absent by default", async ($, on) => {
   const e = engine(on, {
     messages: [
@@ -65,7 +64,6 @@ test("conversation tail is absent by default", async ($, on) => {
   expect(e.calls).toHaveLength(1);
   expect(block(e, 0, 1)).not.toContain("<recent_conversation>");
 });
-
 
 test(
   "conversation tail is sent only when enabled",
@@ -91,7 +89,6 @@ test(
     expect(block(e, 0, 0)).not.toContain("<recent_conversation>");
   },
 );
-
 
 test("a draft naming a subproject adds its CLAUDE.md to the dynamic block", async ($, on) => {
   const draft = "fix the flag api in Tombstone please";
@@ -119,7 +116,6 @@ test("a draft naming a subproject adds its CLAUDE.md to the dynamic block", asyn
   expect(e.fills).toHaveLength(1);
 });
 
-
 test(
   "instruction files are capped at instructionFileMaxChars",
   { options: { instructionFileMaxChars: 50 } },
@@ -137,5 +133,20 @@ test(
     const first = block(e, 0, 0);
     expect(first).toContain(kept);
     expect(first).not.toContain("ZZZTAIL");
+  },
+);
+
+test(
+  "extraRules option changes static block hash and includes the rule",
+  { options: { extraRules: "Prefer bun over npm" } },
+  async ($, on) => {
+    const e = engine(on, { files: { [RULES_FILE]: RULES_TEXT } });
+    await press($, DRAFT);
+
+    const first = block(e, 0, 0);
+    expect(first).toContain(
+      "11. Project preferences from the user: Prefer bun over npm",
+    );
+    expect(first).toContain("12. Answer with one JSON object");
   },
 );

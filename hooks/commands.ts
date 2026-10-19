@@ -11,7 +11,9 @@ import {
   matchRungs,
   MODEL_STORE_KEY,
   resolveChain,
+  lastAssistantText,
 } from "./gather";
+import { preGuard } from "./guards";
 import { status } from "./status";
 import {
   capDollars,
@@ -22,6 +24,8 @@ import {
   type CapArg,
 } from "./caps";
 import { readTailCount } from "./tail";
+import { prepare } from "./prepare";
+import { hashBlock } from "./context";
 
 // The one registered command's sub-words (spec §5.2, C18): bare → the hint;
 // `undo`, `status`, `diff`, `probe` when the whole argument is that word
@@ -45,7 +49,7 @@ const capOverride = atom(
   { plugin: "prompt-lift", key: "capOverride" } as const,
   null,
 );
-const tailOverrideAtom = atom(
+const tailOverride = atom(
   { plugin: "prompt-lift", key: "tailOverride" } as const,
   null,
 );
@@ -75,6 +79,9 @@ export type TailArg =
   | { kind: "set"; count: number }
   | { kind: "invalid" }
   | { kind: "prose" };
+
+export type PreviewArg =
+  { kind: "show"; draft: string } | { kind: "empty" } | { kind: "prose" };
 
 export type ProbeResult = { model: string; outcome: string };
 
@@ -182,6 +189,12 @@ export async function runCommand(
   const tailArg = parseTailArg(args);
   if (tailArg.kind !== "prose") {
     return runTail($, cfg, tailArg);
+  }
+
+  // `preview` follows the same rule: one argument is a control, more is prose
+  const previewArg = parsePreviewArg(args);
+  if (previewArg.kind !== "prose") {
+    return runPreview($, cfg, previewArg);
   }
 
   switch (args.toLowerCase()) {
@@ -359,6 +372,28 @@ export function parseTailArg(args: string): TailArg {
   return { kind: "invalid" };
 }
 
+/**
+ * Parse `/prompt-lift preview <draft>`: zero tokens → usage; one or more → show.
+ */
+export function parsePreviewArg(args: string): PreviewArg {
+  const tokens = args.trim().split(/\s+/);
+  const [first = ""] = tokens;
+
+  // First token must be "preview"
+  if (first.toLowerCase() !== "preview") {
+    return { kind: "prose" };
+  }
+
+  // Zero further tokens → empty (usage)
+  if (tokens.length === 1) {
+    return { kind: "empty" };
+  }
+
+  // One or more tokens → show preview with the draft (everything after "preview")
+  const draft = args.slice(args.toLowerCase().indexOf("preview") + 7).trim();
+  return { kind: "show", draft };
+}
+
 async function runTail(
   $: EngineInterface,
   cfg: Config,
@@ -376,12 +411,50 @@ async function runTail(
   }
 
   if (arg.kind === "off") {
-    await update($, tailOverrideAtom, () => 0);
+    await update($, tailOverride, () => 0);
     return { text: "prompt-lift: tail off this session" };
   }
 
   // arg.kind === "on" or "set"
   const count = arg.kind === "on" ? cfg.conversationMessages : arg.count;
-  await update($, tailOverrideAtom, () => count);
+  await update($, tailOverride, () => count);
   return { text: `prompt-lift: tail on · last ${count} messages this session` };
+}
+
+async function runPreview(
+  $: EngineInterface,
+  cfg: Config,
+  arg: Exclude<PreviewArg, { kind: "prose" }>,
+): Promise<CommandRunResult> {
+  if (arg.kind === "empty") {
+    return {
+      text: "prompt-lift: preview takes a draft, e.g. /prompt-lift preview write a commit",
+    };
+  }
+
+  // arg.kind === "show"
+  const draft = arg.draft;
+  const rows = await $.session.messages();
+
+  // Run the same preGuard as enhance does
+  const guard = preGuard(draft, cfg, lastAssistantText(rows));
+  if (!guard.ok) {
+    return { text: guard.toast };
+  }
+
+  // Gather context and prepare exactly as a press would
+  const prepared = await prepare($, cfg, draft, rows);
+
+  // Format the output: dynamic block, then static block info
+  const hash = hashBlock(prepared.staticBlock);
+  const chars = prepared.staticBlock.length;
+
+  const output = [
+    "--- dynamic block (sent uncached) ---",
+    prepared.dynamicBlock,
+    "",
+    `--- static block: ${chars} chars · hash ${hash} ---`,
+  ].join("\n");
+
+  return { text: output };
 }

@@ -28,7 +28,7 @@ export async function prepare(
 ): Promise<Prepared> {
   const ctx = await gatherContext($, cfg, draft, rows);
   const staticBlock = buildStaticBlock({
-    rules: rulesText(cfg.filePrefix),
+    rules: rulesText(cfg.filePrefix, cfg.extraRules),
     project: basename(ctx.root),
     documents: ctx.documents,
     skillNames: ctx.skillNames,

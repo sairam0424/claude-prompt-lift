@@ -8,7 +8,12 @@
   "homepage": "https://github.com/sairam0424/claude-prompt-lift",
   "repository": "https://github.com/sairam0424/claude-prompt-lift",
   "license": "MIT",
-  "keywords": ["claude-code-mod", "prompt", "enhance", "band"],
+  "keywords": [
+    "claude-code-mod",
+    "prompt",
+    "enhance",
+    "band"
+  ],
   "types": "./types/index.d.ts",
   "userConfig": {
     "models": {
@@ -150,6 +155,12 @@
       "title": "Day Spend Cap (USD)",
       "description": "Refuse a press once today's priced presses, across sessions, reach these dollars (0 = no cap)",
       "default": 0
+    },
+    "extraRules": {
+      "type": "string",
+      "title": "Extra rules",
+      "description": "Project preferences appended to the rewrite rules as rule 12 (max 1,000 characters; tag-like markup is neutralised)",
+      "default": ""
     }
   }
 }

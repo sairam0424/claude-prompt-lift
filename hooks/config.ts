@@ -48,6 +48,7 @@ export type Config = {
   keptShareFloor: number;
   maxGrowthChars: number;
   enhanceAction: string;
+  extraRules: string;
   sessionCapUsd: number;
   dayCapUsd: number;
   prices: Readonly<Record<string, Price>>;
@@ -244,6 +245,8 @@ export function parseOptions(options: PluginOptions): Config {
       typeof options.enhanceAction === "string"
         ? options.enhanceAction
         : "app:cycleDiffBase",
+    extraRules:
+      typeof options.extraRules === "string" ? options.extraRules : "",
     sessionCapUsd: capOption(options.sessionCapUsd),
     dayCapUsd: capOption(options.dayCapUsd),
     prices,
