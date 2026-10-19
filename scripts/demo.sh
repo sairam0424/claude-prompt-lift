@@ -28,7 +28,7 @@ readonly PARENT_SESSION_VARS=(CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESS
   CLAUDE_CODE_SESSION_ATTENDED)
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-PLUGIN_DIR="" OUT_DIR="$REPO/docs" SHOTS_DIR="" WORK="" CAST="" GIF="" DEMO_STARTED="" REC_STARTED=""
+PLUGIN_DIR="" OUT_DIR="$REPO/docs" SHOTS_DIR="" WORK="" CAST="" GIF="" DEMO_STARTED="" REC_STARTED="" KEEP_WORK=""
 
 die() { echo "demo.sh: $*" >&2; exit 1; }
 tm() { tmux -L "$DEMO_SOCKET" "$@"; }
@@ -39,7 +39,7 @@ cleanup() {
   # Only what THIS run started: the flags are set after our own new-session, so a refused run kills nothing.
   [ -z "$DEMO_STARTED" ] || tm kill-server 2>/dev/null || true
   [ -z "$REC_STARTED" ] || rec kill-server 2>/dev/null || true
-  if [[ -n "$WORK" && "$WORK" == /tmp/pl-demo.* ]]; then rm -rf -- "$WORK"; fi
+  if [[ -z "$KEEP_WORK" && -n "$WORK" && "$WORK" == /tmp/pl-demo.* ]]; then rm -rf -- "$WORK"; fi
 }
 trap cleanup EXIT; trap 'exit 130' INT TERM
 
@@ -277,7 +277,7 @@ for path in paths:
 PY
 }
 
-# Try gentler settings until the GIF fits under the limit.
+# Gentler settings until the GIF fits; else return 1 and keep $WORK (R13: never in $OUT_DIR).
 convert() {
   local speed fps size
   for speed_fps in "1 20" "1.25 20" "1.25 12" "1.5 12"; do
@@ -288,7 +288,8 @@ convert() {
     echo "demo.sh: agg --speed $speed --fps-cap $fps -> $size bytes"
     [ "$size" -lt "$GIF_LIMIT_BYTES" ] && return 0
   done
-  echo "demo.sh: WARNING: the GIF is over 1 MiB; commit only the cast" >&2
+  echo "demo.sh: WARNING: the GIF is over 1 MiB; it stays in $WORK, only the cast goes to $OUT_DIR" >&2
+  KEEP_WORK=1; return 1
 }
 
 check_cast() {
@@ -310,9 +311,10 @@ main() {
   stop_recorder
   sanitize "$CAST"; [ -z "$SHOTS_DIR" ] || sanitize "$SHOTS_DIR"/*.txt
   check_cast
-  convert
-  mv -f -- "$CAST" "$GIF" "$OUT_DIR/"
-  echo "demo.sh: wrote $OUT_DIR/demo.cast ($(size_of "$OUT_DIR/demo.cast") bytes) and $OUT_DIR/demo.gif ($(size_of "$OUT_DIR/demo.gif") bytes)"
+  local out=("$CAST") file
+  convert && out+=("$GIF")
+  mv -f -- "${out[@]}" "$OUT_DIR/"
+  for file in "${out[@]##*/}"; do echo "demo.sh: wrote $OUT_DIR/$file ($(size_of "$OUT_DIR/$file") bytes)"; done
 }
 
 [[ "${BASH_SOURCE[0]}" != "$0" ]] || main "$@" # sourced by a test: define, do not record
