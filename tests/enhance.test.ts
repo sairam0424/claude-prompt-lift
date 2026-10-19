@@ -129,8 +129,7 @@ test("command path refuses to fill when the box is no longer empty", async ($, o
 // The button path end to end (`enhance($, cfg, { kind: "box" })`) runs only
 // with the mod's own `$`: a test's `$` carries the engine nouns alone (no fs,
 // state, store, model), and an inline plugin may not hand its `$` to a function
-// of the test file, so the band's Enhance button drives it through `ui.press`
-// (tests/band.test.tsx).
+// of the test file, so the band's Enhance button drives it through `ui.press`.
 // These two pin what the box source does at step 2 (read) and step 7 (re-read).
 
 test("the draft is the prompt box for the button and the args for the command", async () => {
