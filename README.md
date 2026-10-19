@@ -2,7 +2,7 @@
 
 ![prompt-lift demo: Enhance rewrites the draft, Undo and Redo swap it back, /prompt-lift status shows the chain](docs/demo.gif)
 
-Recorded from a real Claude Code session; re-record with `bash scripts/demo.sh --plugin-dir "$PWD"` (one real Enhance call, about $0.01 to $0.20).
+Recorded from a real Claude Code session ([how to re-record it](#demo)).
 
 A Claude Code mod that turns a vague prompt into a specific one before you send it. It reads the instruction files your session loaded (the `CLAUDE.md` tree and rules files) and the skills Claude can trigger, asks a model for the smallest edit that adds the missing facts, puts the result back in the prompt box with the inserted words highlighted, and sends only when you press Send or Enter. The mod tracks costs with prompt caching support, falls back through a model chain on failures, and validates rewrites against safety guards.
 
@@ -330,9 +330,9 @@ Measured on 2026-10-19 with Claude Code 2.1.303: 7 runs in 47 s, 3 of 3 cases pa
 
 ### Demo
 
-`scripts/demo.sh` records `docs/demo.cast` and converts it to `docs/demo.gif`. It builds a throwaway project, loads this checkout with `--plugin-dir` (it refuses any other path, so the live install is never recorded), drives a real session in an isolated tmux server (`tmux -L pldemo`) under `asciinema rec`, and converts the take with `agg`. It needs `tmux`, `asciinema`, `agg` (`brew install agg`) and `jq`, and the provider variables of a working Claude Code login.
+From the repo root, `bash scripts/demo.sh --plugin-dir "$PWD"` records `docs/demo.cast` and converts it to `docs/demo.gif`. It builds a throwaway project, loads this checkout with `--plugin-dir` (it refuses any other path, so the live install is never recorded), drives a real session in an isolated tmux server (`tmux -L pldemo`) under `asciinema rec`, and converts the take with `agg`. It needs `tmux`, `asciinema`, `agg` (`brew install agg`), `jq`, `claude`, `python3` and `git`, and the provider variables of a working Claude Code login. Every run leaves a trust entry for its throwaway `/private/tmp/pl-demo.*` project in `~/.claude.json`; the script does not remove it.
 
-The take makes one real Enhance call (about $0.01 to $0.20), never presses Send, and enters nothing but `/prompt-lift status`. Pass `--shots-dir DIR` to keep a screen capture of each step. Before conversion the script replaces the account name and home path in the cast with same-length placeholders (the status output lists `~/.claude/rules` files) and drops the tmux detach line from the end. The take is recorded and converted inside the sandbox and moved into `docs/` only after the sanitize step, the content check and the conversion all pass, so a failed re-record leaves the committed cast and GIF untouched.
+The take makes one real Enhance call (about $0.01 to $0.20), never presses Send, and enters nothing but `/prompt-lift status`. Pass `--shots-dir DIR` to keep a screen capture of each step. Before conversion the script replaces the account name and home path in the cast with same-length placeholders (the status output lists `~/.claude/rules` files) and drops the tmux detach line from the end; it then fails the run if the account name still shows anywhere in the cast, in any letter case, and warns when the cast passes 240 KiB. The take is recorded and converted inside the sandbox and moved into `docs/` only after the sanitize step, the content check and the conversion all pass, so a failed re-record leaves the committed cast and GIF untouched.
 
 ## License
 

@@ -10,13 +10,17 @@ set -euo pipefail
 
 readonly COLS=110 ROWS=30                 # also the GIF grid; keep both tmux servers equal
 readonly DEMO_SOCKET=pldemo REC_SOCKET=plrec SESSION=w REC_SESSION=rec
-# Vague on purpose but not tiny: the growth guard allows n + min(1200, 150 + 3n)
-# characters, and a 17-character draft got a paid "rewrite too long" refusal.
+# Vague on purpose. The growth guard allows n + min(1200, max(400, 150 + 3n))
+# characters (417 for 17), so even a one-line draft can grow into a full rewrite.
 readonly DRAFT="fix the flaky test that fails every few CI runs"
 readonly STATUS_CMD="/prompt-lift status"
 readonly TRUST_TIMEOUT_S=60 BAND_TIMEOUT_S=120 ENHANCE_TIMEOUT_S=120 STEP_TIMEOUT_S=20
 readonly SETTLE_S=3 IDLE_PAUSE_S=2 READ_PAUSE_S=4 END_PAUSE_S=5 TYPE_DELAY_S=0.07
 readonly POLL_S=0.5 BACKSPACES=400 CAST_IDLE_LIMIT_S=2 GIF_LIMIT_BYTES=1048576 FONT_SIZE=14
+# Frame-readability waits, not synchronisation (wait_until does that).
+readonly TYPE_SETTLE_S=1.5 STEP_PAUSE_S=1 FOCUS_SETTLE_S=0.5
+# The directory submission treats 256 KiB as a per-file limit for non-image files.
+readonly CAST_WARN_BYTES=245760
 # A nested session must not inherit the parent session's identity variables.
 readonly PARENT_SESSION_VARS=(CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESSAGING_SOCKET
   CLAUDE_CODE_MESSAGING_TOKEN CLAUDE_CODE_CHILD_SESSION CLAUDE_PID CLAUDE_CODE_ENTRYPOINT
@@ -152,7 +156,7 @@ start_session() {
   local unset_flags="" var
   for var in "${PARENT_SESSION_VARS[@]}"; do unset_flags+=" -u $var"; done
   tm -f "$WORK/tmux.conf" new-session -d -s "$SESSION" -x "$COLS" -y "$ROWS" -c "$WORK/project" \
-    "env$unset_flags claude --strict-mcp-config --plugin-dir $(printf %q "$PLUGIN_DIR") --settings $(printf %q "$WORK/settings.json")"
+    "env$unset_flags claude --strict-mcp-config --plugin-dir $(printf %q "$REPO") --settings $(printf %q "$WORK/settings.json")"
   DEMO_STARTED=1
   wait_until "trust prompt" "$TRUST_TIMEOUT_S" screen_has 'Yes, I trust this folder'
   sleep "$SETTLE_S" # a key sent before the menu takes input is lost, and Enter would pick "No, exit"
@@ -182,12 +186,12 @@ recorder_gone() { ! rec has-session -t "$REC_SESSION" 2>/dev/null; }
 # Order: idle band, draft, Enhance, done row, Undo, Redo, status.
 drive() {
   sleep "$IDLE_PAUSE_S"; snap 1-idle
-  type_text "$DRAFT"; sleep 1.5
+  type_text "$DRAFT"; sleep "$TYPE_SETTLE_S"
   box_is_exactly "$DRAFT" || { dump_pane; die "the box does not hold the draft"; }
   snap 2-draft
   tm send-keys -t "$SESSION" C-x b # Enhance, from the prompt
   wait_until "enhance running" "$STEP_TIMEOUT_S" screen_has 'Cancel \(c\)'
-  sleep 1; snap 3-running
+  sleep "$STEP_PAUSE_S"; snap 3-running
   wait_until "done row" "$ENHANCE_TIMEOUT_S" enhance_settled
   sleep "$READ_PAUSE_S"; snap 4-done
   band_key u 'Redo \(u\)'; sleep "$READ_PAUSE_S"; snap 5-undone
@@ -196,7 +200,7 @@ drive() {
   # Typing into a non-empty box appends, so empty it before the slash command.
   tm send-keys -t "$SESSION" -N "$BACKSPACES" BSpace
   wait_until "empty box" "$STEP_TIMEOUT_S" box_is_exactly ""
-  type_text "$STATUS_CMD"; sleep 1
+  type_text "$STATUS_CMD"; sleep "$STEP_PAUSE_S"
   submit_status
   wait_until "status output" "$STEP_TIMEOUT_S" screen_has 'chain:'
   sleep "$END_PAUSE_S"; snap 7-status
@@ -214,7 +218,7 @@ enhance_settled() {
 # Focus the band, press a hotkey, wait for the button label to flip.
 band_key() {
   tm send-keys -t "$SESSION" C-x Tab
-  sleep 0.5
+  sleep "$FOCUS_SETTLE_S"
   tm send-keys -t "$SESSION" "$1"
   wait_until "band key $1" "$STEP_TIMEOUT_S" screen_has "$2"
 }
@@ -234,17 +238,27 @@ stop_recorder() {
 # Drop the tmux client's tear-down (screen clear and "[detached ...]") from the
 # end of the cast, then swap the account name and home path for same-length
 # placeholders (status lists ~/.claude/rules files) so the layout is unchanged.
+# The replace is literal; the check then reads the events joined, escapes
+# stripped and case folded, which catches a name split by a colour change or
+# written in another case. Any hit fails the run.
 sanitize() {
   python3 -I - "$HOME" "$(id -un)" "$@" <<'PY'
-import json, sys
+import json, re, sys
 home, user, paths = sys.argv[1], sys.argv[2], sys.argv[3:]
 TEARDOWN_WINDOW_S = 0.25
+ESCAPE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[()][0-~]|[0-~])")
 def pad(seed, n): return (seed + "_" * n)[:n]
+def shown(text, is_cast):
+    if is_cast:  # the header, then every event's output as one stream
+        header, *events = [row for row in text.split("\n") if row]
+        text = header + "".join(json.loads(event)[2] for event in events)
+    return ESCAPE.sub("", text).lower()
 fake_home, fake_user = pad("/Users/developer", len(home)), pad("developer", len(user))
 for path in paths:
     with open(path, encoding="utf-8") as fh:
         lines = fh.readlines()
-    if path.endswith(".cast"):
+    is_cast = path.endswith(".cast")
+    if is_cast:
         times = [json.loads(line)[0] for line in lines[1:]]
         keep = len(times)
         while keep > 1 and times[keep - 1] >= times[-1] - TEARDOWN_WINDOW_S:
@@ -254,7 +268,8 @@ for path in paths:
         lines = lines[: 1 + keep]
     text = "".join(lines).replace(home, fake_home).replace(user, fake_user)
     text = text.replace("\u00a0", " ")  # agg draws no-break spaces as stray glyphs
-    if home in text or user in text:
+    seen = shown(text, is_cast)
+    if user.lower() in seen or home.lower() in seen:
         sys.exit(f"sanitize: {path} still names the account")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
@@ -280,6 +295,8 @@ check_cast() {
   for want in 'Enhance' 'Undo' 'Redo' 'restored your draft' '[$]0[.]' 'chain:'; do
     grep -Eq -- "$want" "$CAST" || die "the cast never shows: $want"
   done
+  local bytes; bytes="$(size_of "$CAST")"
+  [ "$bytes" -le "$CAST_WARN_BYTES" ] || echo "demo.sh: WARNING: the cast is $bytes bytes, over 240 KiB; the directory submission limits files to 256 KiB" >&2
 }
 
 main() {
