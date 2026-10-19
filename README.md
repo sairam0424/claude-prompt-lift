@@ -130,7 +130,7 @@ Outbound data leaves this machine only through `$.model.complete`, called with y
 - A named subproject's `CLAUDE.md` when the draft mentions a top-level directory of the project that has one
 - The recent conversation only when `includeConversation` is on
 
-The mod reads files through `$.fs.read`, `$.fs.exists`, and `$.fs.list`, accessing only those instruction files and a top-level directory's `CLAUDE.md` under the project root. `$.env.get` reads only `HOME`. Session facts come from `$.session.usage`, `$.session.messages`, `$.session.model`, `$.session.root`, and `$.command.list`.
+The mod touches the filesystem through `$.fs.read`, `$.fs.list` and `$.fs.exists`: `$.fs.read` reads those instruction files and a named subproject's `CLAUDE.md`; `$.fs.list` lists the top-level entries of the project root; `$.fs.exists` checks for that `CLAUDE.md` and, after a rewrite, probes any file-looking path the rewrite names that your draft did not (the path guard behind `named a file that does not exist`), absolute paths included. The model picks those paths; only existence is read, and the answer never leaves the machine. `$.env.get` reads only `HOME`. Session facts come from `$.session.usage`, `$.session.messages`, `$.session.model`, `$.session.root`, and `$.command.list`.
 
 Writes happen through `$.prompt.fill` (which writes the prompt box) and `$.prompt.submit` (which sends only when you press Send or run `/prompt-lift send`). Nothing is sent on a timer or while you type.
 

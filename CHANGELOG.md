@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 - README `### Upgrading from prompt-master` walks a 0.3.x install to `prompt-lift@claude-prompt-lift` and its moved `enabledPlugins` and `pluginConfigs` keys.
+- README `## Data handling` names the path guard's `$.fs.exists` probe on file-looking paths the rewrite introduces, absolute paths included; only existence is read.
 
 ## [0.3.1] - 2026-10-18
 
