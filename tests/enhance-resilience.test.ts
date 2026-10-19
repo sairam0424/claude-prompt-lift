@@ -272,19 +272,22 @@ test("a press stays in flight until its phase has settled", async ($, on) => {
 });
 
 /**
- * A `$` of the state noun alone, every read answered with `phase` and every
- * write kept. The noun's methods are generic over the contract, which a fake
- * that answers one key cannot spell, hence the cast.
+ * A `$` of the state noun alone: `phase` reads as given, `original` as the
+ * held draft or nothing, and every write is kept. The noun's methods are
+ * generic over the contract, which a fake that answers two keys cannot
+ * spell, hence the cast.
  */
 function stateHolding(
-  phase: string,
+  values: { phase: string; original?: string },
   onRead: () => void,
 ): { $: StateDollar; writes: unknown[] } {
   const writes: unknown[] = [];
   const state = {
-    get: async () => {
+    get: async (ref: { key: string }) => {
       onRead();
-      return { value: phase, version: 1 };
+      const value =
+        ref.key === "phase" ? values.phase : (values.original ?? null);
+      return { value, version: 1 };
     },
     set: async (_ref: unknown, value: unknown) => {
       writes.push(value);
@@ -295,16 +298,29 @@ function stateHolding(
 }
 
 test("resetStuckPhase idles a running phase no call backs", async () => {
-  const { $, writes } = stateHolding("running", () => undefined);
+  const { $, writes } = stateHolding({ phase: "running" }, () => undefined);
 
   await resetStuckPhase($, () => false);
 
   expect(writes).toEqual(["idle"]);
 });
 
+test("resetStuckPhase returns a running phase to done while a pair is held", async () => {
+  // A press had filled the box before the environment went: after a hot
+  // reload its Send and Undo row comes back, not the idle one.
+  const { $, writes } = stateHolding(
+    { phase: "running", original: DRAFT },
+    () => undefined,
+  );
+
+  await resetStuckPhase($, () => false);
+
+  expect(writes).toEqual(["done"]);
+});
+
 test("resetStuckPhase asks whether a call is in flight after it has read the phase", async () => {
   let isInFlight = false;
-  const { $, writes } = stateHolding("running", () => {
+  const { $, writes } = stateHolding({ phase: "running" }, () => {
     isInFlight = true;
   });
 

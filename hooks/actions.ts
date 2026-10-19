@@ -41,8 +41,12 @@ const TOAST_UNDO_ARM =
 const TOAST_RESTORED = "prompt-lift: restored your draft";
 const TOAST_REAPPLIED = "prompt-lift: re-applied the enhanced prompt";
 
-/** `@file` mentions and pasted images travel only with Enter (C10, C11). */
-const ENTER_ONLY = /(^|\s)@[\w./-]+|\[Image #\d+\]/;
+/**
+ * `@file` mentions (`@src/a.ts`, `@~/notes.md`, an MCP `@server:resource`)
+ * and pasted images travel only with Enter (C10, C11); the anchor keeps an
+ * email's `@` out of it.
+ */
+const ENTER_ONLY = /(^|\s)@[\w./~:-]+|\[Image #\d+\]/;
 
 /**
  * The prompt noun as Send drives it before it touches state, so a test's `$`
@@ -131,19 +135,23 @@ export function decideUndo(a: {
   armedAt: number | undefined;
   now: number;
 }): UndoDecision {
-  // The pair is written and cleared together; one without the other is nothing.
-  if (a.original === null || a.enhanced === null) {
+  if (a.original === null) {
     return { kind: "nothing" };
+  }
+  // The `enhanced` write can fail after `original` was held (§12): Undo then
+  // restores the draft alone, and there is nothing to redo.
+  const target: UndoDecision = a.isUndone
+    ? a.enhanced === null
+      ? { kind: "nothing" }
+      : { kind: "redo", text: a.enhanced }
+    : { kind: "undo", text: a.original };
+  if (target.kind === "nothing") {
+    return target;
   }
   const shown = a.isUndone ? a.original : a.enhanced;
   const isClean = a.boxText === "" || a.boxText === shown;
   const isArmed = a.armedAt !== undefined && a.now - a.armedAt <= UNDO_REARM_MS;
-  if (!isClean && !isArmed) {
-    return { kind: "arm" };
-  }
-  return a.isUndone
-    ? { kind: "redo", text: a.enhanced }
-    : { kind: "undo", text: a.original };
+  return !isClean && !isArmed ? { kind: "arm" } : target;
 }
 
 /** Undo / Redo (spec §5.3): the band button and `/prompt-lift undo`. */
@@ -203,17 +211,23 @@ export async function clearHeld($: EngineInterface): Promise<void> {
 
 /**
  * A phase a dropped environment left at `running` goes back to `idle` at
- * session.start and when a command runs (§5.3 resets). The caller hands in
- * how to ask whether a call is in flight (enhance.ts owns that; importing it
- * here would make a cycle), asked after the read: a live call's phase is
- * never reset, not even one that began while the phase was being read.
+ * session.start and when a command runs (§5.3 resets), or to `done` while a
+ * pair is held: that press had filled the box, so its Send and Undo row
+ * comes back after a hot reload. The caller hands in how to ask whether a
+ * call is in flight (enhance.ts owns that; importing it here would make a
+ * cycle), asked after the reads: a live call's phase is never reset, not
+ * even one that began while the phase was being read.
  */
 export async function resetStuckPhase(
   $: StateDollar,
   isInFlight: () => boolean,
 ): Promise<void> {
-  if ((await read($, phase)) !== "running" || isInFlight()) {
+  if ((await read($, phase)) !== "running") {
     return;
   }
-  await update($, phase, () => "idle");
+  const isHeld = (await read($, original)) !== null;
+  if (isInFlight()) {
+    return;
+  }
+  await update($, phase, () => (isHeld ? "done" : "idle"));
 }
