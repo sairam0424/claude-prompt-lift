@@ -29,8 +29,7 @@ export function expandHome(p: string, home: string): string {
 export function globMatch(pattern: string, value: string): boolean {
   // Convert glob pattern to regex
   let regexPattern = "";
-  for (let i = 0; i < pattern.length; i++) {
-    const ch = pattern[i];
+  for (const ch of pattern) {
     if (ch === "*") {
       regexPattern += ".*";
     } else if (ch === "?") {

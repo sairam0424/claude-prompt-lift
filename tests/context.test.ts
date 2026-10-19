@@ -91,7 +91,7 @@ test("matchSkills ranks commit-commands:commit first for a commit draft and caps
   const result = matchSkills(draft, commands, names, 2);
 
   expect(result.length).toBe(2);
-  expect(result[0].name).toBe("commit-commands:commit");
+  expect(result[0]?.name).toBe("commit-commands:commit");
 });
 
 test("sanitizeDescription drops descriptions that address the model", async () => {

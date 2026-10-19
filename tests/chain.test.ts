@@ -86,8 +86,8 @@ test("timeout falls back, cancel does not", async () => {
   if (result1.ok) {
     expect(calls.length).toBe(2);
     expect(result1.attempts).toHaveLength(2);
-    expect(result1.attempts[0].outcome).toBe("timeout");
-    expect(result1.attempts[1].outcome).toBe("ok");
+    expect(result1.attempts[0]?.outcome).toBe("timeout");
+    expect(result1.attempts[1]?.outcome).toBe("ok");
   }
 
   // Test cancel stops immediately
@@ -111,7 +111,7 @@ test("timeout falls back, cancel does not", async () => {
   if (!result2.ok) {
     expect(calls.length).toBe(1);
     expect(result2.cancelled).toBe(true);
-    expect(result2.attempts[0].outcome).toBe("cancelled");
+    expect(result2.attempts[0]?.outcome).toBe("cancelled");
   }
 });
 
@@ -144,8 +144,8 @@ test("empty-reply falls back and names the refusal", async () => {
   expect(result.ok).toBe(true);
   if (result.ok) {
     expect(calls.length).toBe(2);
-    expect(result.attempts[0].outcome).toBe("no text (possible refusal)");
-    expect(result.attempts[1].outcome).toBe("ok");
+    expect(result.attempts[0]?.outcome).toBe("no text (possible refusal)");
+    expect(result.attempts[1]?.outcome).toBe("ok");
   }
 });
 
@@ -176,8 +176,8 @@ test("authentication_failed twice stops after the second", async () => {
   expect(result.ok).toBe(false);
   if (!result.ok) {
     expect(calls.length).toBe(2); // first + one fallback before stopping
-    expect(result.attempts[0].outcome).toBe("authentication_failed");
-    expect(result.attempts[1].outcome).toBe("authentication_failed");
+    expect(result.attempts[0]?.outcome).toBe("authentication_failed");
+    expect(result.attempts[1]?.outcome).toBe("authentication_failed");
   }
 });
 
@@ -208,7 +208,7 @@ test("invalid_request stops at once", async () => {
   expect(result.ok).toBe(false);
   if (!result.ok) {
     expect(calls.length).toBe(1);
-    expect(result.attempts[0].outcome).toBe("invalid_request");
+    expect(result.attempts[0]?.outcome).toBe("invalid_request");
   }
 });
 
@@ -241,8 +241,8 @@ test("a thrown complete counts as refused and moves on", async () => {
   expect(result.ok).toBe(true);
   if (result.ok) {
     expect(calls.length).toBe(2);
-    expect(result.attempts[0].outcome).toBe("refused");
-    expect(result.attempts[1].outcome).toBe("ok");
+    expect(result.attempts[0]?.outcome).toBe("refused");
+    expect(result.attempts[1]?.outcome).toBe("ok");
   }
 });
 
@@ -273,19 +273,19 @@ test("effort is omitted for models outside effortModels and timeouts differ per 
   expect(requests).toHaveLength(3);
   
   // First rung: model 'a', should have effort: 'low' and timeout 60000
-  expect(requests[0].model).toBe("a");
-  expect(requests[0].effort).toBe("low");
-  expect(requests[0].timeoutMs).toBe(60000);
+  expect(requests[0]?.model).toBe("a");
+  expect(requests[0]?.effort).toBe("low");
+  expect(requests[0]?.timeoutMs).toBe(60000);
 
   // Second rung: model 'b', should have effort: 'low' and timeout 20000
-  expect(requests[1].model).toBe("b");
-  expect(requests[1].effort).toBe("low");
-  expect(requests[1].timeoutMs).toBe(20000);
+  expect(requests[1]?.model).toBe("b");
+  expect(requests[1]?.effort).toBe("low");
+  expect(requests[1]?.timeoutMs).toBe(20000);
 
   // Third rung: model 'c', should NOT have effort key and timeout 20000
-  expect(requests[2].model).toBe("c");
-  expect(requests[2].effort).toBeUndefined();
-  expect(requests[2].timeoutMs).toBe(20000);
+  expect(requests[2]?.model).toBe("c");
+  expect(requests[2]?.effort).toBeUndefined();
+  expect(requests[2]?.timeoutMs).toBe(20000);
 });
 
 test("usageText formats tokens, dollars and attempts", async () => {

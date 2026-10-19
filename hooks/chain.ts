@@ -109,9 +109,7 @@ export async function runChain(a: {
   const attempts: Attempt[] = [];
   let previous: Attempt | undefined = undefined;
 
-  for (let index = 0; index < a.chain.length; index++) {
-    const model = a.chain[index];
-
+  for (const [index, model] of a.chain.entries()) {
     // Call onAttempt callback if provided
     if (a.onAttempt) {
       a.onAttempt(model, index);

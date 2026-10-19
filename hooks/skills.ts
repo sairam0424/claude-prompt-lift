@@ -70,7 +70,7 @@ export function demoteLeadingSkill(
     return result;
   }
 
-  const first = tokens[0];
+  const first = tokens[0] ?? "";
   if (!first.startsWith("/")) {
     return result;
   }

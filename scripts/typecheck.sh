@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# noUncheckedIndexedAccess: 33 errors as of 2026-10-19; deferred because
-# the fixes would exceed 60 lines and many would introduce behavior changes
-# (guards on loop-bounded array accesses that cannot fail in practice).
-#
 # Best-effort type check of hooks/ and tests/ against the engine's own
 # claude-code.d.ts. `claude plugin test` does not type-check, so this is the
 # one type gate; it is a dev aid, not a test gate: with no types file on the
@@ -46,9 +42,8 @@ trap 'rm -rf "$tmp"' EXIT
 
 # The options the types file's header gives for a hooks module: no DOM lib
 # (the environment has none, and its Text would shadow the element), JSX
-# against the global `h` and `Fragment`. The header's recipe also sets
-# noUncheckedIndexedAccess; this code does not pass that yet, so it is left
-# out here.
+# against the global `h` and `Fragment`, and noUncheckedIndexedAccess, so an
+# indexed read is `T | undefined` until it is narrowed.
 cat > "$tmp/tsconfig.json" <<JSON
 {
   "compilerOptions": {
@@ -58,6 +53,7 @@ cat > "$tmp/tsconfig.json" <<JSON
     "module": "esnext",
     "moduleResolution": "bundler",
     "strict": true,
+    "noUncheckedIndexedAccess": true,
     "noEmit": true,
     "skipLibCheck": true,
     "jsx": "react",

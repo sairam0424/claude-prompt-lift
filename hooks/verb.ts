@@ -44,7 +44,7 @@ export function verbClass(s: string): VerbClass {
   // Drop leading politeness
   text = text.replace(/^(can you|could you|please)\s+/i, "");
 
-  const firstWord = text.split(/\s+/)[0];
+  const firstWord = text.split(/\s+/)[0] ?? "";
   if (INFO.has(firstWord)) {
     return "info";
   }
