@@ -75,12 +75,9 @@ export function demoteLeadingSkill(
     return result;
   }
 
-  // Only demote if the first token matches COMMAND_SHAPE (R7)
+  // A leading `/` is a listed skill here: `postProcess` has refused every
+  // other `/token` (a path, a bare slash) through `startsWithCommandPrefix`.
   const firstCore = stripEdges(first);
-  if (!COMMAND_SHAPE.test(firstCore)) {
-    return result;
-  }
-
   const skillName = firstCore.slice(1);
   const description =
     a.descriptions.get(skillName) || a.descriptions.get(firstCore);
@@ -130,19 +127,18 @@ export function demoteLeadingSkill(
   }
 
   // Otherwise, move to end as a mention
-  let rest = tokens.slice(1).join(" ");
+  const rest = tokens.slice(1).join(" ");
   if (rest.length === 0) {
     return result;
   }
 
-  // Move trailing punctuation (., !, ?) after the skill clause (R7)
-  let trailingPunc = "";
-  if (rest.endsWith(".") || rest.endsWith("!") || rest.endsWith("?")) {
-    trailingPunc = rest.charAt(rest.length - 1);
-    rest = rest.slice(0, -1);
-  }
+  // The whole run of trailing marks (`...`, `?!`) moves after the skill
+  // clause (R7), and the mention is the bare skill, without the punctuation
+  // the leading token carried (`/review,`).
+  const marks = /[.!?]+$/.exec(rest)?.[0] ?? "";
+  const body = rest.slice(0, rest.length - marks.length);
 
   // Capitalize first word of rest
-  const capitalized = rest.charAt(0).toUpperCase() + rest.slice(1);
-  return `${capitalized}, using the ${first} skill${trailingPunc}`;
+  const capitalized = body.charAt(0).toUpperCase() + body.slice(1);
+  return `${capitalized}, using the ${firstCore} skill${marks}`;
 }

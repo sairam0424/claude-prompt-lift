@@ -288,6 +288,23 @@ test("parseOptions merges user prices over DEFAULT_PRICES", async () => {
   expect(config.prices["haiku-5-5"]).toEqual(DEFAULT_PRICES["haiku-5-5"]);
 });
 
+test("priceFor lets a user key win over the default fragment it contains", async () => {
+  const v2 = "us.anthropic.claude-sonnet-5-5-v2";
+  const row = { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 };
+  const config = parseOptions({ prices: JSON.stringify({ [v2]: row }) });
+
+  // The user's rows come first in the scan, so the longer key wins
+  expect(Object.keys(config.prices)[0]).toBe(v2);
+  expect(priceFor(v2, config.prices)).toEqual(row);
+  // The default row still prices what only it names
+  expect(priceFor("us.anthropic.claude-sonnet-5-5", config.prices)).toEqual(
+    DEFAULT_PRICES["sonnet-5-5"],
+  );
+  expect(priceFor("sonnet", config.prices)).toEqual(
+    DEFAULT_PRICES["sonnet-5-5"],
+  );
+});
+
 test("parseOptions stores pricesIssue when prices JSON is invalid", async () => {
   const config = parseOptions({ prices: "{invalid" });
   expect(config.pricesIssue).toBeDefined();

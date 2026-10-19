@@ -78,6 +78,15 @@ test("cut keeps text within max and marks what it dropped", async () => {
   expect(cut("", 10)).toBe("");
 });
 
+test("cut counts characters, so an emoji on the cut is kept whole", async () => {
+  // Five characters in six UTF-16 code units: a code-unit slice would leave
+  // a lone surrogate before the ellipsis
+  expect(cut("ab😀cd", 4)).toBe("ab😀…");
+  expect(Array.from(cut("ab😀cd", 4))).toHaveLength(4);
+  expect(cut("😀😀😀", 3)).toBe("😀😀😀");
+  expect(cut("😀😀😀x", 3)).toBe("😀😀…");
+});
+
 test("capToast makes one line of at most TOAST_MAX chars", async () => {
   expect(TOAST_MAX).toBe(200);
   expect(capToast("a\nb\n\nc\td  e")).toBe("a b c d e");

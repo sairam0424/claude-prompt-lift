@@ -191,9 +191,14 @@ export const WHY_MAX = 60;
 /** An error's message as a failure toast shows it (R2). */
 export const ERROR_MAX = 80;
 
-/** `text` within `max` chars, ending in `…` when it had to be cut. */
+/**
+ * `text` within `max` characters, ending in `…` when it had to be cut. Counted
+ * and sliced by code point, so an emoji on the cut is kept whole rather than
+ * left as a lone surrogate before the ellipsis.
+ */
 export function cut(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  const chars = Array.from(text);
+  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : text;
 }
 
 /**

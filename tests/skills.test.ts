@@ -6,16 +6,32 @@ import {
 } from "../hooks/guards";
 import { parseOptions } from "../hooks/config";
 
-// R7 precision: demote only command-shaped leading tokens
-test("demoteLeadingSkill leaves /src/auth.ts path-like leading token untouched", () => {
+// A leading path never reaches the demotion: `startsWithCommandPrefix`
+// refuses it first (the §2 anti-goal), through postProcess (ruling, Task 6)
+test("postProcess refuses a rewrite that leads with a path such as /src/auth.ts", () => {
   const cfg = parseOptions({});
-  const draft = "there is a bug";
-  const result = demoteLeadingSkill("/src/auth.ts has a bug", {
+  const draft = "fix the login bug in /src/auth.ts";
+  const result = postProcess({
     draft,
+    reply: JSON.stringify({
+      verdict: "improve",
+      prompt:
+        "/src/auth.ts has the login bug, fix the login bug in /src/auth.ts",
+      why: "",
+      applied: [],
+    }),
+    outputTokens: 50,
     cfg,
+    knownSkills: new Set(["review"]),
+    listedSkills: new Set(["review"]),
     descriptions: new Map(),
+    documents: "",
   });
-  expect(result).toBe("/src/auth.ts has a bug");
+  expect(result).toEqual({
+    ok: false,
+    toast:
+      "prompt-lift: rewrite starts with a command prefix, kept your prompt",
+  });
 });
 
 test("demoteLeadingSkill moves trailing punctuation after the skill clause", () => {
@@ -30,6 +46,30 @@ test("demoteLeadingSkill moves trailing punctuation after the skill clause", () 
     descriptions,
   });
   expect(result).toBe("Write a commit, using the /commit-commands:commit skill.");
+});
+
+test("demoteLeadingSkill moves the whole run of trailing marks and mentions the bare skill", () => {
+  const cfg = parseOptions({});
+  const descriptions = new Map([
+    ["commit-commands:commit", "Create a conventional commit"],
+    ["review", "Pre-landing PR review"],
+  ]);
+  // The run of marks moves as one; `..` never ends up inside the sentence
+  expect(
+    demoteLeadingSkill("/commit-commands:commit Write a commit...", {
+      draft: "write a commit message",
+      cfg,
+      descriptions,
+    }),
+  ).toBe("Write a commit, using the /commit-commands:commit skill...");
+  // The mention is the skill's name, not the token with its punctuation
+  expect(
+    demoteLeadingSkill("/review, then fix the bug.", {
+      draft: "fix the bug",
+      cfg,
+      descriptions,
+    }),
+  ).toBe("Then fix the bug, using the /review skill.");
 });
 
 test("stripUnknownSkills strips against listed names, not the full known set", () => {

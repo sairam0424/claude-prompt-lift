@@ -193,7 +193,7 @@ export function parseOptions(options: PluginOptions): Config {
   const parsedPrices = parsePrices(pricesJson, (msg) => {
     pricesIssue = msg;
   });
-  const prices = { ...DEFAULT_PRICES, ...parsedPrices };
+  const prices = mergePrices(parsedPrices);
 
   return {
     models,
@@ -254,6 +254,23 @@ export function parseOptions(options: PluginOptions): Config {
   };
 }
 
+/**
+ * The price table a person's rows lead: `priceFor` scans the keys in the
+ * order they were added, so a longer user key wins over the default fragment
+ * it contains (`us.anthropic.claude-sonnet-5-5-v2` over `sonnet-5-5`); a user
+ * row named as a default (`fable-5-1`, `sonnet-5-5`, `haiku-5-5`) replaces it.
+ */
+export function mergePrices(
+  user: Readonly<Record<string, Price>>,
+): Readonly<Record<string, Price>> {
+  return Object.fromEntries([
+    ...Object.entries(user),
+    ...Object.entries(DEFAULT_PRICES).filter(
+      ([key]) => !Object.hasOwn(user, key),
+    ),
+  ]);
+}
+
 export function priceFor(
   model: string,
   prices: Readonly<Record<string, Price>>,
@@ -266,7 +283,8 @@ export function priceFor(
       return aliased;
     }
   }
-  // Else the first key that is a substring of the model
+  // Else the first key that is a substring of the model, in the table's own
+  // order (`mergePrices` puts the person's rows first)
   for (const key of Object.keys(prices)) {
     if (model.includes(key)) {
       return prices[key];

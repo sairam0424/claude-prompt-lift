@@ -237,7 +237,7 @@ The built-in price table can be overridden with the `prices` configuration optio
 "prices": "{\"fable-5-1\": {\"input\": 10, \"output\": 50, \"cacheWrite\": 12.5, \"cacheRead\": 0.25}}"
 ```
 
-Each key is a model id fragment (`priceFor` matches an alias whole and a full id by substring) and replaces the built-in row of the same name wholesale. Invalid JSON or a malformed entry leaves the whole table at its defaults and logs `prompt-lift: prices option ignored: <reason>` once at session start. Claude Code validates plugin options against the manifest before the hooks module loads, so any non-string `prices` value is refused at load (a number produces `Prices must be a string`; an object is refused at the options boundary) and never reaches the mod.
+Each key is a model id fragment (`priceFor` matches an alias whole and a full id by substring). The built-in rows are keyed `fable-5-1`, `sonnet-5-5` and `haiku-5-5`; a row under one of those names replaces it wholesale, and your rows are scanned before the built-in ones, so a longer key such as `us.anthropic.claude-sonnet-5-5-v2` wins over the `sonnet-5-5` fragment it contains. Invalid JSON or a malformed entry leaves the whole table at its defaults and logs `prompt-lift: prices option ignored: <reason>` once at session start. Claude Code validates plugin options against the manifest before the hooks module loads, so any non-string `prices` value is refused at load (a number produces `Prices must be a string`; an object is refused at the options boundary) and never reaches the mod.
 
 Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 - Fable: ≈ $0.13 cold / ≈ $0.04 warm
@@ -279,7 +279,7 @@ After the call (the toast ends with what the call cost):
 - `changed a question into a task, kept your prompt` / `changed a task into a question, kept your prompt` — the rewrite flipped your intent. Phrase the draft so the question or the instruction is unmistakable.
 - `lost a file or code reference from your draft, kept it` — a path, `@mention` or code token from the draft is missing in the rewrite. Press again; the model is told to keep them.
 - `added a command or link you did not write, kept your prompt` — the rewrite introduced `rm`, `curl`, `wget`, `sudo` or `chmod`, a pipe to `sh`, `&&`, a URL or an absolute path that appears neither in your draft nor in the instruction files. If you want it, type it yourself.
-- `rewrite starts with a command prefix, kept your prompt` — the rewrite begins with `!`, `#` or a `/word` that is not a listed skill, which Enter would run instead of send.
+- `rewrite starts with a command prefix, kept your prompt` — the rewrite begins with `!`, `#` or a `/word` that is not a listed skill (a path such as `/src/auth.ts` included), which Enter would run instead of send.
 - `named a file that does not exist, kept your prompt` — the rewrite names a file-looking path (rooted, with an extension, or under a top-level directory of the project) that is not on disk. Prose such as `CI/CD` or `and/or` is not checked.
 - `draft changed while enhancing, left as is` — you kept typing. Press Enhance again when the draft is ready.
 - `no model answered · fable: rate_limit → sonnet: timeout → haiku: refused` — every rung failed; the trail names each outcome. `/prompt-lift probe` tells you which models your account can call.
