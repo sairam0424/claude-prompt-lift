@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `status` prints `conversation: off` or `conversation: last N messages`.
 - `extraRules` option appends project preferences to the rewrite rules as rule 11 (up to 1,000 characters, tag-like markup neutralised).
 - The default rules text is unchanged when `extraRules` is empty.
-- `/prompt-lift preview <draft>` prints the dynamic and static blocks a press would send, with no model call, no cost and no state change.
+- `/prompt-lift preview <draft>` prints the dynamic block a press would send, plus the static block's size and hash: no model call by the mod, no state change, and the printed text joins the transcript, so it is capped at 2,000 characters.
 - `evals/`: three headless cases for `claude plugin eval` (`01-status`, `02-preview`, `03-enhance`); `evals/results/` is ignored.
 - Demo recording `docs/demo.gif` (and its cast) made by `scripts/demo.sh`.
 - `scripts/demo.sh` refuses any plugin path but this checkout, sanitises the account name and home path, and leaves the committed take untouched when a re-record fails.
@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sub-command parsing moved to `hooks/subcommands.ts`.
 
 ### Fixed
-- Non-success paths (`already specific`, refused, not taken) record through the guarded path, so a failing stats write no longer replaces the verdict and its cost with `enhance failed`.
+- Non-success paths (`already specific`, refused, not taken) record through the guarded path and toast their verdict, so a failing stats write no longer replaces the verdict and its cost with `enhance failed`.
 - A stale running phase is reset to done when the original is held (idle otherwise), so Undo stays reachable.
 - Re-enhancing an enhanced draft keeps the original's decorations: Redo highlights everything added since the original.
 - Undo with only the original held (the enhanced half missing) restores the draft, and Redo then answers `nothing to undo`.
@@ -50,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A short draft may grow by at least 400 characters (`max(400, 150 + 3 × draft length)`, still capped by `maxGrowthChars`), so the `fix the login bug` example is no longer refused as `rewrite too long` after the press was billed.
 - The `write a commit` example names `/commit-commands:commit` only when the session has that skill (a plain rewrite otherwise), so a copy is no longer refused as `added a command or link you did not write`.
 - Rule 3 and the `fix the login bug` and `fix the typo in README` examples no longer name `CLAUDE.md` or `README.md` (`per the project's test-first rule`, `Fix the typo in README.`), so a copy is no longer refused as `named a file that does not exist` in a project with no root `CLAUDE.md` or `README.md`.
+- `/prompt-lift tail` takes a plain count only: `0x6`, `1e1`, `6.0` and `+6` get the usage toast, as `cap` does.
+- `preview` prints at most 2,000 characters of the dynamic block and then `… N more characters (M total)`, so its output no longer fills the context the next turn reads.
+- A link or path you wrote into `extraRules` is accepted when a rewrite repeats it, instead of being refused as `added a command or link you did not write` or `named a file that does not exist`.
+- `extraRules` neutralises `< tag>`, `<tag/>` and `</ tag>` as well as `<tag>`.
+- The slash-menu hint lists `tail <on|off|N>` and `preview <draft>`.
+- `scripts/demo.sh` moves only the cast into `docs/` and keeps its work directory when the GIF is over 1 MiB.
 - The static block changes once per user at upgrade.
 
 ### Documentation

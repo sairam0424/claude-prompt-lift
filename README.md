@@ -64,12 +64,12 @@ The original is kept until you submit or `/clear`. Undo acts only when the box s
 - `/prompt-lift model <id|alias|reset>` — put a model first for this machine (`sonnet`, `haiku`, a full id) or `reset` to the configured chain
 - `/prompt-lift cap <usd|off>` — cap this session's spend at `<usd>` (`off` lifts it); `cap` alone prints the caps. See Spend caps under Cost
 - `/prompt-lift tail <on|off|count>` — control the conversation tail for this session; `tail` alone prints the state
-- `/prompt-lift preview <draft>` — show the dynamic and static blocks that would be sent (no model call, no cost, no state change)
+- `/prompt-lift preview <draft>` — print what a press would send: the dynamic block, plus the static block's size and hash (no model call by the mod, no state change; the printed text joins the transcript, so it is capped at 2,000 characters)
 - `/prompt-lift status` — the chain, the last call, session and per-day totals, the caps, the engine's session total, the static block size and hash
 - `/prompt-lift diff` — word-level diff of the last enhancement
 - `/prompt-lift probe` — one tiny call per model in the chain, reporting `ok` or the refusal
 
-A sub-word is recognised only when it is the whole argument (any case): `/prompt-lift diff the two configs and explain` is a draft to enhance, not the diff. `model` and `cap` take exactly one token; `model the auth flow as a state machine` is a draft too.
+A sub-word is recognised only when it is the whole argument (any case): `/prompt-lift diff the two configs and explain` is a draft to enhance, not the diff. `model`, `cap` and `tail` take exactly one token; `model the auth flow as a state machine` is a draft too. `preview` takes the rest as the draft, so a draft that itself begins with the word `preview` can never be enhanced through the command: start it another way or use the button.
 
 ### Keyboard
 
@@ -103,8 +103,9 @@ This binds ctrl+e to the same action, which presses Enhance whenever the band is
 - A subproject's `CLAUDE.md` when the draft names a top-level directory of the project that has one.
 - The draft. Never your conversation unless `includeConversation` is on.
 
-The built-in commit example names the `commit-commands:commit` skill only when that skill is loaded in the session; otherwise a plain rewrite is shown.
+The instructions and skill names form one cached block, so a second press within five minutes reads it from the cache.
 
+The built-in commit example names the `commit-commands:commit` skill only when that skill is loaded in the session; otherwise a plain rewrite is shown.
 
 ### Conversation tail
 
@@ -116,8 +117,7 @@ The `/prompt-lift tail` command controls the tail for this session:
 - `/prompt-lift tail <N>` — include the last N messages (1-50)
 - `/prompt-lift tail` — show the current state
 
-The idle and done rows show ` · tail N` when the tail is active. The per-message cap (`CONVERSATION_MESSAGE_MAX_CHARS`) applies to each message individually. The `status` command prints `conversation: off` or `conversation: last N messages`.
-The instructions and skill names form one cached block, so a second press within five minutes reads it from the cache.
+The idle and done rows show ` · tail N` when the tail is active. Each message is cut to 600 characters. The `status` command prints `conversation: off` or `conversation: last N messages`.
 
 ## Data handling
 
@@ -130,11 +130,11 @@ Outbound data leaves this machine only through `$.model.complete`, called with y
 - A named subproject's `CLAUDE.md` when the draft mentions a top-level directory of the project that has one
 - The recent conversation only when `includeConversation` is on
 
-The mod touches the filesystem through `$.fs.read`, `$.fs.list` and `$.fs.exists`: `$.fs.read` reads those instruction files and a named subproject's `CLAUDE.md`; `$.fs.list` lists the top-level entries of the project root; `$.fs.exists` checks for that `CLAUDE.md` and, after a rewrite, probes any file-looking path the rewrite names that your draft did not (the path guard behind `named a file that does not exist`), absolute paths included. The model picks those paths; only existence is read, and the answer never leaves the machine. `$.env.get` reads only `HOME`. Session facts come from `$.session.usage`, `$.session.messages`, `$.session.model`, `$.session.root`, and `$.command.list`.
+The mod touches the filesystem through `$.fs.read`, `$.fs.list` and `$.fs.exists`: `$.fs.read` reads those instruction files and a named subproject's `CLAUDE.md`; `$.fs.list` lists the top-level entries of the project root; `$.fs.exists` checks for that `CLAUDE.md` and, after a rewrite, probes any file-looking path the rewrite names that your draft and your `extraRules` did not (the path guard behind `named a file that does not exist`), absolute paths included. The model picks those paths; only existence is read, and the answer never leaves the machine. `$.env.get` reads only `HOME`. Session facts come from `$.session.usage`, `$.session.messages`, `$.session.model`, `$.session.root`, and `$.command.list`.
 
-Writes happen through `$.prompt.fill` (which writes the prompt box) and `$.prompt.submit` (which sends only when you press Send or run `/prompt-lift send`). Nothing is sent on a timer or while you type.
+Writes happen through `$.prompt.fill` (which writes the prompt box) and `$.prompt.submit` (which sends only when you press Send; Enter is the engine's own path). Nothing is sent on a timer or while you type.
 
-Persistence is local to this machine: `$.state` holds the session's held pair, phase, last usage, model choice, and session cap override; `$.store` holds the per-day press and cost rows, the chosen model, and the static-block hash.
+Persistence is local to this machine: `$.state` holds the session's held pair, phase, last usage, model choice, the static block's hash and size, session cap override, and tail override; `$.store` holds the per-day press and cost rows and the chosen model.
 
 The mod uses no `$.http.fetch`, no `$.process.run`, no clipboard access, no telemetry, no analytics, and no file writes.
 
