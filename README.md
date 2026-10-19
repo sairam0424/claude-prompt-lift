@@ -330,7 +330,7 @@ Measured on 2026-10-19 with Claude Code 2.1.303: 7 runs in 47 s, 3 of 3 cases pa
 
 `scripts/demo.sh` records `docs/demo.cast` and converts it to `docs/demo.gif`. It builds a throwaway project, loads this checkout with `--plugin-dir` (it refuses any other path, so the live install is never recorded), drives a real session in an isolated tmux server (`tmux -L pldemo`) under `asciinema rec`, and converts the take with `agg`. It needs `tmux`, `asciinema`, `agg` (`brew install agg`) and `jq`, and the provider variables of a working Claude Code login.
 
-The take makes one real Enhance call (about $0.01 to $0.20), never presses Send, and enters nothing but `/prompt-lift status`. Pass `--shots-dir DIR` to keep a screen capture of each step. Before conversion the script replaces the account name and home path in the cast with same-length placeholders (the status output lists `~/.claude/rules` files) and drops the tmux detach line from the end.
+The take makes one real Enhance call (about $0.01 to $0.20), never presses Send, and enters nothing but `/prompt-lift status`. Pass `--shots-dir DIR` to keep a screen capture of each step. Before conversion the script replaces the account name and home path in the cast with same-length placeholders (the status output lists `~/.claude/rules` files) and drops the tmux detach line from the end. The take is recorded and converted inside the sandbox and moved into `docs/` only after the sanitize step, the content check and the conversion all pass, so a failed re-record leaves the committed cast and GIF untouched.
 
 ## License
 

@@ -23,7 +23,7 @@ readonly PARENT_SESSION_VARS=(CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESS
   CLAUDE_CODE_SESSION_ATTENDED)
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-PLUGIN_DIR="" OUT_DIR="$REPO/docs" SHOTS_DIR="" WORK=""
+PLUGIN_DIR="" OUT_DIR="$REPO/docs" SHOTS_DIR="" WORK="" CAST="" GIF="" DEMO_STARTED="" REC_STARTED=""
 
 die() { echo "demo.sh: $*" >&2; exit 1; }
 tm() { tmux -L "$DEMO_SOCKET" "$@"; }
@@ -31,9 +31,9 @@ rec() { tmux -L "$REC_SOCKET" "$@"; }
 pane() { tm capture-pane -p -t "$SESSION"; }
 
 cleanup() {
-  tm kill-server 2>/dev/null || true
-  rec kill-server 2>/dev/null || true
-  # Only ever remove the directory this run created.
+  # Only what THIS run started: the flags are set after our own new-session, so a refused run kills nothing.
+  [ -z "$DEMO_STARTED" ] || tm kill-server 2>/dev/null || true
+  [ -z "$REC_STARTED" ] || rec kill-server 2>/dev/null || true
   if [[ -n "$WORK" && "$WORK" == /tmp/pl-demo.* ]]; then rm -rf -- "$WORK"; fi
 }
 trap cleanup EXIT; trap 'exit 130' INT TERM
@@ -70,6 +70,7 @@ preflight() {
 
 build_sandbox() {
   WORK="$(mktemp -d /tmp/pl-demo.XXXX)"
+  CAST="$WORK/demo.cast" GIF="$WORK/demo.gif" # record and convert here: OUT_DIR is touched only by a full pass
   local project="$WORK/project"
   mkdir -p "$project/src"
   (cd "$project" && git init -q)
@@ -90,9 +91,8 @@ export function totalCents(lines: { cents: number; qty: number }[]): number {
   return lines.reduce((sum, line) => sum + line.cents * line.qty, 0);
 }
 EOF
-  # Session-only overlay: the live install and the other above-prompt mods stay
-  # out (the engine draws ONE band; token-weather and friends would shadow
-  # ours), and a neutral status line keeps the account name off the screen.
+  # Session-only overlay: the live install and other above-prompt mods stay out (the
+  # engine draws ONE band) and a neutral status line keeps the account name off screen.
   cat >"$WORK/settings.json" <<'EOF'
 {
   "enabledPlugins": {
@@ -105,8 +105,7 @@ EOF
   "statusLine": { "type": "command", "command": "jq -r '.model.display_name'" }
 }
 EOF
-  # No status bar (it would eat a row and shrink the nested window); focus
-  # events and mouse on, or Claude Code prints tmux hint lines under the band.
+  # No status bar (eats a row, shrinks the window); focus events and mouse on, else hint lines print.
   printf '%s\n' 'set -g status off' 'set -g focus-events on' 'set -g mouse on' \
     'set -g default-terminal "tmux-256color"' 'set -ga terminal-features ",*:RGB"' >"$WORK/tmux.conf"
 }
@@ -154,6 +153,7 @@ start_session() {
   for var in "${PARENT_SESSION_VARS[@]}"; do unset_flags+=" -u $var"; done
   tm -f "$WORK/tmux.conf" new-session -d -s "$SESSION" -x "$COLS" -y "$ROWS" -c "$WORK/project" \
     "env$unset_flags claude --strict-mcp-config --plugin-dir $(printf %q "$PLUGIN_DIR") --settings $(printf %q "$WORK/settings.json")"
+  DEMO_STARTED=1
   wait_until "trust prompt" "$TRUST_TIMEOUT_S" screen_has 'Yes, I trust this folder'
   sleep "$SETTLE_S" # a key sent before the menu takes input is lost, and Enter would pick "No, exit"
   tm send-keys -t "$SESSION" Down
@@ -167,10 +167,10 @@ start_session() {
 }
 
 start_recorder() {
-  local cast="$OUT_DIR/demo.cast"
   # env -u TMUX: tmux refuses to attach from inside another tmux otherwise.
   rec -f "$WORK/tmux.conf" new-session -d -s "$REC_SESSION" -x "$COLS" -y "$ROWS" \
-    "asciinema rec -q --overwrite --idle-time-limit $CAST_IDLE_LIMIT_S -t 'prompt-lift demo' -c 'env -u TMUX tmux -L $DEMO_SOCKET attach -t $SESSION' $(printf %q "$cast")"
+    "asciinema rec -q --idle-time-limit $CAST_IDLE_LIMIT_S -t 'prompt-lift demo' -c 'env -u TMUX tmux -L $DEMO_SOCKET attach -t $SESSION' $(printf %q "$CAST")"
+  REC_STARTED=1
   wait_until "recorder attached" "$STEP_TIMEOUT_S" rec_shows_band
   local size; size="$(tm display-message -p -t "$SESSION" '#{window_width}x#{window_height}')"
   [ "$size" = "${COLS}x${ROWS}" ] || die "window is $size, expected ${COLS}x${ROWS}; the recorder shrank it"
@@ -263,12 +263,12 @@ PY
 
 # Try gentler settings until the GIF fits under the limit.
 convert() {
-  local cast="$OUT_DIR/demo.cast" gif="$OUT_DIR/demo.gif" speed fps size
+  local speed fps size
   for speed_fps in "1 20" "1.25 20" "1.25 12" "1.5 12"; do
     read -r speed fps <<<"$speed_fps"
     agg -q --font-size "$FONT_SIZE" --speed "$speed" --fps-cap "$fps" \
-      --idle-time-limit "$CAST_IDLE_LIMIT_S" --last-frame-duration "$END_PAUSE_S" "$cast" "$gif"
-    size="$(size_of "$gif")"
+      --idle-time-limit "$CAST_IDLE_LIMIT_S" --last-frame-duration "$END_PAUSE_S" "$CAST" "$GIF"
+    size="$(size_of "$GIF")"
     echo "demo.sh: agg --speed $speed --fps-cap $fps -> $size bytes"
     [ "$size" -lt "$GIF_LIMIT_BYTES" ] && return 0
   done
@@ -276,9 +276,9 @@ convert() {
 }
 
 check_cast() {
-  local cast="$OUT_DIR/demo.cast" want
+  local want
   for want in 'Enhance' 'Undo' 'Redo' 'restored your draft' '[$]0[.]' 'chain:'; do
-    grep -Eq -- "$want" "$cast" || die "the cast never shows: $want"
+    grep -Eq -- "$want" "$CAST" || die "the cast never shows: $want"
   done
 }
 
@@ -290,11 +290,11 @@ main() {
   start_recorder
   drive
   stop_recorder
-  sanitize "$OUT_DIR/demo.cast"; [ -z "$SHOTS_DIR" ] || sanitize "$SHOTS_DIR"/*.txt
+  sanitize "$CAST"; [ -z "$SHOTS_DIR" ] || sanitize "$SHOTS_DIR"/*.txt
   check_cast
   convert
-  echo "demo.sh: cast $OUT_DIR/demo.cast ($(size_of "$OUT_DIR/demo.cast") bytes)"
-  echo "demo.sh: gif  $OUT_DIR/demo.gif ($(size_of "$OUT_DIR/demo.gif") bytes)"
+  mv -f -- "$CAST" "$GIF" "$OUT_DIR/"
+  echo "demo.sh: wrote $OUT_DIR/demo.cast ($(size_of "$OUT_DIR/demo.cast") bytes) and $OUT_DIR/demo.gif ($(size_of "$OUT_DIR/demo.gif") bytes)"
 }
 
 [[ "${BASH_SOURCE[0]}" != "$0" ]] || main "$@" # sourced by a test: define, do not record
