@@ -60,6 +60,7 @@ The original is kept until you submit or `/clear`. Undo acts only when the box s
 - `/prompt-lift model <id|alias|reset>` — put a model first for this machine (`sonnet`, `haiku`, a full id) or `reset` to the configured chain
 - `/prompt-lift cap <usd|off>` — cap this session's spend at `<usd>` (`off` lifts it); `cap` alone prints the caps. See Spend caps under Cost
 - `/prompt-lift tail <on|off|count>` — control the conversation tail for this session; `tail` alone prints the state
+- `/prompt-lift preview <draft>` — show the dynamic and static blocks that would be sent (no model call, no cost, no state change)
 - `/prompt-lift status` — the chain, the last call, session and per-day totals, the caps, the engine's session total, the static block size and hash
 - `/prompt-lift diff` — word-level diff of the last enhancement
 - `/prompt-lift probe` — one tiny call per model in the chain, reporting `ok` or the refusal
@@ -171,6 +172,7 @@ Settings live in `/config` under `pluginConfigs` → `prompt-lift@claude-prompt-
 | `skillPrefixAllow` | string | `""` | Skills allowed as a leading `/name` under `run` (empty for none) |
 | `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Instruction files to leave out |
 | `skillExclude` | string | `""` | Skill name patterns left out of the listing (`*` and `?` wildcards); empty sends every skill Claude lists |
+| `extraRules` | string | `""` | Project preferences appended to the rewrite rules as rule 11 (max 1,000 characters; tag-like markup is neutralised). See Extra rules |
 | `prices` | string | | A JSON **string** (quoted and escaped, not a bare object) mapping a model id fragment to per-1M-token prices, merged over the built-in table; invalid JSON or a malformed entry is ignored with a log line. See Cost for the exact form |
 | `sessionCapUsd` | number | 0 | Refuse a press once this session's priced presses reach these dollars; 0 is no cap. `/prompt-lift cap <usd|off>` overrides it for the session. See Spend caps under Cost |
 | `dayCapUsd` | number | 0 | Refuse a press once today's priced presses, across sessions on this machine, reach these dollars; 0 is no cap |
@@ -195,6 +197,27 @@ On Bedrock the aliases resolve to whatever the build maps them to, and `effortMo
 ```
 
 These are the ids the cost table below prices and the rungs `/prompt-lift model sonnet` names. Run `/prompt-lift probe` once: a rung your account cannot call is reported as refused.
+
+### Extra rules
+
+The `extraRules` option lets you add project-specific preferences to the rewrite rules. The value is appended as rule 11 (before the JSON-protocol rule), visible only to the model:
+
+```json
+{
+  "pluginConfigs": {
+    "prompt-lift@claude-prompt-lift": {
+      "options": {
+        "extraRules": "Prefer bun over npm. Use single quotes in TypeScript."
+      }
+    }
+  }
+}
+```
+
+- Maximum 1,000 characters (longer text is truncated with `…`)
+- Tag-like markup (`<system>`, `<tag>`) is neutralised to prevent prompt injection
+- Changing this option invalidates the static block cache once (the next press rebuilds it)
+- Empty by default, so projects without custom rules pay no cost and see no cache invalidation
 
 ## Cost
 

@@ -159,7 +159,7 @@
     "extraRules": {
       "type": "string",
       "title": "Extra rules",
-      "description": "Project preferences appended to the rewrite rules as rule 12 (max 1,000 characters; tag-like markup is neutralised)",
+      "description": "Project preferences appended to the rewrite rules as rule 11 (max 1,000 characters; tag-like markup is neutralised)",
       "default": ""
     }
   }
