@@ -302,11 +302,25 @@ After the call (the toast ends with what the call cost):
 
 ## Development
 
-The plugin is read live from its folder. `claude plugin validate .` reads the manifest and the hooks module the way the engine will; `claude plugin test .` runs `tests/*.test.ts(x)`. Neither type-checks, so `bash scripts/typecheck.sh` is the type gate, best-effort: it finds the newest `claude-code.d.ts` Claude Code extracted with its plugin-authoring skill (under `/private/tmp/claude-*/bundled-skills/`, so absent after a reboot until that skill loads again in a session), writes a temporary tsconfig over that file plus `hooks/`, `types/` and `tests/`, and runs `tsc --noEmit` through `npx`. It prints the types file it used. With no types file on the machine it says so and exits 0; with only an older cached copy it says STALE, and an error it then reports may be the old build's rather than this code's.
+The plugin is read live from its folder. `claude plugin validate .` reads the manifest and the hooks module the way the engine will; `claude plugin test .` runs `tests/*.test.ts(x)`. Neither type-checks, so `bash scripts/typecheck.sh` is the type gate, best-effort: it finds the newest `claude-code.d.ts` Claude Code extracted with its plugin-authoring skill (under `/private/tmp/claude-*/bundled-skills/`, so absent after a reboot until that skill loads again in a session), writes a temporary strict tsconfig (with `noUncheckedIndexedAccess`) over that file plus `hooks/`, `types/` and `tests/`, and runs `tsc --noEmit` through `npx`. It prints the types file it used. With no types file on the machine it says so and exits 0; with only an older cached copy it says STALE, and an error it then reports may be the old build's rather than this code's.
 
 ### Evals
 
-The `evals/` directory holds cases for `claude plugin eval .`, which tests the plugin's slash commands against a with-plugin vs. without-plugin baseline and reports uplift (Δ). Each case runs the prompt and scores the output with regex graders on the trace. The two no-model-call cases (status and preview) are cheap to run; the enhance case calls the Fable model once per run. Run from a shell with Bedrock credentials (Anthropic keys work too). The first run asks you to trust the plugin directory; add `--trust-plugin` for CI. Cost for a full 3-run suite: ~$0.42 (most from the enhance case). See `claude plugin eval --help` for filtering and concurrency options.
+`evals/` holds three cases for `claude plugin eval`, which loads only this plugin into a throwaway `claude -p` session and matches a regex against that session's trace:
+
+- `01-status`: `/prompt-lift status` must print the `chain:` row. No model call.
+- `02-preview`: `/prompt-lift preview <draft>` must print the `dynamic block (sent uncached)` marker. No model call.
+- `03-enhance`: `/prompt-lift <draft>` runs the Enhance chain once (`runs: 1`, one model call). A headless run has no prompt box, so the rewrite is refused (`no_composer`) and the mod says so in a toast; the trace records that toast as a `ui_toast` line ending with the call's price. The case passes when that toast carries a real price, which shows the chain reached a model. It does not grade the rewrite.
+
+Run it from a shell that has your provider variables (Bedrock or Anthropic), because each run inherits them:
+
+```bash
+claude plugin eval . --ablation none --no-publish
+```
+
+`--ablation none` drops the default no-plugin baseline arm, which sends the same text to the session model as plain chat: it costs money and says nothing about this plugin. `--no-publish` keeps the HTML report local; without it the report is also published to claude.ai when the account supports that. Add `--trust-plugin` to skip the first-run trust prompt in CI. Results go to `evals/results/`, which is gitignored.
+
+Measured on 2026-10-19 with Claude Code 2.1.303: 7 runs in 47 s, 3 of 3 cases passing, and the harness billed $0.00, because the one model call is made by the mod and priced by the mod (its toast showed $0.01 in that run, $0.03 in an earlier one). The same suite with the default baseline arm cost $0.42, all of it in the baseline arms.
 
 ## License
 
