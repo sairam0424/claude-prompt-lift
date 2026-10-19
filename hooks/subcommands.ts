@@ -1,6 +1,7 @@
 /**
- * Sub-command parsers for /prompt-lift commands.
- * Extracted from commands.ts to keep that file under 400 lines.
+ * Sub-command parsers for /prompt-lift commands, and the cap on what
+ * `preview` prints. Extracted from commands.ts to keep that file under 400
+ * lines.
  */
 
 // Alias pattern: fable, sonnet, haiku, opus (case-insensitive)
@@ -138,4 +139,26 @@ export function parsePreviewArg(args: string): PreviewArg {
   // One or more tokens → show preview with the draft (everything after "preview")
   const draft = args.slice(args.toLowerCase().indexOf("preview") + 7).trim();
   return { kind: "show", draft };
+}
+
+/**
+ * The most of the dynamic block `preview` prints. A command's output row joins
+ * the transcript the next turn reads, so a block that can hold a 12,000
+ * character subproject file and a long conversation tail is cut here; the full
+ * block never leaves the mod.
+ */
+export const PREVIEW_MAX_CHARS = 2000;
+
+/**
+ * The first `PREVIEW_MAX_CHARS` characters of a dynamic block, then a line
+ * with what was left out when it is longer; a shorter block is printed whole.
+ */
+export function capPreviewBlock(block: string): string {
+  const chars = Array.from(block);
+  if (chars.length <= PREVIEW_MAX_CHARS) {
+    return block;
+  }
+  const shown = chars.slice(0, PREVIEW_MAX_CHARS).join("");
+  const more = chars.length - PREVIEW_MAX_CHARS;
+  return `${shown}\n… ${more} more characters (${chars.length} total)`;
 }

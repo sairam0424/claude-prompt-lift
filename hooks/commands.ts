@@ -14,6 +14,7 @@ import {
   lastAssistantText,
 } from "./gather";
 import {
+  capPreviewBlock,
   parseModelArg,
   parseTailArg,
   parsePreviewArg,
@@ -322,13 +323,14 @@ async function runPreview(
   // Gather context and prepare exactly as a press would
   const prepared = await prepare($, cfg, draft, rows);
 
-  // Format the output: dynamic block, then static block info
+  // Format the output: the dynamic block (cut: this row joins the transcript),
+  // then the static block's size and hash
   const hash = hashBlock(prepared.staticBlock);
   const chars = prepared.staticBlock.length;
 
   const output = [
     "--- dynamic block (sent uncached) ---",
-    prepared.dynamicBlock,
+    capPreviewBlock(prepared.dynamicBlock),
     "",
     `--- static block: ${chars} chars · hash ${hash} ---`,
   ].join("\n");
