@@ -6,12 +6,12 @@ import {
   engine,
   press,
   watch,
+  BEDROCK,
   DRAFT,
   FABLE,
   GOOD,
   type Message,
 } from "./engine";
-import { parseOptions } from "../hooks/config";
 
 // Conversation tail (R10): `/prompt-lift tail` command controls the transcript
 // grounding override for this session; the rows show ` · tail N` when active;
@@ -35,17 +35,21 @@ const TAIL_OFF = "prompt-lift: tail off this session";
 const TAIL_ON_6 = "prompt-lift: tail on · last 6 messages this session";
 
 type Band = Mounted<"terminal", "AbovePrompt">;
+const PROPS = {
+  hasSurvey: false,
+  isWorking: false,
+  maxRows: 12,
+  bodyColumns: 120,
+  scroll: { offset: 0, bodyRows: 12 },
+  view: {},
+};
 
-function opts(includeConversation: boolean, conversationMessages: number) {
-  return parseOptions({ includeConversation, conversationMessages });
-}
-
-function mount($: Harness): Promise<Band> {
+function mount($: Harness, extra: Partial<typeof PROPS> = {}): Promise<Band> {
   return $.ui.mount({
     plugin: "prompt-lift",
     surface: "terminal",
     component: "AbovePrompt",
-    props: {},
+    props: { ...PROPS, ...extra },
   });
 }
 
@@ -54,7 +58,11 @@ async function text($: Harness, args: string): Promise<string | undefined> {
 }
 
 async function rowText(band: Band): Promise<string> {
-  return band.text ?? "";
+  const texts = await band.findAll({ type: "Text" });
+  return texts
+    .filter((t) => t.text !== "lower")
+    .map((t) => t.text)
+    .join("");
 }
 
 test("tail off by default: no suffix, no tail in dynamic block", async ($, on) => {
@@ -73,7 +81,9 @@ test("tail off by default: no suffix, no tail in dynamic block", async ($, on) =
 
 test(
   "tail on by config: suffix and tail present",
-  { options: opts(true, 4) },
+  {
+    options: { ...BEDROCK, includeConversation: true, conversationMessages: 4 },
+  },
   async ($, on) => {
     const e = engine(on, { messages: MESSAGES });
 
@@ -112,7 +122,13 @@ test("/prompt-lift tail 6: enables tail for this session", async ($, on) => {
 
 test(
   "/prompt-lift tail on: uses conversationMessages from config",
-  { options: opts(false, 4) },
+  {
+    options: {
+      ...BEDROCK,
+      includeConversation: false,
+      conversationMessages: 4,
+    },
+  },
   async ($, on) => {
     const e = engine(on, { messages: MESSAGES });
 
@@ -133,7 +149,9 @@ test(
 
 test(
   "/prompt-lift tail off: disables tail for this session",
-  { options: opts(true, 4) },
+  {
+    options: { ...BEDROCK, includeConversation: true, conversationMessages: 4 },
+  },
   async ($, on) => {
     const e = engine(on, { messages: MESSAGES });
 
@@ -160,7 +178,9 @@ test("/prompt-lift tail: shows current status", async ($, on) => {
 
 test(
   "/prompt-lift tail: shows current status when on by config",
-  { options: opts(true, 4) },
+  {
+    options: { ...BEDROCK, includeConversation: true, conversationMessages: 4 },
+  },
   async ($, on) => {
     engine(on);
 
@@ -196,22 +216,25 @@ test("/prompt-lift tail 99: rejects out of range", async ($, on) => {
 
   expect(await text($, "tail 99")).toBe(TAIL_USAGE);
 });
-
 test("/prompt-lift tail with prose: enhances", async ($, on) => {
-  engine(on);
+  const e = engine(on);
 
-  const w = watch($);
   await press($, "tail this story");
-  const f = await w.promptFill();
-  expect(f.isFilled).toBe(true);
-  if (f.isFilled) {
-    expect(f.text).toContain("tail this story");
-  }
+
+  // Should have triggered a model call for enhancement
+  expect(e.calls).toHaveLength(1);
+  expect(e.calls[0]?.prompt).toContain("tail this story");
 });
 
 test(
   "tail suffix appears after $Y left",
-  { options: opts(false, 4) },
+  {
+    options: {
+      ...BEDROCK,
+      includeConversation: false,
+      conversationMessages: 4,
+    },
+  },
   async ($, on) => {
     engine(on, {
       replies: [answered(GOOD)],
@@ -229,7 +252,13 @@ test(
 
 test(
   "tail suffix appears before NO_CACHE_HINT",
-  { options: opts(false, 4) },
+  {
+    options: {
+      ...BEDROCK,
+      includeConversation: false,
+      conversationMessages: 4,
+    },
+  },
   async ($, on) => {
     const e = engine(on, {
       messages: MESSAGES,
@@ -278,7 +307,9 @@ test("status shows conversation: off by default", async ($, on) => {
 
 test(
   "status shows conversation: last N messages when on by config",
-  { options: opts(true, 4) },
+  {
+    options: { ...BEDROCK, includeConversation: true, conversationMessages: 4 },
+  },
   async ($, on) => {
     engine(on);
 
@@ -295,7 +326,9 @@ test("status shows conversation: last N messages when on by override", async ($,
 
 test(
   "status shows conversation: off when override is 0",
-  { options: opts(true, 4) },
+  {
+    options: { ...BEDROCK, includeConversation: true, conversationMessages: 4 },
+  },
   async ($, on) => {
     engine(on);
 
@@ -306,7 +339,13 @@ test(
 
 test(
   "tail count respects override over config",
-  { options: opts(true, 10) },
+  {
+    options: {
+      ...BEDROCK,
+      includeConversation: true,
+      conversationMessages: 10,
+    },
+  },
   async ($, on) => {
     const e = engine(on, { messages: MESSAGES });
 

@@ -21,7 +21,7 @@ import {
   CAP_USAGE,
   type CapArg,
 } from "./caps";
-import { tailOverride, readTailCount } from "./tail";
+import { readTailCount } from "./tail";
 
 // The one registered command's sub-words (spec §5.2, C18): bare → the hint;
 // `undo`, `status`, `diff`, `probe` when the whole argument is that word

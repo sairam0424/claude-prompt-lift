@@ -361,7 +361,7 @@ test(
     await press($, DRAFT);
 
     expect(await text($, "status")).toContain(
-      `\n${SESSION_LINE}\nsession total (all tools): $12.34\nstatic block:`,
+      `\n${SESSION_LINE}\nconversation: off\nsession total (all tools): $12.34\nstatic block:`,
     );
     expect(await text($, "cap")).toBe(SESSION_LINE);
   },

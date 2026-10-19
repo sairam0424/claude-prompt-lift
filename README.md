@@ -59,6 +59,7 @@ The original is kept until you submit or `/clear`. Undo acts only when the box s
 - `/prompt-lift undo` — restore the original draft
 - `/prompt-lift model <id|alias|reset>` — put a model first for this machine (`sonnet`, `haiku`, a full id) or `reset` to the configured chain
 - `/prompt-lift cap <usd|off>` — cap this session's spend at `<usd>` (`off` lifts it); `cap` alone prints the caps. See Spend caps under Cost
+- `/prompt-lift tail <on|off|count>` — control the conversation tail for this session; `tail` alone prints the state
 - `/prompt-lift status` — the chain, the last call, session and per-day totals, the caps, the engine's session total, the static block size and hash
 - `/prompt-lift diff` — word-level diff of the last enhancement
 - `/prompt-lift probe` — one tiny call per model in the chain, reporting `ok` or the refusal
@@ -97,6 +98,18 @@ This binds ctrl+e to the same action, which presses Enhance whenever the band is
 - A subproject's `CLAUDE.md` when the draft names a top-level directory of the project that has one.
 - The draft. Never your conversation unless `includeConversation` is on.
 
+
+### Conversation tail
+
+The recent conversation is excluded by default (`includeConversation: false`). When on, the mod includes the last N messages (user + assistant, `conversationMessages`) in the dynamic (uncached) block, so each press pays for them.
+
+The `/prompt-lift tail` command controls the tail for this session:
+- `/prompt-lift tail on` — enable the tail using `conversationMessages` from the config
+- `/prompt-lift tail off` — disable the tail for this session
+- `/prompt-lift tail <N>` — include the last N messages (1-50)
+- `/prompt-lift tail` — show the current state
+
+The idle and done rows show ` · tail N` when the tail is active. The per-message cap (`CONVERSATION_MESSAGE_MAX_CHARS`) applies to each message individually. The `status` command prints `conversation: off` or `conversation: last N messages`.
 The instructions and skill names form one cached block, so a second press within five minutes reads it from the cache.
 
 ## Data handling
