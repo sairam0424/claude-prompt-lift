@@ -189,7 +189,7 @@ test("stripUnknownSkills leaves paths and URLs alone", () => {
 test("growth is scaled to the draft", () => {
   const cfg = parseOptions({ maxGrowthChars: 1200 });
   const draft = "fix the bug"; // 11 chars
-  const longReply = "A".repeat(300);
+  const longReply = "A".repeat(500); // past 11 + the 400-char growth floor
   const reply = `{"verdict":"improve","prompt":"${longReply}","why":"","applied":[]}`;
   const result = postProcess({
     draft,

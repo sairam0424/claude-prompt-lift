@@ -278,7 +278,7 @@ After the call (the toast ends with what the call cost):
 
 - `reply hit the token cap, kept your prompt` — the rewrite ran to `maxTokens`. Shorten the draft or raise `maxTokens`.
 - `the model returned nothing` — an empty rewrite. Press again, or `/prompt-lift model sonnet`.
-- `rewrite too long, kept your prompt` — it grew past the allowance (the draft plus at most `maxGrowthChars`, scaled down for short drafts: 150 characters plus three times the draft) or added more than three sentences. Raise `maxGrowthChars`, or start from a fuller draft.
+- `rewrite too long, kept your prompt` — the rewrite is longer than the draft plus max(400, 150 + 3 × draft length) characters, capped by `maxGrowthChars` (1,200), or has more than three sentences beyond the draft. Raise `maxGrowthChars`, or start from a fuller draft.
 - `rewrite dropped too much of your prompt, kept it` — fewer than `keptShareFloor` (50%) of your draft's words of four letters or more survived. Lower the floor if you want freer rewrites.
 - `changed a question into a task, kept your prompt` / `changed a task into a question, kept your prompt` — the rewrite flipped your intent. Phrase the draft so the question or the instruction is unmistakable.
 - `lost a file or code reference from your draft, kept it` — a path, `@mention` or code token from the draft is missing in the rewrite. Press again; the model is told to keep them.

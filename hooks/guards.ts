@@ -98,11 +98,21 @@ export function isTruncated(
   return false;
 }
 
+/**
+ * The least a draft may grow by, so a one-line draft can become the 3-4
+ * sentence prompt the built-in examples teach (R15). `maxGrowthChars` still
+ * wins when a user sets it below this.
+ */
+export const MIN_GROWTH_CHARS = 400;
+
 export function growthAllowed(
   draftLen: number,
   maxGrowthChars: number,
 ): number {
-  return draftLen + Math.min(maxGrowthChars, 150 + 3 * draftLen);
+  return (
+    draftLen +
+    Math.min(maxGrowthChars, Math.max(MIN_GROWTH_CHARS, 150 + 3 * draftLen))
+  );
 }
 
 export function sentenceCount(s: string): number {
