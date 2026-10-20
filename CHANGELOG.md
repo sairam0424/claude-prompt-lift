@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - README links the 24-second launch film (`docs/launch-poster.jpg` → the MP4 attached to the v0.4.0 release).
 - README trimmed to what a user needs (3,000 words from 4,900): the upgrade guide moved to `docs/UPGRADING.md`, the development, evals and demo notes to `docs/DEVELOPMENT.md`; the launch film now autoplays as `docs/launch.gif` (800×450, 12 fps) with the MP4 linked for sound.
+- Launch film v2: the whole Claude Code session inside a terminal window with camera moves, callouts and a keystroke hint (same real take); `docs/launch.gif` (now 720×405, 10 fps) and the release MP4 and poster replaced.
 
 ## [0.4.0] - 2026-10-19
 
