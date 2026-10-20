@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 - The README demo is re-recorded from an isolated HOME with one rules file and the engine's bundled skills only, under the 0.4.0 rule text (`scripts/demo.sh` builds the sandbox HOME; `--dry-run` checks it without a model call).
+- Eval case 03 passes on the `no_composer` toast whether or not the rung is priced, so it proves the chain reached a model on Bedrock and Vertex too.
 
 ## [0.4.2] - 2026-10-20
 
