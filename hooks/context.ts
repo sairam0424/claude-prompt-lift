@@ -99,6 +99,14 @@ export function selectInstructionFiles(
   return result;
 }
 
+/** Whether a skill or command name matches a `skillExclude` pattern. */
+export function isSkillExcluded(
+  name: string,
+  skillExclude: readonly string[],
+): boolean {
+  return skillExclude.some((pattern) => globMatch(pattern, name));
+}
+
 export function selectSkillNames(
   skills: readonly SkillEntry[],
   cfg: Config,
@@ -111,16 +119,7 @@ export function selectSkillNames(
       continue;
     }
 
-    // Check against skillExclude
-    let excluded = false;
-    for (const pattern of cfg.skillExclude) {
-      if (globMatch(pattern, skill.name)) {
-        excluded = true;
-        break;
-      }
-    }
-
-    if (!excluded) {
+    if (!isSkillExcluded(skill.name, cfg.skillExclude)) {
       names.add(skill.name);
     }
   }
@@ -256,15 +255,21 @@ export function subprojectDir(
 }
 
 /**
- * Every skill name the session lists and every command name: what the
- * post-call guards accept as a skill, and what the examples in the static
- * block are rendered against, so the two cannot disagree.
+ * Every skill name the session lists and every command name, less the ones
+ * `skillExclude` leaves out (R20): what the post-call guards accept as a
+ * skill, and what the examples in the static block are rendered against, so
+ * the two cannot disagree. A skill the user excluded is unknown to both, even
+ * when `$.command.list()` still lists its command.
  */
-export function knownSkillSet(ctx: {
-  skillNames: readonly string[];
-  commands: readonly { name: string }[];
-}): Set<string> {
-  return new Set([...ctx.skillNames, ...ctx.commands.map((c) => c.name)]);
+export function knownSkillSet(
+  ctx: {
+    skillNames: readonly string[];
+    commands: readonly { name: string }[];
+  },
+  skillExclude: readonly string[],
+): Set<string> {
+  const names = [...ctx.skillNames, ...ctx.commands.map((c) => c.name)];
+  return new Set(names.filter((name) => !isSkillExcluded(name, skillExclude)));
 }
 
 export function buildStaticBlock(a: {

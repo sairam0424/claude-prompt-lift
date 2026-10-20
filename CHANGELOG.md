@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - On Bedrock and Vertex an alias rung (`fable`, `sonnet`, `haiku`) is unpriced (`$?`) instead of priced as the family's current generation: the engine's alias defaults lag there and the mod cannot see which id answered; `status` says `aliases: unpriced on <platform>` and points at pinning full ids. Chains of full ids are unchanged.
+- A skill left out by `skillExclude` is unknown everywhere: the few-shot example falls back to its skill-neutral form and a rewrite that names the skill is refused instead of being stripped to `the … skill`.
 
 ## [0.4.2] - 2026-10-20
 

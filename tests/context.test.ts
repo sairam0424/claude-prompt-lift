@@ -163,14 +163,14 @@ test("knownSkillSet is every listed skill name and every command name", async ()
     { name: "help", description: "d", source: "builtin" },
   ];
 
-  const known = knownSkillSet({ skillNames: ["review", "help"], commands });
+  const known = knownSkillSet({ skillNames: ["review", "help"], commands }, []);
 
   expect([...known].sort()).toEqual([
     "commit-commands:commit",
     "help",
     "review",
   ]);
-  expect(knownSkillSet({ skillNames: [], commands: [] }).size).toBe(0);
+  expect(knownSkillSet({ skillNames: [], commands: [] }, []).size).toBe(0);
 });
 
 test("buildDynamicBlock puts the draft last", async () => {

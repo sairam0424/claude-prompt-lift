@@ -34,7 +34,7 @@ export async function prepare(
   rows: readonly SessionMessage[],
 ): Promise<Prepared> {
   const ctx = await gatherContext($, cfg, draft, rows);
-  const knownSkills = knownSkillSet(ctx);
+  const knownSkills = knownSkillSet(ctx, cfg.skillExclude);
   const staticBlock = buildStaticBlock({
     rules: rulesText(cfg.filePrefix, cfg.extraRules),
     project: basename(ctx.root),
