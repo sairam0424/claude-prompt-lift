@@ -1,4 +1,5 @@
 import type { EngineInterface } from "claude-code";
+import { errorMessage } from "./gather";
 
 /*
  * The day ledger: what every press on this machine cost, by local day, kept
@@ -30,11 +31,14 @@ import type { EngineInterface } from "claude-code";
  *   instance, inside the queue on its first write: each day to
  *   `spend:<day>:legacy`, only when that key is absent, then `stats` is
  *   deleted. Two sessions migrating at once write identical content to the
- *   same key, so nothing is lost.
- * - Pruning on each write deletes every row of a day before
- *   `dayOf(now − 7 days)` (zero-padded days compare as strings): today and
- *   the last seven days stay, and the store holds at most that many days'
- *   writers.
+ *   same key, so nothing is lost. Until a write has migrated a day, a read
+ *   takes that day's row from `stats` in place of the absent legacy row, so
+ *   a 0.4.2 session that has not pressed yet still sees the 0.4.1 day.
+ * - Pruning on each write deletes every row of a day before the local
+ *   calendar day seven days back (zero-padded days compare as strings): today
+ *   and the last seven days stay, and the store holds at most that many days'
+ *   writers. A refused delete is logged, not raised: the press is recorded by
+ *   then, and the caller would report it lost.
  */
 
 /**
@@ -43,7 +47,10 @@ import type { EngineInterface } from "claude-code";
  */
 export type DayStats = { presses: number; usd: number; unpriced: number };
 
-/** The 0.4.x shape: one row holding every day, read only to migrate it. */
+/**
+ * The 0.4.x shape: one row holding every day, read to migrate it and, for a
+ * day not yet migrated, by `dayTotal`.
+ */
 export type Stats = { byDay: Record<string, DayStats> };
 
 /**
@@ -71,7 +78,6 @@ export const STATS_STORE_KEY = "stats";
 export const EMPTY_DAY: DayStats = { presses: 0, usd: 0, unpriced: 0 };
 const LEGACY_WRITER = "legacy";
 const KEPT_DAYS = 7;
-const DAY_MS = 86_400_000;
 /** A `spend:<YYYY-MM-DD>:<writer>` key, its day captured. */
 const SPEND_KEY = /^spend:(\d{4}-\d{2}-\d{2}):./;
 
@@ -165,7 +171,11 @@ function sumRows(rows: readonly DayStats[]): DayStats {
  * What the whole machine spent on `day`: the field-wise sum of every writer's
  * row, this session's and every other's. The filter is the exact
  * `spend:<day>:` prefix, so neither another day's rows nor another key that
- * happens to contain the day is counted.
+ * happens to contain the day is counted. A day with no legacy row is still
+ * in the 0.4.x `stats` row, if anywhere, so that row's day is added instead:
+ * a reader between another session's `set(legacy)` and `delete(stats)` sees
+ * the legacy row and skips `stats`, so no interleaving counts the day twice;
+ * one between its own key list and the `stats` read can under-read once.
  */
 export async function dayTotal(
   $: EngineInterface,
@@ -174,12 +184,23 @@ export async function dayTotal(
   const prefix = spendKey(day, "");
   const keys = (await $.store.keys()).filter((key) => key.startsWith(prefix));
   const rows = await Promise.all(keys.map((key) => $.store.get(key)));
-  return sumRows(rows.map(asDayRow));
+  const unmigrated = keys.includes(spendKey(day, LEGACY_WRITER))
+    ? EMPTY_DAY
+    : dayRow(asStats(await $.store.get(STATS_STORE_KEY)), day);
+  return sumRows([...rows.map(asDayRow), unmigrated]);
 }
 
-/** Deletes every row of a day before `dayOf(nowMs − 7 days)`. */
+/**
+ * Deletes every row of a day before the local calendar day `KEPT_DAYS` back.
+ * A calendar step, not `nowMs − 7 × 24 h`: at 23:30 the evening after clocks
+ * go back, the latter lands at 00:30 the day after the seventh day back and
+ * would prune that day's rows.
+ */
 async function prune($: EngineInterface, nowMs: number): Promise<void> {
-  const cutoff = dayOf(nowMs - KEPT_DAYS * DAY_MS);
+  const d = new Date(nowMs);
+  const cutoff = dayOf(
+    new Date(d.getFullYear(), d.getMonth(), d.getDate() - KEPT_DAYS).getTime(),
+  );
   for (const key of await $.store.keys()) {
     const day = dayOfKey(key);
     if (day !== undefined && day < cutoff) {
@@ -233,7 +254,9 @@ async function migrateOnce(ledger: Ledger, $: EngineInterface): Promise<void> {
 
 /**
  * One press, priced or not, added to `ledger`'s row for today: the 0.4.x row
- * migrated first if it is still there, the old rows pruned after.
+ * migrated first if it is still there, the old rows pruned after. A prune
+ * that fails is logged and swallowed: the press is recorded by then, and a
+ * rejection here would reach record.ts as "recording its cost failed".
  */
 export function recordPress(
   ledger: Ledger,
@@ -246,6 +269,13 @@ export function recordPress(
     const key = spendKey(dayOf(now), ledger.writerId);
     const row = asDayRow(await $.store.get(key));
     await $.store.set(key, addCall(row, usd));
-    await prune($, now);
+    try {
+      await prune($, now);
+    } catch (err) {
+      $.ui.log(
+        `prompt-lift: pruning old day rows failed: ${errorMessage(err)}`,
+        { to: "debug" },
+      );
+    }
   });
 }

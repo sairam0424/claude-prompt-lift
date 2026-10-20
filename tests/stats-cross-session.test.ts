@@ -155,12 +155,15 @@ test("(b) interleaved writers: two presses from one and three from the other mak
 });
 
 test("dayTotal sums the exact spend:<day>: prefix only, and a malformed row counts as nothing", async () => {
+  // The legacy row is present, so the stale stats row is not read; a day
+  // still only in `stats` is ledger-upgrade.test.ts
   const f = fakeEngine({
     store: {
       [spendKey(TODAY, "a")]: row(2, 0.2),
       [spendKey(TODAY, "b")]: { presses: 3 },
       [spendKey(TODAY, "c")]: "nonsense",
       [spendKey(TODAY, "d")]: { presses: "4", usd: Number.NaN, unpriced: null },
+      [spendKey(TODAY, "legacy")]: row(1, 0.2),
       [spendKey("2026-10-15", "a")]: row(9, 0.9),
       [`spend:${TODAY}x:a`]: row(9, 0.9),
       [`xspend:${TODAY}:a`]: row(9, 0.9),
@@ -172,7 +175,7 @@ test("dayTotal sums the exact spend:<day>: prefix only, and a malformed row coun
 
   const today = await storeTotal(f.store);
 
-  expect(today).toEqual(row(5, 0.2));
+  expect(today).toEqual(row(6, 0.4));
   expect(await storeTotal(f.store, "2026-10-15")).toEqual(row(9, 0.9));
   expect(await storeTotal(f.store, "2026-10-14")).toEqual(row(0, 0));
 });

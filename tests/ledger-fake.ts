@@ -9,7 +9,12 @@ import { dayTotal, spendKey, type DayStats } from "../hooks/ledger";
 
 type StateName = { readonly plugin: string; readonly key: string };
 type Versioned = { value: unknown; version: number };
-export type Fake = { $: EngineInterface; store: Record<string, unknown> };
+export type Fake = {
+  $: EngineInterface;
+  store: Record<string, unknown>;
+  /** Every line the ledger wrote through `$.ui.log`, in order. */
+  logs: string[];
+};
 
 export type FakeOptions = {
   /**
@@ -17,30 +22,35 @@ export type FakeOptions = {
    * record shared by two ledgers; a fresh one when absent.
    */
   store?: Record<string, unknown>;
+  /** The clock's one answer; `NOW_MS` when absent. */
+  nowMs?: number;
   /**
    * Make every write of a key with this prefix reject, as `engine`'s
    * `denyStoreSet` does.
    */
   denySet?: { key: string; reason: string };
+  /** Make every delete of a key with this prefix reject. */
+  denyDelete?: { key: string; reason: string };
   /** Hold every write until this settles: the other session's write, timed. */
   holdSet?: Promise<void>;
 };
 
 /**
- * The slice of `$` the ledger touches (`clock`, `store`, `state`), answered
- * from memory with the host's await gaps. A test gets the engine's own `$`,
- * which has no `store`, `state` or `clock`, so the ledger's functions cannot
- * take it; and a press cannot start while another runs (the phase guard), so
- * `press` cannot race two of them. `state.set` honours `ifVersion` so
- * `update`'s retry loop runs as it does on the host.
+ * The slice of `$` the ledger touches (`clock`, `store`, `state`, `ui.log`),
+ * answered from memory with the host's await gaps. A test gets the engine's
+ * own `$`, which has no `store`, `state` or `clock`, so the ledger's functions
+ * cannot take it; and a press cannot start while another runs (the phase
+ * guard), so `press` cannot race two of them. `state.set` honours `ifVersion`
+ * so `update`'s retry loop runs as it does on the host.
  */
 export function fakeEngine(opts: FakeOptions = {}): Fake {
   const store = opts.store ?? {};
+  const logs: string[] = [];
   const state = new Map<string, Versioned>();
   const nameOf = (ref: StateName): string => `${ref.plugin}/${ref.key}`;
   const unset: Versioned = { value: undefined, version: 0 };
   const slice = {
-    clock: { now: async (): Promise<number> => NOW_MS },
+    clock: { now: async (): Promise<number> => opts.nowMs ?? NOW_MS },
     store: {
       get: async (key: string): Promise<unknown> => store[key],
       set: async (key: string, value: unknown): Promise<void> => {
@@ -51,9 +61,18 @@ export function fakeEngine(opts: FakeOptions = {}): Fake {
         store[key] = value;
       },
       delete: async (key: string): Promise<void> => {
+        const denied = opts.denyDelete;
+        if (denied !== undefined && key.startsWith(denied.key)) {
+          throw new Error(denied.reason);
+        }
         delete store[key];
       },
       keys: async (): Promise<string[]> => Object.keys(store),
+    },
+    ui: {
+      log: (text: string): void => {
+        logs.push(text);
+      },
     },
     state: {
       get: async (ref: StateName): Promise<Versioned> =>
@@ -74,7 +93,7 @@ export function fakeEngine(opts: FakeOptions = {}): Fake {
       },
     },
   };
-  return { $: slice as unknown as EngineInterface, store };
+  return { $: slice as unknown as EngineInterface, store, logs };
 }
 
 /** The exact prefix of today's rows, every writer's. */
