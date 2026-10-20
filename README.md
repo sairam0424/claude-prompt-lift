@@ -1,65 +1,35 @@
 # prompt-lift
 
+A Claude Code mod that turns a vague prompt into a specific one before you send it. One press, one model call, rewritten from the `CLAUDE.md` and rules files your session loaded; the inserted words are highlighted in the prompt box, the cost sits on the band, and nothing is sent until you press Send.
+
 ![prompt-lift demo: Enhance rewrites the draft, Undo and Redo swap it back, /prompt-lift status shows the chain](docs/demo.gif)
 
-Recorded from a real Claude Code session ([how to re-record it](#demo)).
+![prompt-lift launch film: the band above the prompt, one press, the rewrite with its cost, Undo, Redo, status](docs/launch.gif)
 
-<a href="https://github.com/sairam0424/claude-prompt-lift/releases/download/v0.4.0/prompt-lift-0.4.0-launch.mp4"><img src="docs/launch-poster.jpg" width="720" alt="prompt-lift launch film, 24 seconds: the band above the prompt, one press, the rewrite with its cost, Undo, Redo, status"></a>
+<sub>Full film with sound: <a href="https://github.com/sairam0424/claude-prompt-lift/releases/download/v0.4.0/prompt-lift-0.4.0-launch.mp4">MP4 on the v0.4.0 release</a>.</sub>
 
-The 24-second launch film (MP4 with sound, 2 MB) is the same flow as one continuous take with captions; click the frame to download it from the [v0.4.0 release](https://github.com/sairam0424/claude-prompt-lift/releases/tag/v0.4.0).
-
-A Claude Code mod that turns a vague prompt into a specific one before you send it. It reads the instruction files your session loaded (the `CLAUDE.md` tree and rules files) and the skills Claude can trigger, asks a model for the smallest edit that adds the missing facts, puts the result back in the prompt box with the inserted words highlighted, and sends only when you press Send or Enter. The mod tracks costs with prompt caching support, falls back through a model chain on failures, and validates rewrites against safety guards.
-
-The band row appears above the prompt: `[ Enhance (e) ] [ Send (s) ] [ Undo (u) ]`; `Cancel (c)` while a call runs; `Send (queues)` while a turn runs; `Redo (u)` after an Undo. Nothing runs while idle: no timers, no per-keystroke hooks, a model call happens only on a press or a command.
-
-Formerly prompt-master; renamed in 0.4.0 — install id prompt-lift@claude-prompt-lift. Coming from 0.3.x? See [Upgrading from prompt-master](#upgrading-from-prompt-master).
+The band row sits above the prompt: `[ Enhance (e) ] [ Send (s) ] [ Undo (u) ]` (`Cancel (c)` while a call runs, `Redo (u)` after an Undo). Nothing runs while idle: no timers, no per-keystroke hooks.
 
 ## Install
-
-From a Claude Code session:
 
 ```
 /plugin install prompt-lift --marketplace sairam0424/claude-prompt-lift
 ```
 
-Claude Code asks `y` to add the marketplace, then a scope (`user` makes it available in every project).
+Claude Code asks `y` to add the marketplace, then a scope (`user` makes it available in every project). From a shell: `claude plugin marketplace add sairam0424/claude-prompt-lift && claude plugin install prompt-lift@claude-prompt-lift`. From a clone, add the folder as the marketplace instead; the plugin is read live, so edits show up after `/reload-plugins`.
 
-From a shell:
-
-```bash
-claude plugin marketplace add sairam0424/claude-prompt-lift
-claude plugin install prompt-lift@claude-prompt-lift
-```
-
-From a local clone (the plugin is read live from the folder, so edits show up after `/reload-plugins`):
-
-```bash
-git clone https://github.com/sairam0424/claude-prompt-lift ~/src/claude-prompt-lift
-claude plugin marketplace add ~/src/claude-prompt-lift
-claude plugin install prompt-lift@claude-prompt-lift
-```
-
-Then, in a session:
-
-1. `/reload-plugins` (or start a new one)
-2. `/prompt-lift probe` — one line per model; `ok` means your account can call it
-3. Type a draft like "write a commit" and press Enhance — the done row shows the number of skill descriptions matched into the dynamic block (≥ 1 when a commit skill such as commit-commands:commit is installed; 0 is correct otherwise)
-4. If a model shows `refused`, set `models` to the rungs your account has (see Configuration)
+First run: `/reload-plugins`, then `/prompt-lift probe` (one line per model; `ok` means your account can call it). If a model shows `refused`, set `models` to the rungs you have (see Configuration).
 
 ## Using it
 
 Three ways to press Enhance:
-- `ctrl+x b` from the prompt (the Enhance button carries the engine action `app:cycleDiffBase`; works while the diff panel is closed)
+- `ctrl+x b` from the prompt
 - `ctrl+x tab` to focus the band, then `e`
 - `/prompt-lift <your text>`
 
-### Send vs Enter
+**Send vs Enter.** Both send what is in the box. Send refuses drafts with `@file` mentions or pasted images (`press Enter to send; @files and images only travel with Enter`) because a plugin-submitted prompt does not expand them.
 
-Both send what is in the box. Send refuses drafts with `@file` mentions or pasted images (`prompt-lift: press Enter to send; @files and images only travel with Enter`) because a plugin-submitted prompt does not expand them.
-
-### Undo
-
-The original is kept until you submit or `/clear`. Undo acts only when the box still holds the enhanced text (or is empty); otherwise it says `box edited since Enhance; press Undo again within 10 s to discard` and acts on the second press. Undo is two-way (Redo).
+**Undo.** The original is kept until you submit or `/clear`. Undo acts only when the box still holds the enhanced text (or is empty); otherwise it asks for a second press within 10 s. Undo is two-way (Redo).
 
 ### Commands
 
@@ -94,34 +64,9 @@ A single-key binding is possible through Claude Code's own keybindings file, `~/
 
 This binds ctrl+e to the same action, which presses Enhance whenever the band is drawn. With the band hidden or the diff panel open, ctrl+e cycles the diff base. Pick a key no other binding in your file uses.
 
-## What is sent to the model
-
-- The instruction files Claude Code loaded for the session: Project, Local, Managed and `~/.claude/rules/*`. Not the auto-memory index. Not `~/.claude/CLAUDE.md` or `~/CLAUDE.md` by default (`instructionExclude`).
-- Every skill name Claude lists, except MCP-provided ones. Nothing else is excluded by default; a large skill catalogue costs cached tokens, so leave out the namespaces you never want named with `skillExclude` (patterns match the whole name, `*` any run, `?` one character):
-
-  ```json
-  "skillExclude": "sparc:*,swarm:*,gws-*"
-  ```
-
-- The eight skill descriptions whose words best match the draft (`relevantSkills`).
-- A subproject's `CLAUDE.md` when the draft names a top-level directory of the project that has one.
-- The draft. Never your conversation unless `includeConversation` is on.
-
-The instructions and skill names form one cached block, so a second press within five minutes reads it from the cache.
-
-The built-in commit example names the `commit-commands:commit` skill only when that skill is loaded in the session; otherwise a plain rewrite is shown.
-
 ### Conversation tail
 
-The recent conversation is excluded by default (`includeConversation: false`). When on, the mod includes the last N messages (user + assistant, `conversationMessages`) in the dynamic (uncached) block, so each press pays for them.
-
-The `/prompt-lift tail` command controls the tail for this session:
-- `/prompt-lift tail on` — enable the tail using `conversationMessages` from the config
-- `/prompt-lift tail off` — disable the tail for this session
-- `/prompt-lift tail <N>` — include the last N messages (1-50)
-- `/prompt-lift tail` — show the current state
-
-The idle and done rows show ` · tail N` when the tail is active. Each message is cut to 600 characters. The `status` command prints `conversation: off` or `conversation: last N messages`.
+The recent conversation is excluded by default (`includeConversation: false`). `/prompt-lift tail on|off|<N>` controls it for this session (1-50 messages, each cut to 600 characters); the idle and done rows show ` · tail N` while it is on, and `status` prints `conversation: off` or `conversation: last N messages`. The tail travels in the uncached block, so each press pays for it.
 
 ## Data handling
 
@@ -210,24 +155,11 @@ These are the ids the cost table below prices and the rungs `/prompt-lift model 
 
 ### Extra rules
 
-The `extraRules` option lets you add project-specific preferences to the rewrite rules. The value is appended as rule 11 (before the JSON-protocol rule), visible only to the model:
+`extraRules` appends project preferences to the rewrite rules as rule 11, visible only to the model (max 1,000 characters; tag-like markup is neutralised; changing it rebuilds the cached block once):
 
 ```json
-{
-  "pluginConfigs": {
-    "prompt-lift@claude-prompt-lift": {
-      "options": {
-        "extraRules": "Prefer bun over npm. Use single quotes in TypeScript."
-      }
-    }
-  }
-}
+"extraRules": "Prefer bun over npm. Use single quotes in TypeScript."
 ```
-
-- Maximum 1,000 characters (longer text is truncated with `…`)
-- Tag-like markup (`<system>`, `<tag>`) is neutralised to prevent prompt injection
-- Changing this option invalidates the static block cache once (the next press rebuilds it)
-- Empty by default, so projects without custom rules pay no cost and see no cache invalidation
 
 ## Cost
 
@@ -241,31 +173,22 @@ Prices are USD per 1M tokens, Bedrock `us.*` profiles, verified 2026-10-16:
 
 The table is Bedrock `us.*` cross-region pricing, which is Anthropic's list price plus 10%; on the Anthropic API expect about 10% less. An alias prices as the current generation of its family (`fable` as Fable 5.1, `sonnet` as Sonnet 5.5, `haiku` as Haiku 5.5); an unpriced model shows `$?` and `(no price)`.
 
-The built-in price table can be overridden with the `prices` configuration option (see Configuration). The value is a JSON **string**, so in `settings.json` it is quoted and escaped rather than written as a nested object:
+The built-in table can be overridden with the `prices` option: a JSON **string** mapping a model id fragment to per-1M-token prices, merged over the built-in rows (`fable-5-1`, `sonnet-5-5`, `haiku-5-5`); invalid JSON leaves the defaults and logs `prompt-lift: prices option ignored: <reason>` once.
 
 ```json
 "prices": "{\"fable-5-1\": {\"input\": 10, \"output\": 50, \"cacheWrite\": 12.5, \"cacheRead\": 0.25}}"
 ```
-
-Each key is a model id fragment (`priceFor` matches an alias whole and a full id by substring). The built-in rows are keyed `fable-5-1`, `sonnet-5-5` and `haiku-5-5`; a row under one of those names replaces it wholesale, and your rows are scanned before the built-in ones, so a longer key such as `us.anthropic.claude-sonnet-5-5-v2` wins over the `sonnet-5-5` fragment it contains. Invalid JSON or a malformed entry leaves the whole table at its defaults and logs `prompt-lift: prices option ignored: <reason>` once at session start. Claude Code validates plugin options against the manifest before the hooks module loads, so any non-string `prices` value is refused at load (a number produces `Prices must be a string`; an object is refused at the options boundary) and never reaches the mod.
 
 Typical press with defaults (≈7k static tokens, ≈1.5k dynamic, ≈400 out):
 - Fable: ≈ $0.13 cold / ≈ $0.04 warm
 - Sonnet: ≈ $0.027 / ≈ $0.009
 - Haiku: ≈ $0.0015 / ≈ $0.0006
 
-The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars — a successful rewrite, `already specific, left as is`, every refusal, and a chain that failed after a paid rung — and `status` counts them all (a refused press cost the same as an accepted one). A press that fell back to a later rung is priced by every rung it paid for: `via fable 5.1: no text` on the toast means Fable's tokens are in the dollars too, not only the answering model's. `/prompt-lift model haiku` switches to Haiku.
+The cache lives 5 minutes. Every toast that follows a model call ends with the call's real dollars (a rewrite, `already specific`, every refusal, a chain that failed after a paid rung), and `status` counts them all. `/prompt-lift model haiku` switches the first rung.
 
 ### Spend caps
 
-Two options cap what the mod spends; both are off (`0`) by default, and a negative or non-numeric value counts as off:
-
-- `sessionCapUsd` — this session's priced presses. `/prompt-lift cap <usd>` replaces it for the session (`/prompt-lift cap 2.50`), `/prompt-lift cap off` lifts it, and `/prompt-lift cap` alone prints the caps as `status` does. The override lives in session state, so a new session starts from the option again.
-- `dayCapUsd` — today's priced presses across every session on this machine (the per-day rows `status` shows). It has no override.
-
-A press is refused before any model call once a window's recorded spend meets its cap — `prompt-lift: session cap $0.10 reached · /prompt-lift cap off` or `prompt-lift: day cap $5.00 reached` — and records nothing. The check reads the mod's own ledger, never your account's rate limits, so it counts only what the price table priced: an unpriced press (`$?`) adds to `unpriced calls`, not to the dollars a cap sees. The cap is compared with what was spent *before* the press, so the press that crosses it still runs and the next one is refused.
-
-While a cap is active the band's idle and done rows end with what is left, ` · $0.85 left`; when the day cap is the tighter one the row shows its figure as ` · $0.35 left (day)`. `status` prints `caps: off` or `caps: session $1.00 ($0.85 left) · day $5.00 ($4.85 left)` after the `today:` line, then `session total (all tools): $N` when the engine has that figure — the whole session's cost as Claude Code's own `/cost` totals it, every tool included, distinct from the mod's ledger.
+`sessionCapUsd` caps this session's priced presses (`/prompt-lift cap <usd>` moves it for the session, `cap off` lifts it); `dayCapUsd` caps today's presses across every session on this machine. Both are off (`0`) by default. A press is refused before any model call once the recorded spend meets the cap (`prompt-lift: session cap $0.10 reached · /prompt-lift cap off`), the check reads only the mod's own ledger (an unpriced `$?` press never counts), and while a cap is active the band's rows end with ` · $0.85 left` (`(day)` when the day cap is tighter). `status` prints `caps:` and the engine's `session total (all tools)`.
 
 ## Why was my draft refused?
 
@@ -299,57 +222,19 @@ After the call (the toast ends with what the call cost):
 ## Updating
 
 - Installed from GitHub: `claude plugin update prompt-lift@claude-prompt-lift`, then restart Claude Code.
-- Installed from a clone: `git pull` in the clone, then `/reload-plugins` in a session (or start a new one). The folder is read live; `claude plugin update` only refreshes the recorded version.
-
-### Upgrading from prompt-master
-
-0.3.x was installed as `prompt-master@claude-prompt-master` from the marketplace `claude-prompt-master`. Both names changed: the plugin is `prompt-lift`, the marketplace `claude-prompt-lift`. The marketplace's `renames` map lets Claude Code recognise the old plugin name, but only inside the marketplace it already knows, and nothing moves your settings keys to `prompt-lift@claude-prompt-lift`: the options filed under `pluginConfigs["prompt-master@claude-prompt-master"]` — pinned `models` and `effortModels`, `skillExclude`, `prices`, the caps — do not apply to prompt-lift, which then runs on its defaults: the `fable,sonnet,haiku` aliases (on Bedrock, whatever the build maps them to, priced as the current generation), every skill, no caps. Move over in this order:
-
-1. Copy your options first. Open `~/.claude/settings.json` and keep the `pluginConfigs` → `prompt-master@claude-prompt-master` → `options` block aside; `claude plugin configure prompt-master@claude-prompt-master` lists which options are set but not their values. Uninstalling the plugin or removing its marketplace deletes that block.
-2. Remove the old marketplace: `claude plugin marketplace remove claude-prompt-master`. Claude Code uninstalls prompt-master with it and deletes what it saved, the options block included.
-3. Add the new marketplace and install: `claude plugin marketplace add sairam0424/claude-prompt-lift` (or the path of your clone after `git pull`), then `claude plugin install prompt-lift@claude-prompt-lift`.
-4. Put the options back under `pluginConfigs` → `prompt-lift@claude-prompt-lift` → `options` (settings file or `/config`), and check `enabledPlugins`: the new `prompt-lift@claude-prompt-lift` line must sit where the old one did, above any mod that draws the band without passing it through (see Limits).
-5. `/reload-plugins` (or start a new session), then `/prompt-lift status`: the `chain:` row must show the chain your options name (your pinned ids on Bedrock, see Bedrock users); the aliases there mean the options did not move.
-
-`status` day totals start at zero and `/prompt-lift model` is back on the configured chain: the 0.3.x rows and the stored model choice were saved under the old id and are not read.
+- Installed from a clone: `git pull`, then `/reload-plugins`.
+- Coming from 0.3.x (`prompt-master@claude-prompt-master`): follow [docs/UPGRADING.md](docs/UPGRADING.md); the options under the old settings key do not carry over by themselves.
 
 ## Limits
 
-- **One band above the prompt, shared by every mod.** The engine draws the above-prompt band once; hooks run in the order of `enabledPlugins` in `~/.claude/settings.json` (earlier = outer). prompt-lift always passes the band through and stacks its row above whatever the mods beneath draw, but a mod listed *before* it that draws without passing through (the playground `token-weather` does) hides prompt-lift's row entirely: no buttons, no `ctrl+x b`, only the `/prompt-lift …` commands. Fix: move the `prompt-lift@claude-prompt-lift` line above that mod's line in `enabledPlugins`, then `/reload-plugins` (or restart). `/prompt-lift status` still works while the band is hidden.
-- Terminal only (no desktop footer, no VS Code)
-- No timers, no per-keystroke hooks
-- The idle row's day figure (` · $Y left (day)`, shown while a day cap is on) is read when the band renders and no timer redraws it, so a session that crosses midnight keeps the previous day's figure until the next press
-- One band row
-- Shares your account's model quota with the main turn (a rate limit on the first rung falls back to the next and the toast says so)
-- The mod sends instruction file text to the model; a hostile `CLAUDE.md` in a cloned repository can attempt prompt injection. The mod neutralizes tag-like markup and instructs the model to treat context as data, but the residual risk is yours to weigh when enhancing in untrusted repositories.
+- One band above the prompt, shared by every mod: hooks run in `enabledPlugins` order (earlier = outer). prompt-lift passes the band through and stacks above the mods beneath, but a mod listed *before* it that draws without passing through (the playground `token-weather` does) hides the row. Fix: move `prompt-lift@claude-prompt-lift` above that mod's line, then `/reload-plugins`. The `/prompt-lift …` commands keep working meanwhile.
+- Terminal only (no desktop footer, no VS Code); one band row; no timers, so the day figure on the idle row refreshes at the next press after midnight.
+- Shares your account's model quota with the main turn; a rate limit on the first rung falls back to the next and the toast says so.
+- The mod sends instruction file text to the model, so a hostile `CLAUDE.md` in a cloned repository can attempt prompt injection. Tag-like markup is neutralised and the model is told to treat that text as data; the residual risk is yours to weigh in untrusted repositories.
 
 ## Development
 
-The plugin is read live from its folder. `claude plugin validate .` reads the manifest and the hooks module the way the engine will; `claude plugin test .` runs `tests/*.test.ts(x)`. Neither type-checks, so `bash scripts/typecheck.sh` is the type gate, best-effort: it finds the newest `claude-code.d.ts` Claude Code extracted with its plugin-authoring skill (under `/private/tmp/claude-*/bundled-skills/`, so absent after a reboot until that skill loads again in a session), writes a temporary strict tsconfig (with `noUncheckedIndexedAccess`) over that file plus `hooks/`, `types/` and `tests/`, and runs `tsc --noEmit` through `npx`. It prints the types file it used. With no types file on the machine it says so and exits 0; with only an older cached copy it says STALE, and an error it then reports may be the old build's rather than this code's.
-
-### Evals
-
-`evals/` holds three cases for `claude plugin eval`, which loads only this plugin into a throwaway `claude -p` session and matches a regex against that session's trace:
-
-- `01-status`: `/prompt-lift status` must print the `chain:` row. No model call.
-- `02-preview`: `/prompt-lift preview <draft>` must print the `dynamic block (sent uncached)` marker. No model call.
-- `03-enhance`: `/prompt-lift <draft>` runs the Enhance chain once (`runs: 1`, one model call). A headless run has no prompt box, so the rewrite is refused (`no_composer`) and the mod says so in a toast; the trace records that toast as a `ui_toast` line ending with the call's price. The case passes when that toast carries a real price, which shows the chain reached a model. It does not grade the rewrite. It needs working provider credentials and a chain rung with a price in the table: without them the toast reads `no model answered` or carries `$?`, and the case goes red. A call cheap enough to render as `$0.000` is rejected as well, by the grader's `(?!0\.000)` guard.
-
-Run it from a shell that has your provider variables (Bedrock or Anthropic), because each run inherits them:
-
-```bash
-claude plugin eval . --ablation none --no-publish
-```
-
-`--ablation none` drops the default no-plugin baseline arm, which sends the same text to the session model as plain chat: it costs money and says nothing about this plugin. `--no-publish` keeps the HTML report local; without it the report is also published to claude.ai when the account supports that. Add `--trust-plugin` to skip the first-run trust prompt in CI. Results go to `evals/results/`, which is gitignored.
-
-Measured on 2026-10-19 with Claude Code 2.1.303: 7 runs in 47 s, 3 of 3 cases passing, and the harness billed $0.00, because the one model call is made by the mod and priced by the mod (its toast showed $0.01 in that run, $0.03 in an earlier one). The same suite with the default baseline arm cost $0.42, all of it in the baseline arms.
-
-### Demo
-
-From the repo root, `bash scripts/demo.sh --plugin-dir "$PWD"` records `docs/demo.cast` and converts it to `docs/demo.gif`. It builds a throwaway project, loads this checkout with `--plugin-dir` (it refuses any other path, so the live install is never recorded), drives a real session in an isolated tmux server (`tmux -L pldemo`) under `asciinema rec`, and converts the take with `agg`. It needs `tmux`, `asciinema`, `agg` (`brew install agg`), `jq`, `claude`, `python3` and `git`, and the provider variables of a working Claude Code login. Every run leaves a trust entry for its throwaway `/private/tmp/pl-demo.*` project in `~/.claude.json`; the script does not remove it.
-
-The take makes one real Enhance call (about $0.01 to $0.20), never presses Send, and enters nothing but `/prompt-lift status`. Pass `--shots-dir DIR` to keep a screen capture of each step. Before conversion the script replaces the account name and home path in the cast with same-length placeholders (the status output lists `~/.claude/rules` files) and drops the tmux detach line from the end; it then fails the run, discarding the paid take, if the account name still shows anywhere in the cast in any letter case, and warns when the cast passes 240 KiB. The take is recorded and converted inside the sandbox and moved into `docs/` only after the sanitize step, the content check and the conversion all pass, so a failed re-record leaves the committed cast and GIF untouched.
+Tests, type gate, evals and the demo recording script: see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The plugin is read live from its folder; `claude plugin validate .` and `claude plugin test .` are the two gates.
 
 ## License
 
