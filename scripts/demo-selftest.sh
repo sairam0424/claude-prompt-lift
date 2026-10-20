@@ -32,7 +32,7 @@ check() { local label="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$label"; el
 TEMP_PATHS=()
 cleanup_temp() {
   local path
-  for path in "${TEMP_PATHS[@]}"; do
+  for path in ${TEMP_PATHS[@]+"${TEMP_PATHS[@]}"}; do
     case "$path" in
       /tmp/pl-selftest-home* | /tmp/pl-demo.*)
         rm -f -- "$path/home/.aws" # a sandbox's symlink to the fake .aws goes first
@@ -79,6 +79,7 @@ check "the names line carries no values" bash -c '! grep -E "provider variables"
 
 # 3. sandbox HOME layout and a cleanup that never follows the .aws symlink
 layout="$(HOME="$FAKE" bash -c '
+TEMP_PATHS+=("$(sed -n 's/^WORK=//p' <<<"$layout")")
   source "$1"
   build_sandbox
   echo "WORK=$WORK"
