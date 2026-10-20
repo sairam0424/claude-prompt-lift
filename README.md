@@ -4,6 +4,10 @@
 
 Recorded from a real Claude Code session ([how to re-record it](#demo)).
 
+<a href="https://github.com/sairam0424/claude-prompt-lift/releases/download/v0.4.0/prompt-lift-0.4.0-launch.mp4"><img src="docs/launch-poster.jpg" width="720" alt="prompt-lift launch film, 24 seconds: the band above the prompt, one press, the rewrite with its cost, Undo, Redo, status"></a>
+
+The 24-second launch film (MP4 with sound, 2 MB) is the same flow as one continuous take with captions; click the frame to download it from the [v0.4.0 release](https://github.com/sairam0424/claude-prompt-lift/releases/tag/v0.4.0).
+
 A Claude Code mod that turns a vague prompt into a specific one before you send it. It reads the instruction files your session loaded (the `CLAUDE.md` tree and rules files) and the skills Claude can trigger, asks a model for the smallest edit that adds the missing facts, puts the result back in the prompt box with the inserted words highlighted, and sends only when you press Send or Enter. The mod tracks costs with prompt caching support, falls back through a model chain on failures, and validates rewrites against safety guards.
 
 The band row appears above the prompt: `[ Enhance (e) ] [ Send (s) ] [ Undo (u) ]`; `Cancel (c)` while a call runs; `Send (queues)` while a turn runs; `Redo (u)` after an Undo. Nothing runs while idle: no timers, no per-keystroke hooks, a model call happens only on a press or a command.
