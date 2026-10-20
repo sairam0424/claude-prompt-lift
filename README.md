@@ -76,7 +76,7 @@ Outbound data leaves this machine only through `$.model.complete`, called with y
 - The instruction files the session loaded: Project, Local, Managed, and `~/.claude/rules/*`. Not the auto-memory index. Not `~/.claude/CLAUDE.md` or `~/CLAUDE.md` by default.
 - The skill names Claude lists (minus `skillExclude`)
 - Up to eight matched skill descriptions
-- A named subproject's `CLAUDE.md` when the draft mentions a top-level directory of the project that has one
+- A named subproject's `CLAUDE.md` when the draft mentions a top-level directory of the project that has one, unless `instructionExclude` matches it
 - The recent conversation only when `includeConversation` is on
 
 The mod touches the filesystem through `$.fs.read`, `$.fs.list` and `$.fs.exists`: `$.fs.read` reads those instruction files and a named subproject's `CLAUDE.md`; `$.fs.list` lists the top-level entries of the project root; `$.fs.exists` checks for that `CLAUDE.md` and, after a rewrite, probes any file-looking path the rewrite names that your draft and your `extraRules` did not (the path guard behind `named a file that does not exist`), absolute paths included. The model picks those paths; only existence is read, and the answer never leaves the machine. `$.env.get` reads only `HOME`. Session facts come from `$.session.usage`, `$.session.messages`, `$.session.model`, `$.session.root`, and `$.command.list`.
@@ -125,7 +125,7 @@ Settings live in `/config` under `pluginConfigs` → `prompt-lift@claude-prompt-
 | `includeConversation` | boolean | false | Include recent conversation history |
 | `conversationMessages` | number | 6 | Number of recent messages to include |
 | `skillPrefixAllow` | string | `""` | Skills allowed as a leading `/name` under `run` (empty for none) |
-| `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Instruction files to leave out |
+| `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Instruction files to leave out (globs, `~` expands; also applies to a named subproject's `CLAUDE.md`) |
 | `skillExclude` | string | `""` | Skill name patterns left out of the listing (`*` and `?` wildcards); empty sends every skill Claude lists |
 | `extraRules` | string | `""` | Project preferences appended to the rewrite rules as rule 11 (max 1,000 characters; tag-like markup is neutralised). See Extra rules |
 | `prices` | string | | A JSON **string** (quoted and escaped, not a bare object) mapping a model id fragment to per-1M-token prices, merged over the built-in table; invalid JSON or a malformed entry is ignored with a log line. See Cost for the exact form |

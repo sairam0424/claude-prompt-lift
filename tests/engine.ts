@@ -137,6 +137,10 @@ export type Engine = {
   submits: { text: string; asUser?: true; origin?: PromptOrigin }[];
   fills: PromptFillArgs[];
   store: Record<string, unknown>;
+  /** Every path `$.fs.read` was asked for, in order. */
+  reads: string[];
+  /** Every path `$.fs.exists` probed, in order. */
+  probes: string[];
   /** The mocked clock every `$.clock` call reads; `advance` moves it. */
   clock: MockClock;
   /** Resolves once the first model call has arrived at the stub. */
@@ -217,6 +221,8 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
   const submits: { text: string; asUser?: true; origin?: PromptOrigin }[] = [];
   const fills: PromptFillArgs[] = [];
   const store: Record<string, unknown> = {};
+  const reads: string[] = [];
+  const probes: string[] = [];
   const replies = [...(opts.replies ?? [])];
   const files = opts.files ?? DEFAULT_FILES;
   const memoryFiles = opts.memoryFiles ?? DEFAULT_MEMORY_FILES;
@@ -300,10 +306,14 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
   on("session.model", () => ({ value: opts.model ?? FABLE }));
   on("session.root", () => ({ value: root }));
   on("fs.read", ($, e) => {
+    reads.push(e.path);
     const text = files[e.path];
     return text === undefined ? { deny: `missing ${e.path}` } : { value: text };
   });
-  on("fs.exists", ($, e) => ({ value: pathExists(files, e.path) }));
+  on("fs.exists", ($, e) => {
+    probes.push(e.path);
+    return { value: pathExists(files, e.path) };
+  });
   on("fs.list", ($, e) => ({ value: childEntries(files, e.path) }));
   on("env.get", ($, e) => ({ value: e.name === "HOME" ? home : undefined }));
   on("ui.toast", ($, e) => {
@@ -341,6 +351,8 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     submits,
     fills,
     store,
+    reads,
+    probes,
     clock,
     modelCalled,
     release: () => release(),

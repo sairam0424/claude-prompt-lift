@@ -129,7 +129,7 @@
     "instructionExclude": {
       "type": "string",
       "title": "Instruction Exclude",
-      "description": "Comma-separated list of instruction files to exclude",
+      "description": "Comma-separated list of instruction files to exclude (globs; also a named subproject's CLAUDE.md)",
       "default": "~/.claude/CLAUDE.md,~/CLAUDE.md"
     },
     "skillExclude": {

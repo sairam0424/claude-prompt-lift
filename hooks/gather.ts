@@ -2,6 +2,7 @@ import type { EngineInterface, SessionMessage } from "claude-code";
 import type { Config } from "./config";
 import {
   capText,
+  isExcluded,
   selectInstructionFiles,
   selectSkillNames,
   subprojectDir,
@@ -12,9 +13,10 @@ import { isFileLike, pathTokens } from "./tokens";
 import { readTailCount } from "./tail";
 
 // Reads what an Enhance press needs from the engine: the instruction files the
-// session loaded, the skill listing, the command list, the root's directories,
-// an optional subproject CLAUDE.md and the conversation tail. No state lives
-// here.
+// session loaded (minus `instructionExclude`), the skill listing, the command
+// list, the root's directories, an optional subproject CLAUDE.md (left unread
+// when `instructionExclude` matches it) and the conversation tail. No state
+// lives here.
 
 const SESSION_MODEL_TOKEN = "session";
 const SUBPROJECT_MAX_CHARS = 12_000;
@@ -163,12 +165,24 @@ async function readSubproject(
   root: string,
   draft: string,
   dirs: readonly string[],
+  patterns: readonly string[],
+  home: string,
 ): Promise<Document | undefined> {
   const dir = subprojectDir(draft, dirs);
   if (dir === undefined) {
     return undefined;
   }
   const path = `${root}/${dir}/CLAUDE.md`;
+  // R17: `instructionExclude` covers this file as it covers the loaded
+  // instruction files, decided before any `$.fs` call, so an excluded file is
+  // neither probed nor read; the block then shows no subproject section, as
+  // for an absent file.
+  if (isExcluded(path, patterns, home)) {
+    $.ui.log(`prompt-lift: subproject ${path} left out by instructionExclude`, {
+      to: "debug",
+    });
+    return undefined;
+  }
   try {
     if (!(await $.fs.exists(path))) {
       return undefined;
@@ -205,7 +219,14 @@ export async function gatherContext(
   }));
   const root = await $.session.root();
   const rootDirs = await listRootDirs($, root);
-  const subproject = await readSubproject($, root, draft, rootDirs);
+  const subproject = await readSubproject(
+    $,
+    root,
+    draft,
+    rootDirs,
+    cfg.instructionExclude,
+    home,
+  );
   const count = await readTailCount($, cfg);
   const conversation = count > 0 ? conversationTail(rows, count) : undefined;
   return {

@@ -45,7 +45,7 @@ export function globMatch(pattern: string, value: string): boolean {
   return regex.test(value);
 }
 
-function isExcluded(
+export function isExcluded(
   path: string,
   patterns: readonly string[],
   home: string,
