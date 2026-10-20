@@ -165,12 +165,12 @@ test("the sentence cap still refuses a long rewrite that fits the allowance", ()
 // is refused ("named a file that does not exist") in a project without it.
 // Slash tokens are covered too: the guard reads `a/b` as a file when the
 // project root has a directory `a`, which no example can know, so the root set
-// below is the worst case, the first segment of every slash token. The one
-// slash token let through is prose: example 2's `before/after numbers`, looked
-// up only in a project with a top-level `before` directory.
-const SLASH_PROSE: ReadonlySet<string> = new Set(["before/after"]);
+// below is the worst case, the first segment of every slash token. None is let
+// through (R21): example 2 once said `before/after numbers`, which a project
+// with a top-level `before` directory made the guard look up, and now says
+// `before-and-after numbers`.
 
-test("no example answer names a file or a slash path the draft did not, bar the prose before/after, so the path guard has nothing to look up", () => {
+test("no example answer names a file or a slash path the draft did not, so the path guard has nothing to look up", () => {
   for (const [label, skills] of SKILL_SETS) {
     for (const { draft, answer } of examplePairsFor(skills)) {
       const inDraft = new Set(pathTokens(draft));
@@ -182,9 +182,7 @@ test("no example answer names a file or a slash path the draft did not, bar the 
           .filter((token) => token.includes("/"))
           .map((token) => token.split("/")[0] ?? ""),
       );
-      const lookedUp = named.filter(
-        (token) => !SLASH_PROSE.has(token) && isFileLike(token, rootDirs),
-      );
+      const lookedUp = named.filter((token) => isFileLike(token, rootDirs));
       expect({ label, draft, lookedUp }).toEqual({
         label,
         draft,
@@ -235,16 +233,21 @@ test("examplesText is built from examplePairsFor", () => {
 
 // The static block is the cache key's biggest part, so the emitted examples
 // text must not change by accident (every user's prompt cache would miss).
-// This is the text v0.4.0 emits. It is the literal v0.3.x shipped at 927f0b0
+// This is the text v0.5.0 emits. It is the literal v0.3.x shipped at 927f0b0
 // (1995 chars, sha256 c774b97c6dc0f4a788d6cafbe40769b19f71329c53bf0c6ef8eaaf9832062b48)
 // with example 1's `(per CLAUDE.md's test-first rule)` reworded to
 // `(per the project's test-first rule)` and example 6's `README.md` written as
-// the draft's bare `README`, so no example answer names a file the path guard
-// would look up. Captured by evaluating hooks/rules.ts with
-// `node --experimental-strip-types` and writing
-// `examplesText(new Set(["commit-commands:commit"]))` out unchanged: 1994
-// chars (all ASCII, so 1994 bytes), sha256
-// 67eb15a2db8d51f8d143b182cb27453d1eee4d51330535294b902853ad040c1a.
+// the draft's bare `README` (v0.4.0: 1994 chars, sha256
+// 67eb15a2db8d51f8d143b182cb27453d1eee4d51330535294b902853ad040c1a), and with
+// example 2's `before/after numbers` written `before-and-after numbers` (R21),
+// so no example answer carries a slash token the path guard could look up in a
+// project with a top-level `before` directory. That one word changes the static
+// block once for every user: one prompt-cache miss. Captured by evaluating
+// hooks/rules.ts with `node --experimental-strip-types` and writing
+// `examplesText(new Set(["commit-commands:commit"]))` out unchanged: 1998
+// chars (all ASCII, so 1998 bytes, `wc -c`), sha256
+// 611aeadf9e37bd81b3588a6989a54601c963cd899dfa12be965e8930df197d77
+// (`shasum -a 256`).
 const EXAMPLES_PINNED = `<examples>
 <example>
 <draft>fix the login bug</draft>
@@ -252,7 +255,7 @@ const EXAMPLES_PINNED = `<examples>
 </example>
 <example>
 <draft>make it faster</draft>
-<answer>{"verdict":"improve","prompt":"Profile the slow path first and tell me where the time goes before optimizing; then make the smallest change that fixes the hotspot and report the before/after numbers.","why":"added profile-first step and success criteria","applied":["rule 1","rule 2"]}</answer>
+<answer>{"verdict":"improve","prompt":"Profile the slow path first and tell me where the time goes before optimizing; then make the smallest change that fixes the hotspot and report the before-and-after numbers.","why":"added profile-first step and success criteria","applied":["rule 1","rule 2"]}</answer>
 </example>
 <example>
 <draft>can you suggest some changes to this function</draft>

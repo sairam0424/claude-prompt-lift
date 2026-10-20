@@ -108,7 +108,7 @@ export const EXAMPLE_PAIRS: ReadonlyArray<ExamplePair> = [
     answer: {
       verdict: "improve",
       prompt:
-        "Profile the slow path first and tell me where the time goes before optimizing; then make the smallest change that fixes the hotspot and report the before/after numbers.",
+        "Profile the slow path first and tell me where the time goes before optimizing; then make the smallest change that fixes the hotspot and report the before-and-after numbers.",
       why: "added profile-first step and success criteria",
       applied: ["rule 1", "rule 2"],
     },
