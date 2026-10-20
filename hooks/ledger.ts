@@ -176,6 +176,9 @@ function sumRows(rows: readonly DayStats[]): DayStats {
  * a reader between another session's `set(legacy)` and `delete(stats)` sees
  * the legacy row and skips `stats`, so no interleaving counts the day twice;
  * one between its own key list and the `stats` read can under-read once.
+ * The `stats` read is not a transient: every day after the upgrade day has
+ * no legacy row, so each total costs one read of a missing key, by design
+ * (caching "absent" here would hide a still-running 0.4.1 session's row).
  */
 export async function dayTotal(
   $: EngineInterface,

@@ -154,7 +154,7 @@ test("(b) interleaved writers: two presses from one and three from the other mak
   expect((rowOf(f.store, "b") as DayStats).presses).toBe(3);
 });
 
-test("dayTotal sums the exact spend:<day>: prefix only, and a malformed row counts as nothing", async () => {
+test("dayTotal sums the exact spend:<day>: prefix once the legacy row is present, and a malformed row counts as nothing", async () => {
   // The legacy row is present, so the stale stats row is not read; a day
   // still only in `stats` is ledger-upgrade.test.ts
   const f = fakeEngine({
