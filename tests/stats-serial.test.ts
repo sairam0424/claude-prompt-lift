@@ -70,7 +70,7 @@ function fakeEngine(denySet?: { key: string; reason: string }): Fake {
   return { $: slice as unknown as EngineInterface, store };
 }
 
-function dayRow(store: Record<string, unknown>): DayStats | undefined {
+function todayRow(store: Record<string, unknown>): DayStats | undefined {
   return (store[STATS_STORE_KEY] as Stats | undefined)?.byDay[TODAY];
 }
 
@@ -84,7 +84,7 @@ test("two presses recorded in the same instant both land in the day row", async 
 
   await Promise.all([recordPress(f.$, AMOUNT), recordPress(f.$, AMOUNT)]);
 
-  const row = dayRow(f.store);
+  const row = todayRow(f.store);
   expect(row?.presses).toBe(2);
   expect(row?.unpriced).toBe(0);
   expectUsd(row?.usd, 0.02);
@@ -95,7 +95,7 @@ test("a priced and an unpriced press in the same instant both count", async () =
 
   await Promise.all([recordPress(f.$, AMOUNT), recordPress(f.$, undefined)]);
 
-  const row = dayRow(f.store);
+  const row = todayRow(f.store);
   expect(row?.presses).toBe(2);
   expect(row?.unpriced).toBe(1);
   expectUsd(row?.usd, 0.01);
@@ -110,7 +110,7 @@ test("three concurrent recordSpend calls count three presses in the day row and 
     recordSpend(f.$, 0.02),
   ]);
 
-  const row = dayRow(f.store);
+  const row = todayRow(f.store);
   expect(row?.presses).toBe(3);
   expect(row?.unpriced).toBe(0);
   expectUsd(row?.usd, 0.06);
@@ -119,22 +119,22 @@ test("three concurrent recordSpend calls count three presses in the day row and 
   expectUsd(spent.day, 0.06);
 });
 
-test("a refused store write rejects recordPress with the reason", async () => {
-  const f = fakeEngine({ key: STATS_STORE_KEY, reason: "disk full" });
+test("a refused store write rejects recordPress, and the queue goes on: the next presses land", async () => {
+  const refused = fakeEngine({ key: STATS_STORE_KEY, reason: "disk full" });
 
-  await expect(recordPress(f.$, AMOUNT)).rejects.toThrow("disk full");
-  expect(f.store[STATS_STORE_KEY]).toBe(undefined);
-});
+  await expect(recordPress(refused.$, AMOUNT)).rejects.toThrow("disk full");
+  expect(refused.store[STATS_STORE_KEY]).toBe(undefined);
 
-test("the queue goes on after a rejected write: a fresh engine records the next press", async () => {
+  // Same module-level queue, fresh engine: the rejected entry must not stall
+  // it, in this very test, whatever order the runner picks.
   const f = fakeEngine();
-
   await recordPress(f.$, AMOUNT);
+  await Promise.all([recordPress(f.$, AMOUNT), recordPress(f.$, AMOUNT)]);
 
-  const row = dayRow(f.store);
-  expect(row?.presses).toBe(1);
+  const row = todayRow(f.store);
+  expect(row?.presses).toBe(3);
   expect(row?.unpriced).toBe(0);
-  expectUsd(row?.usd, AMOUNT);
+  expectUsd(row?.usd, 3 * AMOUNT);
 });
 
 test("two presses recorded in turn give the row they always did", async () => {
@@ -143,7 +143,7 @@ test("two presses recorded in turn give the row they always did", async () => {
   await recordPress(f.$, 0.01);
   await recordPress(f.$, 0.03);
 
-  const row = dayRow(f.store);
+  const row = todayRow(f.store);
   expect(row?.presses).toBe(2);
   expect(row?.unpriced).toBe(0);
   expectUsd(row?.usd, 0.04);
