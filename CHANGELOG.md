@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A skill left out by `skillExclude` is unknown everywhere: the few-shot example falls back to its skill-neutral form and a rewrite that names the skill is refused instead of being stripped to `the … skill`.
 - Example 2 says `before-and-after numbers`, so a project with a top-level `before/` directory can no longer make the path guard refuse a copy; the static block's examples text changes once (one prompt-cache miss per user).
 
+
+
 ### Fixed
 - The `extraRules` tag neutraliser no longer rewrites prose such as `a < b and c > d`: an opening tag's name must start right after `<`, so `< tag>` with a space after the bracket is left alone too. Tags still lose their angle brackets, and `</ tag>` is still neutralised.
 

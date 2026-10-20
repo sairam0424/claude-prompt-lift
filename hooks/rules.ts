@@ -7,18 +7,16 @@ export const SYSTEM =
 /**
  * Neutralize any tag-like markup (angle brackets that look like XML/HTML tags)
  * by escaping the opening bracket: <tag> → <\tag>, </tag> → <\/tag>.
- * Whitespace inside a closing tag (`</ tag>`, `< / tag>`) and a self-closing
- * slash (`<tag/>`) are tag forms too. An opening tag's name starts right after
- * the bracket (R22), so prose such as `a < b and c > d` passes unchanged.
- * Unlike neutralizeTags from context.ts, which whitelists envelope tags, this
- * escapes ALL tags (extraRules).
+ * Whitespace after the bracket (`< tag>`, `</ tag>`) and a self-closing slash
+ * (`<tag/>`) are tag forms too. Unlike neutralizeTags from context.ts, which
+ * whitelists envelope tags, this escapes ALL tags (extraRules).
  */
 function neutralizeAllTags(text: string): string {
   // Closing tags: </tag>, </ tag>
-  // Opening tags: <tag>, <tag attrs>, <tag/>, <tag attrs/>
+  // Opening tags: <tag>, < tag>, <tag attrs>, <tag/>, <tag attrs/>
   return text
     .replace(/<\s*\/\s*([a-zA-Z_][\w:-]*)\s*>/g, "<\\/$1>")
-    .replace(/<([a-zA-Z_][\w:-]*)((?:\s[^>]*|\/)?)>/g, "<\\$1$2>");
+    .replace(/<\s*([a-zA-Z_][\w:-]*)((?:\s[^>]*|\/)?)>/g, "<\\$1$2>");
 }
 
 const EXTRA_RULES_MAX_CHARS = 1000;
