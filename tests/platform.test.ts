@@ -10,7 +10,6 @@ import {
   GOOD,
   HAIKU,
   SONNET,
-  TODAY,
   USAGE,
 } from "./engine";
 import { formatDollars } from "../hooks/chain";
@@ -21,8 +20,9 @@ import {
   priceFor,
   type Platform,
 } from "../hooks/config";
-import { attemptsUsd, callUsd, type DayStats } from "../hooks/stats";
+import { attemptsUsd, callUsd } from "../hooks/stats";
 import { statusText, type StatusInput } from "../hooks/status";
+import { storeTotal } from "./ledger-fake";
 
 // R19: an alias rung (`fable`, `sonnet`, `haiku`) prices as its family's
 // current generation on the Anthropic API only. On Bedrock and Vertex the
@@ -48,7 +48,6 @@ const RATE_LIMITED = {
   error: "rate_limit",
   usage: USAGE,
 } as const;
-type Stats = { byDay: Record<string, DayStats> };
 
 function aliasLine(platform: string): string {
   return `aliases: unpriced on ${platform} — pin full ids in models for prices (README › Cost)`;
@@ -80,7 +79,7 @@ test(
     expect(status).toContain(`310 out · ${UNPRICED} · cache hit`);
     expect(status).toContain("session: 1 press · $0.000 · unpriced calls: 1");
     expect(status).toContain("today: 1 press · $0.000 · unpriced calls: 1");
-    expect((e.store.stats as Stats).byDay[TODAY]).toEqual({
+    expect(await storeTotal(e.store)).toEqual({
       presses: 1,
       usd: 0,
       unpriced: 1,
@@ -103,11 +102,11 @@ test(
     expect(status).toContain(`chain: sonnet\nlast call: sonnet · `);
     expect(status).not.toContain("aliases:");
     expect(status).toContain(`session: 1 press · ${SONNET_COST}\n`);
-    const day = (e.store.stats as Stats).byDay[TODAY];
-    expect(day?.presses).toBe(1);
-    expect(day?.unpriced).toBe(0);
+    const day = await storeTotal(e.store);
+    expect(day.presses).toBe(1);
+    expect(day.unpriced).toBe(0);
     const usd = estimateUsd(USAGE, SONNET, DEFAULT_PRICES) ?? 0;
-    expect(Math.abs((day?.usd ?? 0) - usd)).toBeLessThan(1e-9);
+    expect(Math.abs(day.usd - usd)).toBeLessThan(1e-9);
   },
 );
 
@@ -127,7 +126,7 @@ test(
     );
     expect(status).not.toContain("aliases:");
     expect(status).toContain(`session: 1 press · ${FABLE_COST}\n`);
-    expect((e.store.stats as Stats).byDay[TODAY]?.unpriced).toBe(0);
+    expect((await storeTotal(e.store)).unpriced).toBe(0);
   },
 );
 
@@ -150,10 +149,10 @@ test(
     expect(status).toContain(
       `chain: sonnet → ${HAIKU}\n${aliasLine("bedrock")}\nlast call:`,
     );
-    const day = (e.store.stats as Stats).byDay[TODAY];
-    expect(day?.unpriced).toBe(0);
+    const day = await storeTotal(e.store);
+    expect(day.unpriced).toBe(0);
     const usd = estimateUsd(HEAVY, HAIKU, DEFAULT_PRICES) ?? 0;
-    expect(Math.abs((day?.usd ?? 0) - usd)).toBeLessThan(1e-9);
+    expect(Math.abs(day.usd - usd)).toBeLessThan(1e-9);
   },
 );
 
@@ -269,7 +268,7 @@ test(
       `prompt-lift: no model answered · sonnet: rate_limit · ${UNPRICED}`,
     );
     expect(status).toContain("session: 1 press · $0.000 · unpriced calls: 1");
-    expect((e.store.stats as Stats).byDay[TODAY]).toEqual({
+    expect(await storeTotal(e.store)).toEqual({
       presses: 1,
       usd: 0,
       unpriced: 1,

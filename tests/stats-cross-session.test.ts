@@ -42,6 +42,8 @@ import {
 // import of the same module.
 
 const AMOUNT = 0.01;
+/** An Anthropic API session model: the alias chain prices there (R19). */
+const API_FABLE = "claude-fable-5-1";
 const DAY_MS = 86_400_000;
 const DRAFT_2 = "fix the login bug in src/auth.ts please now";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -84,7 +86,7 @@ test("two sessions pressing in the same instant both count toward the day", asyn
     release();
     return result;
   });
-  const e = engine(on);
+  const e = engine(on, { model: API_FABLE });
   const otherSession = fakeEngine({ store: e.store, holdSet: engineRead });
 
   await Promise.all([
@@ -196,7 +198,7 @@ test("(c) spentUsd's day is the machine-wide sum: this writer's row plus the oth
 });
 
 test("(c) status's today line is the machine-wide sum after one press beside another session's row", async ($, on) => {
-  const e = engine(on);
+  const e = engine(on, { model: API_FABLE });
   e.store[spendKey(TODAY, "other")] = row(4, 0.5, 1);
 
   await press($, DRAFT);
@@ -341,6 +343,7 @@ test(
   { options: { dayCapUsd: 0.02 } },
   async ($, on) => {
     const e = engine(on, {
+      model: API_FABLE,
       replies: [answered(GOOD, CENT), answered(GOOD, CENT)],
     });
     e.store[spendKey(TODAY, "other")] = row(1, 0.015);

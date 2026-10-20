@@ -25,6 +25,8 @@ import { expectUsd, fakeEngine, storeTotal } from "./ledger-fake";
 // after clocks go back included.
 
 const AMOUNT = 0.01;
+/** An Anthropic API session model: the alias chain prices there (R19). */
+const API_FABLE = "claude-fable-5-1";
 const OLD_KEY = "spend:2026-10-01:x";
 const PRUNE_FAILED = "prompt-lift: pruning old day rows failed: ";
 const RECORD_FAILED =
@@ -100,7 +102,7 @@ test("(c) a refused delete while pruning is logged to debug; the press is record
 test("(c) a press whose prune is refused toasts the usage line, not the cost-failed one", async ($, on) => {
   // Registered before the stub's own store handlers, so it stands outside them
   on("store.delete", { key: OLD_KEY }, () => ({ deny: "read-only store" }));
-  const e = engine(on);
+  const e = engine(on, { model: API_FABLE });
   e.store[OLD_KEY] = row(1, 0.01);
 
   await press($, DRAFT);
