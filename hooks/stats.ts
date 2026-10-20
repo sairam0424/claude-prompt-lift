@@ -114,14 +114,45 @@ export function addCall(row: DayStats, usd: number | undefined): DayStats {
   };
 }
 
-export async function recordPress(
+/*
+ * R18 (catalogue review of seed PR #341, finding 2): two `recordPress` calls
+ * in the same instant each read the day row, then each wrote its own
+ * increment over the other's: one press and its cost lost, the machine-wide
+ * day cap understated. The read-modify-write now runs on a module-level
+ * queue, one entry after the previous has settled (resolved or rejected), so
+ * the second press reads the row the first wrote. Not `$.state` with
+ * `ifVersion`: the row must outlive the session, and `$.store` has only
+ * get/set/delete/keys, no compare-and-set, so two separate Claude Code
+ * sessions pressing in the same instant stay outside the mod's reach (README,
+ * Limits). `addCall` and `dayRow` stay pure; the queue variable is reassigned,
+ * never mutated.
+ */
+let statsQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Runs `work` once every earlier entry has settled either way, returns its
+ * own promise (a caller still sees its own rejection), and leaves the tail
+ * resolved whatever `work` did, so a failed write never stalls the next one.
+ */
+function serialized<T>(work: () => Promise<T>): Promise<T> {
+  const run = statsQueue.then(work, work);
+  statsQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+export function recordPress(
   $: EngineInterface,
   usd: number | undefined,
 ): Promise<void> {
-  const day = dayOf(await $.clock.now());
-  const stats = asStats(await $.store.get(STATS_STORE_KEY));
-  await $.store.set(STATS_STORE_KEY, {
-    byDay: { ...stats.byDay, [day]: addCall(dayRow(stats, day), usd) },
+  return serialized(async () => {
+    const day = dayOf(await $.clock.now());
+    const stats = asStats(await $.store.get(STATS_STORE_KEY));
+    await $.store.set(STATS_STORE_KEY, {
+      byDay: { ...stats.byDay, [day]: addCall(dayRow(stats, day), usd) },
+    });
   });
 }
 
