@@ -108,7 +108,7 @@ Settings live in `/config` under `pluginConfigs` → `prompt-lift@claude-prompt-
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `models` | string | `fable,sonnet,haiku` | Comma-separated models to try in order: an alias (`fable`, `sonnet`, `haiku`), a full model id, or `session` for the session's model |
+| `models` | string | `fable,sonnet,haiku` | Comma-separated models to try in order: an alias (`fable`, `sonnet`, `haiku`), a full model id, or `session` for the session's model; on Bedrock/Vertex pin full ids for prices |
 | `effortModels` | string | `fable,sonnet` | Models that accept the effort parameter; they are sent effort: low |
 | `maxTokens` | number | 2000 | Maximum tokens per model completion |
 | `timeoutMsFirst` | number | 30000 | Timeout for the first model attempt |
@@ -171,7 +171,7 @@ Prices are USD per 1M tokens, Bedrock `us.*` profiles, verified 2026-10-16:
 | Sonnet 5.5 | 2.20 | 11.00 | 2.75 | 0.11 |
 | Haiku 5.5 | 0.11 | 0.55 | 0.1375 | 0.011 |
 
-The table is Bedrock `us.*` cross-region pricing, which is Anthropic's list price plus 10%; on the Anthropic API expect about 10% less. An alias prices as the current generation of its family (`fable` as Fable 5.1, `sonnet` as Sonnet 5.5, `haiku` as Haiku 5.5); an unpriced model shows `$?` and `(no price)`.
+The table is Bedrock `us.*` cross-region pricing, which is Anthropic's list price plus 10%; on the Anthropic API expect about 10% less. On the Anthropic API an alias (`fable`, `sonnet`, `haiku`) prices as the current generation of its family. On Bedrock and Vertex the engine's alias defaults can lag a generation and the mod cannot see which id an alias called, so an alias rung is unpriced there (`$?`, counted as unpriced, never toward a cap) and `status` says so; pin full ids in `models` (the `pluginConfigs` example below) to get the current model and real dollars. An unpriced model shows `$?` and `(no price)`.
 
 The built-in table can be overridden with the `prices` option: a JSON **string** mapping a model id fragment to per-1M-token prices, merged over the built-in rows (`fable-5-1`, `sonnet-5-5`, `haiku-5-5`); invalid JSON leaves the defaults and logs `prompt-lift: prices option ignored: <reason>` once.
 
