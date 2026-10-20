@@ -100,7 +100,7 @@ export function selectInstructionFiles(
 }
 
 /** Whether a skill or command name matches a `skillExclude` pattern. */
-export function isSkillExcluded(
+function isSkillExcluded(
   name: string,
   skillExclude: readonly string[],
 ): boolean {
