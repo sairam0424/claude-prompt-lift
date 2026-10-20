@@ -11,7 +11,8 @@
 # ANTHROPIC_DEFAULT_*_MODEL and the other names in PROVIDER_VARS) are copied by
 # name from the real ~/.claude/settings.json env and the parent environment;
 # values are never printed. --dry-run stops after the idle band and
-# `/prompt-lift status` and checks the sandbox: no model call, $0, docs/ untouched.
+# `/prompt-lift status` and checks the sandbox, including that the chain is priced
+# (no `aliases: unpriced` row): no model call, $0, docs/ untouched.
 # The take costs one real Enhance call (about $0.01 to $0.20 on a 10k-token
 # static block). It never presses Send and never submits free text: the only
 # thing entered is the in-process `/prompt-lift status` command.
@@ -138,10 +139,14 @@ EOF
     'set -g default-terminal "tmux-256color"' 'set -ga terminal-features ",*:RGB"' >"$WORK/tmux.conf"
 }
 
+# Bedrock only as the engine reads the variable: 1, true, yes or on, in any case. A set
+# CLAUDE_CODE_USE_BEDROCK=0 (or false, no, off) is off, and pinning ids for it would be wrong.
 uses_bedrock() {
-  local word
+  local word value
   for word in "${SESSION_ENV[@]}"; do
-    [[ "$word" == CLAUDE_CODE_USE_BEDROCK=?* ]] && return 0
+    [[ "$word" == CLAUDE_CODE_USE_BEDROCK=* ]] || continue
+    value="$(tr '[:upper:]' '[:lower:]' <<<"${word#*=}")"
+    case "$value" in 1 | true | yes | on) return 0 ;; esac
   done
   return 1
 }
@@ -307,6 +312,11 @@ dry_run() {
   sleep "$STEP_PAUSE_S"
   local screen included rules_dir="${WORK##*/}/home/.claude/rules/" count
   screen="$(pane)"
+  # An alias chain is unpriced here (a mis-detected platform, a lost pin): the paid take
+  # would spend its call and then fail on the `$?` done row, so the free run refuses first.
+  if grep -Fq -- 'aliases: unpriced' <<<"$screen"; then
+    dump_pane; die "the chain is unpriced here; the paid take would fail after the call"
+  fi
   # The row wraps onto indented lines: take everything up to the "excluded" row.
   included="$(awk '/instruction files included:/ { on = 1 } /instruction files excluded:/ { on = 0 } on' <<<"$screen")"
   [ -n "$included" ] || { dump_pane; die "status prints no 'instruction files included' row"; }
