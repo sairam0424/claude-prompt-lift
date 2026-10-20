@@ -27,9 +27,24 @@ ok() { PASS=$((PASS + 1)); echo "ok   - $1"; }
 bad() { FAIL=$((FAIL + 1)); echo "FAIL - $1"; }
 check() { local label="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$label"; else bad "$label"; fi; }
 
-FAKE="$(mktemp -d /tmp/pl-selftest-home.XXXX)"
-trap 'rm -rf -- "$FAKE"' EXIT
-mkdir -p "$FAKE/.claude" "$FAKE/.aws/sso"
+# Every temp path this run makes goes in TEMP_PATHS and the one EXIT trap deletes them. Only
+# the two shapes this script and demo.sh's build_sandbox create are ever deleted.
+TEMP_PATHS=()
+cleanup_temp() {
+  local path
+  for path in "${TEMP_PATHS[@]}"; do
+    case "$path" in
+      /tmp/pl-selftest-home* | /tmp/pl-demo.*)
+        rm -f -- "$path/home/.aws" # a sandbox's symlink to the fake .aws goes first
+        rm -rf -- "$path" ;;
+    esac
+  done
+}
+trap cleanup_temp EXIT
+FAKE="$(mktemp -d /tmp/pl-selftest-home.XXXX)"; TEMP_PATHS+=("$FAKE")
+FAKE2="$(mktemp -d /tmp/pl-selftest-home2.XXXX)"; TEMP_PATHS+=("$FAKE2")
+FAKE3="$(mktemp -d /tmp/pl-selftest-home3.XXXX)"; TEMP_PATHS+=("$FAKE3")
+mkdir -p "$FAKE/.claude" "$FAKE/.aws/sso" "$FAKE2/.claude" "$FAKE3/.claude"
 echo "sentinel" >"$FAKE/.aws/sso/token-sentinel"
 SECRET_SENTINEL="SECRET-SENTINEL-$$"
 cat >"$FAKE/.claude/settings.json" <<EOF
@@ -37,6 +52,7 @@ cat >"$FAKE/.claude/settings.json" <<EOF
          "GITHUB_PERSONAL_ACCESS_TOKEN": "$SECRET_SENTINEL", "SOME_OTHER": "$SECRET_SENTINEL",
          "ANTHROPIC_DEFAULT_SONNET_MODEL": "from-settings-model"}}
 EOF
+echo '{"env": {"SOME_OTHER": "x"}}' >"$FAKE2/.claude/settings.json"
 
 # 1. usage text and refusal
 help_text="$(bash "$SCRIPT" --help)"
@@ -64,7 +80,6 @@ check "the names line carries no values" bash -c '! grep -E "provider variables"
 # 3. sandbox HOME layout and a cleanup that never follows the .aws symlink
 layout="$(HOME="$FAKE" bash -c '
   source "$1"
-  preflight_skip=1
   build_sandbox
   echo "WORK=$WORK"
   cleanup
@@ -79,7 +94,7 @@ layout2="$(HOME="$FAKE" bash -c '
   build_sandbox
   echo "WORK=$WORK"
 ' _ "$SCRIPT" 2>&1)"
-W="$(sed -n 's/^WORK=//p' <<<"$layout2")"
+W="$(sed -n 's/^WORK=//p' <<<"$layout2")"; TEMP_PATHS+=("$W")
 check "home rules file has the heading and two lines" test "$(wc -l <"$W/home/.claude/rules/testing.md" | tr -d ' ')" = 3
 check "rules heading" grep -qx '# Testing' "$W/home/.claude/rules/testing.md"
 check "rules line 1" grep -qx 'A bug fix starts with a regression test that reproduces the bug.' "$W/home/.claude/rules/testing.md"
@@ -91,24 +106,18 @@ check "--settings overlay has no enabledPlugins" jq -e 'has("enabledPlugins") | 
 check "statusLine command is the neutral one" jq -e '.statusLine.command == "jq -r '"'"'.model.display_name'"'"'"' "$W/settings.json"
 check ".aws is a symlink to the real one" test "$(readlink "$W/home/.aws")" = "$FAKE/.aws"
 check "no real-home path in any sandbox file but the symlink" bash -c '! grep -rIl --exclude-dir=.aws -- "$1" "$2" >/dev/null' _ "$FAKE" "$W/home"
-[[ "$W" != /tmp/pl-demo.* ]] || { rm -f -- "$W/home/.aws"; rm -rf -- "$W"; }
 
 # 4. off Bedrock (an API-key setup) the overlay is the status line alone
-FAKE2="$(mktemp -d /tmp/pl-selftest-home2.XXXX)"
-mkdir -p "$FAKE2/.claude"
-echo '{"env": {"SOME_OTHER": "x"}}' >"$FAKE2/.claude/settings.json"
 layout3="$(env -u CLAUDE_CODE_USE_BEDROCK -u CLAUDE_CODE_USE_VERTEX HOME="$FAKE2" bash -c '
   source "$1"
   KEEP_WORK=1
   build_sandbox
   echo "WORK=$WORK"
 ' _ "$SCRIPT" 2>&1)"
-W3="$(sed -n 's/^WORK=//p' <<<"$layout3")"
+W3="$(sed -n 's/^WORK=//p' <<<"$layout3")"; TEMP_PATHS+=("$W3")
 check "no Bedrock variable is passed" bash -c '! grep -q "provider variables.*BEDROCK" <<<"$1"' _ "$layout3"
 check "API key setup: overlay is statusLine only" jq -e 'keys == ["statusLine"]' "$W3/settings.json"
 check "no .aws link when the real home has none" test ! -e "$W3/home/.aws"
-[[ "$W3" != /tmp/pl-demo.* ]] || rm -rf -- "$W3"
-rm -rf -- "$FAKE2"
 
 # 5. what counts as Bedrock is the engine's own truthiness: 1, true, yes, on, any case
 is_bedrock() { # $@ = the session's NAME=value words; prints yes or no
@@ -124,19 +133,15 @@ check "uses_bedrock: no variable is not Bedrock" test "$(is_bedrock HOME=/x AWS_
 check "uses_bedrock: only the Bedrock variable counts" test "$(is_bedrock HOME=/x CLAUDE_CODE_USE_VERTEX=1)" = no
 
 # 6. an explicit off value gets no Bedrock pin in the sandbox
-FAKE3="$(mktemp -d /tmp/pl-selftest-home3.XXXX)"
-mkdir -p "$FAKE3/.claude"
 layout4="$(CLAUDE_CODE_USE_BEDROCK=0 HOME="$FAKE3" bash -c '
   source "$1"
   KEEP_WORK=1
   build_sandbox
   echo "WORK=$WORK"
 ' _ "$SCRIPT" 2>&1)"
-W4="$(sed -n 's/^WORK=//p' <<<"$layout4")"
+W4="$(sed -n 's/^WORK=//p' <<<"$layout4")"; TEMP_PATHS+=("$W4")
 check "CLAUDE_CODE_USE_BEDROCK=0 is still passed by name" grep -q 'provider variables.*CLAUDE_CODE_USE_BEDROCK' <<<"$layout4"
 check "CLAUDE_CODE_USE_BEDROCK=0: overlay is statusLine only" jq -e 'keys == ["statusLine"]' "$W4/settings.json"
-[[ "$W4" != /tmp/pl-demo.* ]] || rm -rf -- "$W4"
-rm -rf -- "$FAKE3"
 
 # 7. the dry run fails closed on an unpriced chain, so the free run protects the paid take
 STATUS_REST='last call: none yet
