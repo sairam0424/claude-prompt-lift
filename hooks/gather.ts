@@ -1,5 +1,5 @@
 import type { EngineInterface, SessionMessage } from "claude-code";
-import type { Config } from "./config";
+import { platformOf, type Config, type Platform } from "./config";
 import {
   capText,
   isExcluded,
@@ -74,16 +74,20 @@ export function conversationTail(
 /** `$.store` key of the first rung `/prompt-lift model` chose (spec §5.2). */
 export const MODEL_STORE_KEY = "model";
 
+/** `cfg.models` with the `session` token replaced by the session's model id. */
+function withSessionModel(cfg: Config, sessionModel: string): string[] {
+  return cfg.models
+    .map((id) => (id === SESSION_MODEL_TOKEN ? sessionModel : id))
+    .filter((id) => id.length > 0);
+}
+
 /** The configured ids with the `session` token resolved, in order. */
 export async function configuredIds(
   $: EngineInterface,
   cfg: Config,
 ): Promise<string[]> {
   const needsSession = cfg.models.includes(SESSION_MODEL_TOKEN);
-  const sessionModel = needsSession ? await $.session.model() : "";
-  return cfg.models
-    .map((id) => (id === SESSION_MODEL_TOKEN ? sessionModel : id))
-    .filter((id) => id.length > 0);
+  return withSessionModel(cfg, needsSession ? await $.session.model() : "");
 }
 
 /**
@@ -111,7 +115,14 @@ export async function resolveChain(
   $: EngineInterface,
   cfg: Config,
 ): Promise<string[]> {
-  const ids = await configuredIds($, cfg);
+  return ledByStored($, await configuredIds($, cfg));
+}
+
+/** `ids` led by the stored choice when there is one, without repeats. */
+async function ledByStored(
+  $: EngineInterface,
+  ids: readonly string[],
+): Promise<string[]> {
   const stored = await $.store.get(MODEL_STORE_KEY);
   if (typeof stored !== "string" || stored === "") {
     return [...new Set(ids)];
@@ -119,6 +130,25 @@ export async function resolveChain(
   const matched = matchRungs(stored, ids);
   const lead = matched.length === 1 ? (matched[0] ?? stored) : stored;
   return [...new Set([lead, ...ids])];
+}
+
+/** The chain a press or `status` works on and the platform it is priced on. */
+export type ResolvedChain = { chain: string[]; platform: Platform };
+
+/**
+ * The chain as `resolveChain` gives it, with the platform the session's
+ * model id names (R19), from one `$.session.model()` read: a press prices
+ * its rungs by it and `status` says where an alias rung is unpriced.
+ */
+export async function resolveChainWithPlatform(
+  $: EngineInterface,
+  cfg: Config,
+): Promise<ResolvedChain> {
+  const sessionModel = await $.session.model();
+  return {
+    chain: await ledByStored($, withSessionModel(cfg, sessionModel)),
+    platform: platformOf(sessionModel),
+  };
 }
 
 async function readDocuments(

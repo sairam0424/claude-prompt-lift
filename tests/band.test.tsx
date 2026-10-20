@@ -49,6 +49,8 @@ const DRAFT_CHANGED = `prompt-lift: draft changed while enhancing, left as is ·
 )}`;
 const NO_CACHE_HINT = "cache not hitting — consider /prompt-lift model haiku";
 const OPUS = "us.anthropic.claude-opus-4-1";
+/** An Anthropic API session model: the alias chain prices there (R19). */
+const API_FABLE = "claude-fable-5-1";
 const ABORTED: ModelCompleteResult = {
   isAnswered: false,
   reason: "aborted",
@@ -230,7 +232,7 @@ test(
 );
 
 test("the button path leaves a box that changed while enhancing", async ($, on) => {
-  const e = engine(on, { delay: true });
+  const e = engine(on, { model: API_FABLE, delay: true });
   e.box.text = DRAFT;
   const ui = await mount($);
 
@@ -400,7 +402,6 @@ test(
     expect(e.calls).toHaveLength(0);
   },
 );
-
 
 test(
   "band shows cancel button while enhancing and done state after",

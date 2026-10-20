@@ -26,9 +26,12 @@ import { storeTotal } from "./ledger-fake";
 const DRAFT_2 = "fix the login bug in src/auth.ts please now";
 /**
  * What a Fable press that answers with USAGE costs: on every toast (C19). The
- * alias `fable` prices as this id, so it holds for the default chain too.
+ * alias `fable` prices as this id on the Anthropic API, so it holds for the
+ * default chain there too (R19).
  */
 const COST = formatDollars(estimateUsd(USAGE, FABLE, DEFAULT_PRICES));
+/** An Anthropic API session model: the alias chain prices there (R19). */
+const API_FABLE = "claude-fable-5-1";
 const FINE = "prompt-lift: already specific, left as is";
 const OPUS = "us.anthropic.claude-opus-4-1";
 /** How every cost tail reads when the price table has no row (R3). */
@@ -74,6 +77,7 @@ test(
 
 test("a chain that fails after a paid rung records the spend", async ($, on) => {
   const e = engine(on, {
+    model: API_FABLE,
     replies: [
       { isAnswered: false, reason: "empty-reply", usage: USAGE },
       {
@@ -149,6 +153,7 @@ test(
 
 test("a fine verdict toasts and does not fill", async ($, on) => {
   const e = engine(on, {
+    model: API_FABLE,
     replies: [answered(JSON.stringify({ verdict: "fine" }))],
   });
 
@@ -226,6 +231,7 @@ test(
 
 test("a fine verdict after a success keeps the phase at done", async ($, on) => {
   const e = engine(on, {
+    model: API_FABLE,
     replies: [answered(GOOD), answered(JSON.stringify({ verdict: "fine" }))],
   });
   const phases: unknown[] = [];
@@ -244,7 +250,7 @@ test("a fine verdict after a success keeps the phase at done", async ($, on) => 
 });
 
 test("stats accumulate presses and dollars by day", async ($, on) => {
-  const e = engine(on);
+  const e = engine(on, { model: API_FABLE });
   const presses: unknown[] = [];
   on(
     "state.set",
@@ -386,4 +392,3 @@ test("addCall and dayRow keep a day's row honest, old rows included", async () =
   expect(dayRow({ byDay: {} }, TODAY)).toEqual(EMPTY_DAY);
   expect(EMPTY_DAY).toEqual({ presses: 0, usd: 0, unpriced: 0 });
 });
-

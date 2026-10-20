@@ -33,6 +33,8 @@ const FINE = "prompt-lift: already specific, left as is";
 const NOT_TAKEN = "prompt-lift: the prompt box did not take the text (refused)";
 /** What a Fable press that answers with USAGE costs: on every toast (C19). */
 const COST = formatDollars(estimateUsd(USAGE, FABLE, DEFAULT_PRICES));
+/** An Anthropic API session model: the alias chain prices there (R19). */
+const API_FABLE = "claude-fable-5-1";
 const RESTORED = "prompt-lift: restored your draft";
 const ANSWER_LIKE =
   "prompt-lift: that reads like an answer to Claude's question";
@@ -62,7 +64,7 @@ function watchWrites(on: On, keys: readonly string[]): string[] {
 }
 
 test("the pair is held before anything about the call is recorded", async ($, on) => {
-  const e = engine(on);
+  const e = engine(on, { model: API_FABLE });
   const order = watchWrites(on, [...PAIR, ...RECORD]);
 
   await press($, DRAFT);
@@ -134,6 +136,7 @@ test("a record that fails on the failure path is logged, not toasted", async ($,
 
 test("a failed stats write on a fine verdict still toasts the verdict with its cost", async ($, on) => {
   const e = engine(on, {
+    model: API_FABLE,
     replies: [answered(JSON.stringify({ verdict: "fine" }))],
     denyStoreSet: { key: TODAY_PREFIX, reason: "disk full" },
   });
@@ -149,6 +152,7 @@ test("a failed stats write on a fine verdict still toasts the verdict with its c
 
 test("a failed stats write after a refused fill leaves the refusal toast alone", async ($, on) => {
   const e = engine(on, {
+    model: API_FABLE,
     fill: { isFilled: false },
     denyStoreSet: { key: TODAY_PREFIX, reason: "disk full" },
   });

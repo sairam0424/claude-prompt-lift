@@ -65,14 +65,49 @@ const DEFAULT_INSTRUCTION_EXCLUDE = "~/.claude/CLAUDE.md,~/CLAUDE.md";
 const DEFAULT_SKILL_EXCLUDE = "";
 
 /**
- * An alias prices as the current generation of its family: the price-table
- * key `priceFor` reads when the model is exactly the alias, in any case.
+ * An alias prices as the current generation of its family on the Anthropic
+ * API: the price-table key `priceFor` reads when the model is exactly the
+ * alias, in any case, and the platform is `anthropic` (R19).
  */
 export const ALIAS_PRICE_KEYS: Readonly<Record<string, string>> = {
   fable: "fable-5-1",
   sonnet: "sonnet-5-5",
   haiku: "haiku-5-5",
 };
+
+/** Whether `model` is exactly an alias the mod knows, in any case. */
+export function isAlias(model: string): boolean {
+  return Object.hasOwn(ALIAS_PRICE_KEYS, model.toLowerCase());
+}
+
+/**
+ * Where a session's calls go, read off its model id (R19). The engine
+ * resolves a bare alias per platform and build, so whether an alias can be
+ * priced depends on this.
+ */
+export type Platform = "anthropic" | "bedrock" | "vertex";
+
+const BEDROCK_ID = /(^|\.)anthropic\.claude-/;
+const BEDROCK_VERSION = /-v\d+:\d+$/;
+const VERTEX_VERSION = /@\d{8}$/;
+const VERTEX_ID = /^claude-[a-z0-9.-]+@/;
+
+/**
+ * The platform a session model id names (R19): a Bedrock id carries an
+ * `anthropic.claude-` segment (`us.anthropic.claude-…`) or a `-v1:0`
+ * version, a Vertex id a `@YYYYMMDD` version; anything else, a bare alias
+ * included, is the Anthropic API. Pure: a press and `status` read
+ * `$.session.model()` once and hand the result on.
+ */
+export function platformOf(sessionModelId: string): Platform {
+  if (BEDROCK_ID.test(sessionModelId) || BEDROCK_VERSION.test(sessionModelId)) {
+    return "bedrock";
+  }
+  if (VERTEX_VERSION.test(sessionModelId) || VERTEX_ID.test(sessionModelId)) {
+    return "vertex";
+  }
+  return "anthropic";
+}
 
 /**
  * Parse a JSON string of price overrides. Returns a Record of valid Price
@@ -271,21 +306,30 @@ export function mergePrices(
   ]);
 }
 
+/**
+ * The price row for a model, or undefined when nothing prices it (R3). An
+ * alias on its own prices as its family's current generation on the
+ * Anthropic API only: on Bedrock and Vertex the engine's alias defaults can
+ * lag a generation and `$.model.complete` never says which id an alias
+ * called, so the alias is unpriced there (R19). Otherwise the first key that
+ * is a substring of the model, in the table's own order (`mergePrices` puts
+ * the person's rows first), on every platform alike.
+ */
 export function priceFor(
   model: string,
   prices: Readonly<Record<string, Price>>,
+  platform: Platform = "anthropic",
 ): Price | undefined {
-  // An alias on its own prices as its family's current generation
-  const alias = model.toLowerCase();
-  const aliasKey = Object.hasOwn(ALIAS_PRICE_KEYS, alias)
-    ? ALIAS_PRICE_KEYS[alias]
+  const aliasKey = isAlias(model)
+    ? ALIAS_PRICE_KEYS[model.toLowerCase()]
     : undefined;
-  const aliased = aliasKey === undefined ? undefined : prices[aliasKey];
+  const aliased =
+    aliasKey !== undefined && platform === "anthropic"
+      ? prices[aliasKey]
+      : undefined;
   if (aliased !== undefined) {
     return aliased;
   }
-  // Else the first key that is a substring of the model, in the table's own
-  // order (`mergePrices` puts the person's rows first)
   for (const key of Object.keys(prices)) {
     if (model.includes(key)) {
       return prices[key];
@@ -297,13 +341,15 @@ export function priceFor(
 /**
  * What a call cost by the price table, or undefined when the table has no
  * row for the model (R3): an unknown price is shown as `$?`, never as $0.
+ * `platform` is where the call went (R19); the hooks pass the session's.
  */
 export function estimateUsd(
   usage: ModelUsage,
   model: string,
   prices: Readonly<Record<string, Price>>,
+  platform: Platform = "anthropic",
 ): number | undefined {
-  const price = priceFor(model, prices);
+  const price = priceFor(model, prices, platform);
   if (!price) {
     return undefined;
   }

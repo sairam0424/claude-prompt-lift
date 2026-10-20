@@ -37,6 +37,8 @@ import { storeTotal } from "./ledger-fake";
 // left; `/prompt-lift cap` moves the session cap for this session only.
 
 const OPUS = "us.anthropic.claude-opus-4-1";
+/** An Anthropic API session model: the alias chain prices there (R19). */
+const API_FABLE = "claude-fable-5-1";
 const DRAFT_2 = "fix the login bug in src/auth.ts please now";
 /** A Fable press that costs $0.15 to the cent: 12k uncached input tokens. */
 const PRICEY: ModelUsage = {
@@ -114,7 +116,6 @@ test("the cap options default to off and refuse anything but dollars", () => {
   expect(estimateUsd(PRICEY, FABLE, DEFAULT_PRICES)?.toFixed(2)).toBe("0.15");
 });
 
-
 test("parseCapArg follows the model rule: one token sets, more is a draft", () => {
   expect(parseCapArg("cap")).toEqual({ kind: "show" });
   expect(parseCapArg("CAP")).toEqual({ kind: "show" });
@@ -142,6 +143,7 @@ test("the rows append what is left before the no-cache hint", () => {
 test("statusText prints the caps after today and the engine's total after", () => {
   const a: StatusInput = {
     chain: [FABLE],
+    platform: "anthropic",
     last: null,
     session: { presses: 1, usd: 0.15, unpriced: 0 },
     today: { presses: 1, usd: 0.15, unpriced: 0 },
@@ -185,7 +187,10 @@ test(
   "a press at the session cap is refused before any call and records nothing",
   { options: { sessionCapUsd: 0.1 } },
   async ($, on) => {
-    const e = engine(on, { replies: [answered(GOOD, PRICEY)] });
+    const e = engine(on, {
+      model: API_FABLE,
+      replies: [answered(GOOD, PRICEY)],
+    });
     const phases = watch(on, "phase");
     const presses = watch(on, "sessionPresses");
 
@@ -209,6 +214,7 @@ test(
   { options: { sessionCapUsd: 0.1 } },
   async ($, on) => {
     const e = engine(on, {
+      model: API_FABLE,
       replies: [answered(GOOD, PRICEY), answered(GOOD, PRICEY), answered(GOOD)],
     });
     const overrides = watch(on, "capOverride");
@@ -248,7 +254,10 @@ test(
   "the done row shows $0.85 left after a $0.15 press under a $1 cap",
   { options: { sessionCapUsd: 1 } },
   async ($, on) => {
-    const e = engine(on, { replies: [answered(GOOD, PRICEY)] });
+    const e = engine(on, {
+      model: API_FABLE,
+      replies: [answered(GOOD, PRICEY)],
+    });
     const ui = await mount($);
 
     expect(
@@ -268,7 +277,10 @@ test(
   "a tighter day cap is shown as the day's, counts other sessions and has no override",
   { options: { sessionCapUsd: 1, dayCapUsd: 0.5 } },
   async ($, on) => {
-    const e = engine(on, { replies: [answered(GOOD, PRICEY), answered(GOOD)] });
+    const e = engine(on, {
+      model: API_FABLE,
+      replies: [answered(GOOD, PRICEY), answered(GOOD)],
+    });
     // Another session today spent $0.40 of the day's $0.50: its own row (R24)
     e.store[spendKey(TODAY, "other")] = { presses: 2, usd: 0.4, unpriced: 0 };
     const ui = await mount($);
@@ -298,7 +310,11 @@ test(
   "status prints the caps and the engine's whole-session total; cap alone prints the caps",
   { options: { sessionCapUsd: 1, dayCapUsd: 5 } },
   async ($, on) => {
-    engine(on, { replies: [answered(GOOD, PRICEY)], sessionCostUsd: 12.34 });
+    engine(on, {
+      model: API_FABLE,
+      replies: [answered(GOOD, PRICEY)],
+      sessionCostUsd: 12.34,
+    });
 
     await press($, DRAFT);
 

@@ -1,7 +1,7 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, ModelUsage } from "claude-code";
 import type { LastUsage } from "../types";
-import type { Config, Price } from "./config";
+import type { Config, Platform, Price } from "./config";
 import { estimateUsd, priceFor, shortModel } from "./config";
 import type { Attempt, ChainOk } from "./chain";
 import { hashBlock } from "./context";
@@ -126,17 +126,24 @@ export async function spentUsd($: EngineInterface): Promise<Spent> {
 }
 
 /**
- * An answered call judged from the reply alone: its dollars and block 0's
- * hash, with the hash taken as unchanged. Pure, so the record is owed from
- * the answer on (G5): a throw in `assessCall`'s read still leaves one.
+ * An answered call judged from the reply alone: its dollars on the platform
+ * the press ran on (R19) and block 0's hash, with the hash taken as
+ * unchanged. Pure, so the record is owed from the answer on (G5): a throw in
+ * `assessCall`'s read still leaves one.
  */
 export function judgeCall(
   cfg: Config,
-  a: { run: ChainOk; staticBlock: string; relevantCount: number },
+  a: {
+    run: ChainOk;
+    staticBlock: string;
+    relevantCount: number;
+    platform: Platform;
+  },
 ): AnsweredCall {
+  const { platform, ...judged } = a;
   return {
-    ...a,
-    usd: callUsd(a.run, cfg.prices),
+    ...judged,
+    usd: callUsd(a.run, cfg.prices, platform),
     hash: hashBlock(a.staticBlock),
     hashChanged: false,
   };
@@ -194,10 +201,9 @@ export async function recordOrLog(
     await recordCall($, call, rewrite);
     return true;
   } catch (err) {
-    $.ui.log(
-      `prompt-lift: recording the cost failed: ${errorMessage(err)}`,
-      { to: "debug" },
-    );
+    $.ui.log(`prompt-lift: recording the cost failed: ${errorMessage(err)}`, {
+      to: "debug",
+    });
     return false;
   }
 }
@@ -209,28 +215,33 @@ export async function recordOrLog(
  * of `attempts`, so its own cost is in the sum; a failed rung with no price
  * adds nothing, as in a failed chain (ruled). Undefined when the answering
  * model has no price (R3): a total with an unknown part is unknown, and reads
- * `$?` rather than the part.
+ * `$?` rather than the part. Every rung is priced on `platform`, where the
+ * press ran (R19): an alias rung off the Anthropic API has no price.
  */
 export function callUsd(
   run: ChainOk,
   prices: Readonly<Record<string, Price>>,
+  platform: Platform,
 ): number | undefined {
-  if (priceFor(run.model, prices) === undefined) {
+  if (priceFor(run.model, prices, platform) === undefined) {
     return undefined;
   }
-  return attemptsUsd(run.attempts, prices);
+  return attemptsUsd(run.attempts, prices, platform);
 }
 
 /**
  * What a chain that answered nothing still paid: each priced rung at its own
- * price; undefined when no rung had one (R3).
+ * price on `platform` (R19); undefined when no rung had one (R3).
  */
 export function attemptsUsd(
   attempts: readonly Attempt[],
   prices: Readonly<Record<string, Price>>,
+  platform: Platform,
 ): number | undefined {
   const priced = attempts
-    .map((attempt) => estimateUsd(attempt.usage, attempt.model, prices))
+    .map((attempt) =>
+      estimateUsd(attempt.usage, attempt.model, prices, platform),
+    )
     .filter((usd): usd is number => usd !== undefined);
   if (priced.length === 0) {
     return undefined;

@@ -45,6 +45,8 @@ const RESTORED = "prompt-lift: restored your draft";
 const REAPPLIED = "prompt-lift: re-applied the enhanced prompt";
 const NOTHING_TO_UNDO = "prompt-lift: nothing to undo";
 const CANCELLED = "prompt-lift: cancelled, draft unchanged · $0.000";
+/** An Anthropic API session model: the alias chain prices there (R19). */
+const API_FABLE = "claude-fable-5-1";
 const ABORTED: ModelCompleteResult = {
   isAnswered: false,
   reason: "aborted",
@@ -434,7 +436,11 @@ test("a done phase is left alone at session.start", async ($, on) => {
 // --- Cancel ---
 
 test("Cancel through session.end aborts the call and no fallback is tried", async ($, on) => {
-  const e = engine(on, { delay: true, replies: [ABORTED, answered(GOOD)] });
+  const e = engine(on, {
+    model: API_FABLE,
+    delay: true,
+    replies: [ABORTED, answered(GOOD)],
+  });
 
   const run = press($, DRAFT);
   await e.modelCalled;

@@ -1,6 +1,6 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, StateValue } from "claude-code";
-import type { Config } from "./config";
+import type { Config, Platform } from "./config";
 import { SYSTEM } from "./rules";
 import { postProcess, preGuard, type PostOk } from "./guards";
 import { prepare, type Prepared } from "./prepare";
@@ -17,7 +17,7 @@ import {
   errorMessage,
   lastAssistantText,
   namedPathsExist,
-  resolveChain,
+  resolveChainWithPlatform,
 } from "./gather";
 import {
   assessCall,
@@ -40,10 +40,7 @@ export const phase = atom(
   { plugin: "prompt-lift", key: "phase" } as const,
   "idle",
 );
-export const model = atom(
-  { plugin: "prompt-lift", key: "model" } as const,
-  "",
-);
+export const model = atom({ plugin: "prompt-lift", key: "model" } as const, "");
 export const runningModel = atom(
   { plugin: "prompt-lift", key: "runningModel" } as const,
   "",
@@ -129,9 +126,11 @@ export async function enhance(
       return;
     }
     const prepared = await prepare($, cfg, draft, rows);
-    const run = await callChain($, cfg, prepared, abort.signal);
+    // The platform is read once per press (R19): every rung's price goes by it
+    const { chain, platform } = await resolveChainWithPlatform($, cfg);
+    const run = await callChain($, cfg, chain, prepared, abort.signal);
     if (!run.ok) {
-      await reportFailure($, cfg, run);
+      await reportFailure($, cfg, run, platform);
       return;
     }
     // Judged now, written once the outcome is known: after the pair on a fill.
@@ -140,6 +139,7 @@ export async function enhance(
       run,
       staticBlock: prepared.staticBlock,
       relevantCount: prepared.relevantCount,
+      platform,
     });
     const call = await assessCall($, unrecorded);
     unrecorded = call;
@@ -228,10 +228,10 @@ function withCost(toast: string, usd: number | undefined): string {
 async function callChain(
   $: EngineInterface,
   cfg: Config,
+  chain: string[],
   prepared: Prepared,
   signal: AbortSignal,
 ): Promise<ChainOk | ChainFail> {
-  const chain = await resolveChain($, cfg);
   await update($, model, () => chain[0] ?? "");
   return runChain({
     complete: (req, o) => $.model.complete(req, o),
@@ -261,18 +261,19 @@ function noteRunningModel($: EngineInterface, id: string): void {
 
 /**
  * A chain that answered nothing still paid for its rungs (G5): record that,
- * then say so.
+ * priced on the platform the press ran on (R19), then say so.
  */
 async function reportFailure(
   $: EngineInterface,
   cfg: Config,
   run: ChainFail,
+  platform: Platform,
 ): Promise<void> {
   if (run.attempts.length === 0) {
     $.ui.toast(TOAST_NO_MODELS);
     return;
   }
-  const usd = attemptsUsd(run.attempts, cfg.prices);
+  const usd = attemptsUsd(run.attempts, cfg.prices, platform);
   await recordSpend($, usd);
   if (run.cancelled) {
     $.ui.toast(withCost(TOAST_CANCELLED, usd));

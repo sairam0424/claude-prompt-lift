@@ -71,6 +71,7 @@ test("status before any press says so and calls no model", async ($, on) => {
 test("statusText lays the lines out", () => {
   const a: StatusInput = {
     chain: [FABLE, SONNET],
+    platform: "anthropic",
     last: {
       model: FABLE,
       input: 1400,

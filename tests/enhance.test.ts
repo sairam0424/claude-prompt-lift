@@ -29,6 +29,8 @@ import { SYSTEM } from "../hooks/rules";
 const DRAFT_2 = "fix the login bug in src/auth.ts please now";
 /** What a Fable press that answers with USAGE costs: on every toast (C19). */
 const COST = formatDollars(estimateUsd(USAGE, FABLE, DEFAULT_PRICES));
+/** An Anthropic API session model: the alias chain prices there (R19). */
+const API_FABLE = "claude-fable-5-1";
 
 test(
   "Enhance replaces the draft, caches the static block first, and toasts dollars",
@@ -36,14 +38,10 @@ test(
   async ($, on) => {
     const e = engine(on);
     const phases: unknown[] = [];
-    on(
-      "state.set",
-      { plugin: "prompt-lift", key: "phase" },
-      ($, ev, next) => {
-        phases.push(ev.value);
-        return next(ev);
-      },
-    );
+    on("state.set", { plugin: "prompt-lift", key: "phase" }, ($, ev, next) => {
+      phases.push(ev.value);
+      return next(ev);
+    });
 
     const r = await press($, DRAFT);
 
@@ -111,7 +109,7 @@ test("a reply-like draft is refused before any model call", async ($, on) => {
 });
 
 test("command path refuses to fill when the box is no longer empty", async ($, on) => {
-  const e = engine(on, { delay: true });
+  const e = engine(on, { model: API_FABLE, delay: true });
 
   const run = press($, DRAFT);
   await e.modelCalled;
@@ -172,11 +170,8 @@ test("two presses in one tick make one call", async ($, on) => {
 test("a stale reply is dropped", async ($, on) => {
   const e = engine(on, { delay: true });
   let isStale = false;
-  on(
-    "state.get",
-    { plugin: "prompt-lift", key: "requestId" },
-    ($, ev, next) =>
-      isStale ? { value: { value: 999, version: 99 } } : next(ev),
+  on("state.get", { plugin: "prompt-lift", key: "requestId" }, ($, ev, next) =>
+    isStale ? { value: { value: 999, version: 99 } } : next(ev),
   );
 
   const run = press($, DRAFT);
@@ -193,7 +188,10 @@ test("a stale reply is dropped", async ($, on) => {
 test("fill refused toasts the refusal", async ($, on) => {
   // Only the engine itself can name a cause (`dialog`, `no_composer`); the
   // site strips one a hook writes, so a stubbed refusal reaches the mod bare.
-  const e = engine(on, { fill: { isFilled: false, refusal: "dialog" } });
+  const e = engine(on, {
+    model: API_FABLE,
+    fill: { isFilled: false, refusal: "dialog" },
+  });
 
   await press($, DRAFT);
 
@@ -229,6 +227,7 @@ test("plain prose reply is filled", { options: BEDROCK }, async ($, on) => {
 
 test("a capped reply leaves the box untouched", async ($, on) => {
   const e = engine(on, {
+    model: API_FABLE,
     replies: [answered(GOOD, { ...USAGE, output_tokens: 2000 })],
   });
 
@@ -245,6 +244,7 @@ test("a capped reply leaves the box untouched", async ($, on) => {
 
 test("an invented path is refused", async ($, on) => {
   const e = engine(on, {
+    model: API_FABLE,
     replies: [
       answered(
         improve("Fix the login bug in src/auth.ts and in src/nope.ts please"),

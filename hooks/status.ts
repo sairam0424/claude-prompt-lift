@@ -1,11 +1,10 @@
 import { atom, read } from "claude-code";
 import type { EngineInterface } from "claude-code";
 import type { LastUsage } from "../types";
-import type { Config } from "./config";
-import { shortModel } from "./config";
+import { isAlias, shortModel, type Config, type Platform } from "./config";
 import { costText, formatDollars, formatTokens } from "./chain";
 import { selectInstructionFiles, type MemoryFile } from "./context";
-import { resolveChain } from "./gather";
+import { resolveChainWithPlatform } from "./gather";
 import { capsLine, readCapStatus, type CapStatus } from "./caps";
 import { dayOf, dayTotal, type DayStats } from "./ledger";
 import { readTailCount } from "./tail";
@@ -42,6 +41,8 @@ const sessionUnpriced = atom(
 
 export type StatusInput = {
   chain: readonly string[];
+  /** Where the session's calls go (R19): an alias rung is unpriced off the Anthropic API. */
+  platform: Platform;
   last: LastUsage | null;
   session: DayStats;
   today: DayStats;
@@ -97,6 +98,19 @@ function filesText(files: readonly MemoryFile[]): string {
   return files.map((file) => `${file.path} (${file.tokens} tokens)`).join(", ");
 }
 
+/**
+ * R19: the line after `chain:` when a rung is an alias the platform leaves
+ * unpriced, with the way out; none on the Anthropic API or for full ids.
+ */
+function aliasLines(chain: readonly string[], platform: Platform): string[] {
+  if (platform === "anthropic" || !chain.some(isAlias)) {
+    return [];
+  }
+  return [
+    `aliases: unpriced on ${platform} — pin full ids in models for prices (README › Cost)`,
+  ];
+}
+
 export function statusText(a: StatusInput): string {
   const conversation =
     a.tail === 0
@@ -105,6 +119,7 @@ export function statusText(a: StatusInput): string {
   return [
     "prompt-lift status",
     `chain: ${a.chain.join(" → ")}`,
+    ...aliasLines(a.chain, a.platform),
     `last call: ${lastCallText(a.last)}`,
     `session: ${totalsText(a.session)}`,
     `today: ${totalsText(a.today)}`,
@@ -129,8 +144,10 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
   const files = breakdown?.memoryFiles ?? [];
   const included = selectInstructionFiles(files, cfg, home);
   const includedPaths = new Set(included.map((file) => file.path));
+  const { chain, platform } = await resolveChainWithPlatform($, cfg);
   return statusText({
-    chain: await resolveChain($, cfg),
+    chain,
+    platform,
     last: await read($, lastUsage),
     session: {
       presses: await read($, sessionPresses),
