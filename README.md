@@ -224,7 +224,7 @@ After the call (the toast ends with what the call cost):
 - Installed from GitHub: `claude plugin update prompt-lift@claude-prompt-lift`, then restart Claude Code.
 - Installed from a clone: `git pull`, then `/reload-plugins`.
 - Coming from 0.3.x (`prompt-master@claude-prompt-master`): follow [docs/UPGRADING.md](docs/UPGRADING.md); the options under the old settings key do not carry over by themselves.
-- After updating to 0.4.2, restart every open Claude Code session: a 0.4.1 session left running keeps writing the old single day row, and its later presses can be lost when a 0.4.2 session migrates that row.
+- After updating from 0.4.1, restart every open Claude Code session: a 0.4.1 session left running keeps writing the old single day row, and its later presses can be lost when an updated session migrates that row.
 
 ## Limits
 
