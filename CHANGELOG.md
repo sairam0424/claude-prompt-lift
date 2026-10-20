@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.2] - 2026-10-20
 
 ### Fixed
-- The day ledger keeps one row per session (`spend:<day>:<writer>` in the plugin store) and sums them on read, so two sessions pressing in the same instant both count toward the machine-wide day cap; 0.4.x's single `stats` row is migrated once and rows older than seven days are pruned (catalogue review of seed PR #341).
+- The day ledger keeps one row per session (`spend:<day>:<writer>` in the plugin store) and sums them on read, so two sessions pressing in the same instant both count toward the machine-wide day cap; 0.4.x's single `stats` row is migrated once and rows older than seven days are pruned (catalogue review of seed PR #341). Restart open sessions after updating: a 0.4.1 session left running can lose its later presses for the day.
 
 ## [0.4.1] - 2026-10-20
 
