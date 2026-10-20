@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-20
+
+### Fixed
+- `instructionExclude` now also applies to a named subproject's `CLAUDE.md`; an excluded file is neither read nor sent (catalogue review of seed PR #341).
+- The day ledger's read-modify-write is serialized within the session: two presses recorded in the same instant no longer lose one press and its cost (catalogue review of seed PR #341).
+
 ### Documentation
 - README links the 24-second launch film (`docs/launch-poster.jpg` → the MP4 attached to the v0.4.0 release).
 - README trimmed to what a user needs (3,000 words from 4,900): the upgrade guide moved to `docs/UPGRADING.md`, the development, evals and demo notes to `docs/DEVELOPMENT.md`; the launch film now autoplays as `docs/launch.gif` (800×450, 12 fps) with the MP4 linked for sound.
