@@ -6,6 +6,7 @@ import {
   engine,
   improve,
   phaseOnce,
+  press,
   watch,
   BETTER,
   DRAFT,
@@ -34,7 +35,6 @@ import type { DraftReader } from "../hooks/enhance";
 // plugin loads in an environment of its own, so a `cancel()` the test imports
 // is another instance: Cancel runs through `session.end`, which calls it.
 
-const COMMAND = "prompt-lift";
 const EDITED = `${BETTER} and also the logout path`;
 const BETTER_2 = `${BETTER} Keep the fix to src/auth.ts.`;
 const ENTER_TOAST =
@@ -45,17 +45,11 @@ const RESTORED = "prompt-lift: restored your draft";
 const REAPPLIED = "prompt-lift: re-applied the enhanced prompt";
 const NOTHING_TO_UNDO = "prompt-lift: nothing to undo";
 const CANCELLED = "prompt-lift: cancelled, draft unchanged · $0.000";
-/** An Anthropic API session model: the alias chain prices there (R19). */
-const API_FABLE = "claude-fable-5-1";
 const ABORTED: ModelCompleteResult = {
   isAnswered: false,
   reason: "aborted",
   usage: ZERO_USAGE,
 };
-
-function press($: Harness, args: string): Promise<unknown> {
-  return $.command.run({ command: COMMAND, args } as never);
-}
 
 function undoCmd($: Harness): Promise<unknown> {
   return press($, "undo");
@@ -437,7 +431,7 @@ test("a done phase is left alone at session.start", async ($, on) => {
 
 test("Cancel through session.end aborts the call and no fallback is tried", async ($, on) => {
   const e = engine(on, {
-    model: API_FABLE,
+    model: "claude-fable-5-1", // Anthropic API: alias chain priced (R19)
     delay: true,
     replies: [ABORTED, answered(GOOD)],
   });
