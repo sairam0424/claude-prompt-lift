@@ -6,11 +6,18 @@ import { estimateUsd, priceFor, shortModel } from "./config";
 import type { Attempt, ChainOk } from "./chain";
 import { hashBlock } from "./context";
 import { errorMessage } from "./gather";
+import {
+  createLedger,
+  dayOf,
+  dayTotal,
+  newWriterId,
+  recordPress as ledgerPress,
+} from "./ledger";
 
 // Usage bookkeeping (G5, C19): every call the chain paid for is recorded
 // whatever the rewrite came to — the last-call record the band and `status`
 // show, the block hash and the no-cache streak, the session totals, and the
-// per-day totals kept across sessions in `$.store.stats`. The atoms are
+// per-day totals kept across sessions in `$.store` (ledger.ts). The atoms are
 // declared here as well as in enhance.ts: `read` and `update` validate
 // against an atom made in the calling file.
 
@@ -44,16 +51,6 @@ const sessionUnpriced = atom(
 );
 
 /**
- * A day's (or the session's) totals: `usd` adds only the calls the price
- * table covers; `unpriced` counts the calls it does not (R3).
- */
-export type DayStats = { presses: number; usd: number; unpriced: number };
-export type Stats = { byDay: Record<string, DayStats> };
-
-export const STATS_STORE_KEY = "stats";
-export const EMPTY_DAY: DayStats = { presses: 0, usd: 0, unpriced: 0 };
-
-/**
  * What an answered press cost (every rung it paid for, see `callUsd`;
  * undefined when the answering model has no price) and whether block 0
  * differs from the last one: the facts the toasts show.
@@ -83,77 +80,19 @@ export type CallFacts = {
 export type Rewrite = Pick<CallFacts, "why" | "addedWords">;
 const NO_REWRITE: Rewrite = { why: "", addedWords: 0 };
 
-export function asStats(value: unknown): Stats {
-  const byDay = (value as { byDay?: unknown } | null | undefined)?.byDay;
-  const isRecord = typeof byDay === "object" && byDay !== null;
-  return { byDay: isRecord ? (byDay as Record<string, DayStats>) : {} };
-}
-
-/** The stats day key: the local `YYYY-MM-DD`, month and day padded (R6). */
-export function dayOf(nowMs: number): string {
-  const date = new Date(nowMs);
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-
 /**
- * The day's row; a row written before unpriced calls were counted reads as
- * zero of them.
+ * This module instance's ledger (R24): one writer id for the instance's
+ * lifetime, so its day rows never collide with another session's or with a
+ * hot-reloaded copy's; the sum across writers is read back with `dayTotal`.
  */
-export function dayRow(stats: Stats, day: string): DayStats {
-  return { ...EMPTY_DAY, ...stats.byDay[day] };
-}
+const ledger = createLedger(newWriterId());
 
-/** A call added to a row: priced, it adds its dollars; unpriced, a count. */
-export function addCall(row: DayStats, usd: number | undefined): DayStats {
-  return {
-    presses: row.presses + 1,
-    usd: usd === undefined ? row.usd : row.usd + usd,
-    unpriced: usd === undefined ? row.unpriced + 1 : row.unpriced,
-  };
-}
-
-/*
- * R18 (catalogue review of seed PR #341, finding 2): two `recordPress` calls
- * in the same instant each read the day row, then each wrote its own
- * increment over the other's: one press and its cost lost, the machine-wide
- * day cap understated. The read-modify-write now runs on a module-level
- * queue, one entry after the previous has settled (resolved or rejected), so
- * the second press reads the row the first wrote. Not `$.state` with
- * `ifVersion`: the row must outlive the session, and `$.store` has only
- * get/set/delete/keys, no compare-and-set, so two separate Claude Code
- * sessions pressing in the same instant stay outside the mod's reach (README,
- * Limits). `addCall` and `dayRow` stay pure; the queue variable is reassigned,
- * never mutated.
- */
-let statsQueue: Promise<unknown> = Promise.resolve();
-
-/**
- * Runs `work` once every earlier entry has settled either way, returns its
- * own promise (a caller still sees its own rejection), and leaves the tail
- * resolved whatever `work` did, so a failed write never stalls the next one.
- */
-function serialized<T>(work: () => Promise<T>): Promise<T> {
-  const run = statsQueue.then(work, work);
-  statsQueue = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  return run;
-}
-
+/** One press, priced or not, added to this session's row for today. */
 export function recordPress(
   $: EngineInterface,
   usd: number | undefined,
 ): Promise<void> {
-  return serialized(async () => {
-    const day = dayOf(await $.clock.now());
-    const stats = asStats(await $.store.get(STATS_STORE_KEY));
-    await $.store.set(STATS_STORE_KEY, {
-      byDay: { ...stats.byDay, [day]: addCall(dayRow(stats, day), usd) },
-    });
-  });
+  return ledgerPress(ledger, $, usd);
 }
 
 /**
@@ -178,14 +117,12 @@ export type Spent = { session: number; day: number };
 
 /**
  * What the session and the day have spent in priced dollars: the windows the
- * spend caps are checked against (R9). An unpriced press adds nothing here.
+ * spend caps are checked against (R9). The day is the whole machine's, every
+ * session's row summed (R24). An unpriced press adds nothing here.
  */
 export async function spentUsd($: EngineInterface): Promise<Spent> {
-  const stats = asStats(await $.store.get(STATS_STORE_KEY));
-  return {
-    session: await read($, sessionUsd),
-    day: dayRow(stats, dayOf(await $.clock.now())).usd,
-  };
+  const today = await dayTotal($, dayOf(await $.clock.now()));
+  return { session: await read($, sessionUsd), day: today.usd };
 }
 
 /**

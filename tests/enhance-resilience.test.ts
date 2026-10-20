@@ -9,13 +9,12 @@ import {
   BETTER,
   DRAFT,
   FABLE,
-  TODAY,
   USAGE,
 } from "./engine";
 import { resetStuckPhase } from "../hooks/actions";
 import { formatDollars } from "../hooks/chain";
 import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
-import { asStats, STATS_STORE_KEY } from "../hooks/stats";
+import { storeTotal, todayKeys, TODAY_PREFIX } from "./ledger-fake";
 
 // Spec §5.3 step 9 and §12, resilience: the pair Undo restores is held the
 // moment the box is filled, before any cost is recorded, so a failed stats
@@ -40,7 +39,7 @@ const ANSWER_LIKE =
 const BUSY = "prompt-lift: already enhancing";
 /** The pair, in the order the success path writes it. */
 const PAIR = ["original", "enhanced", "isUndone", "lastDecorations"];
-/** The state recording the call writes, in order; the store row follows. */
+/** The state recording the call writes, in order; the day row follows. */
 const RECORD = [
   "lastUsage",
   "blockHash",
@@ -70,12 +69,12 @@ test("the pair is held before anything about the call is recorded", async ($, on
 
   expect(e.box.text).toBe(BETTER);
   expect(order).toEqual([...PAIR, ...RECORD]);
-  expect(e.store[STATS_STORE_KEY]).toBeDefined();
+  expect(todayKeys(e.store)).toHaveLength(1);
 });
 
 test("a failed stats write keeps the pair: Undo restores the draft and the toast says so", async ($, on) => {
   const e = engine(on, {
-    denyStoreSet: { key: STATS_STORE_KEY, reason: "disk full" },
+    denyStoreSet: { key: TODAY_PREFIX, reason: "disk full" },
   });
   const phases = watch(on, "phase");
 
@@ -86,7 +85,7 @@ test("a failed stats write keeps the pair: Undo restores the draft and the toast
   expect(e.logs).toHaveLength(1);
   expect(e.logs[0]).toContain("disk full");
   expect(phases).toEqual(["running", "done"]);
-  expect(e.store[STATS_STORE_KEY]).toBeUndefined();
+  expect(todayKeys(e.store)).toEqual([]);
 
   await press($, "undo");
 
@@ -109,7 +108,7 @@ test("a box that rejects the fill still has the call recorded", async ($, on) =>
   expect(e.toasts[0]).toContain("prompt.fill");
   // Paid for the answer (G5, C19): the totals and the day row still count it
   expect(presses).toEqual([1]);
-  expect(asStats(e.store[STATS_STORE_KEY]).byDay[TODAY]?.presses).toBe(1);
+  expect((await storeTotal(e.store)).presses).toBe(1);
   expect(e.logs).toHaveLength(1);
   expect(phases).toEqual(["running", "idle"]);
 });
@@ -117,7 +116,7 @@ test("a box that rejects the fill still has the call recorded", async ($, on) =>
 test("a record that fails on the failure path is logged, not toasted", async ($, on) => {
   const e = engine(on, {
     denyFill: "composer gone",
-    denyStoreSet: { key: STATS_STORE_KEY, reason: "disk full" },
+    denyStoreSet: { key: TODAY_PREFIX, reason: "disk full" },
   });
   const presses = watch(on, "sessionPresses");
 
@@ -126,7 +125,7 @@ test("a record that fails on the failure path is logged, not toasted", async ($,
   expect(e.toasts).toHaveLength(1);
   expect(e.toasts[0]?.startsWith("prompt-lift: enhance failed (")).toBe(true);
   expect(presses).toEqual([1]);
-  expect(e.store[STATS_STORE_KEY]).toBeUndefined();
+  expect(todayKeys(e.store)).toEqual([]);
   expect(e.logs).toHaveLength(2);
   expect(e.logs[0]).toContain("recording the cost failed");
   expect(e.logs[0]).toContain("disk full");
@@ -136,7 +135,7 @@ test("a record that fails on the failure path is logged, not toasted", async ($,
 test("a failed stats write on a fine verdict still toasts the verdict with its cost", async ($, on) => {
   const e = engine(on, {
     replies: [answered(JSON.stringify({ verdict: "fine" }))],
-    denyStoreSet: { key: STATS_STORE_KEY, reason: "disk full" },
+    denyStoreSet: { key: TODAY_PREFIX, reason: "disk full" },
   });
 
   await press($, DRAFT);
@@ -151,7 +150,7 @@ test("a failed stats write on a fine verdict still toasts the verdict with its c
 test("a failed stats write after a refused fill leaves the refusal toast alone", async ($, on) => {
   const e = engine(on, {
     fill: { isFilled: false },
-    denyStoreSet: { key: STATS_STORE_KEY, reason: "disk full" },
+    denyStoreSet: { key: TODAY_PREFIX, reason: "disk full" },
   });
 
   await press($, DRAFT);
@@ -174,7 +173,7 @@ test("a failed done write after the record keeps the result and says so", async 
   expect(e.toasts).toEqual([BAND_FAILED]);
   expect(e.logs).toHaveLength(1);
   expect(e.logs[0]).toContain("state gone");
-  expect(asStats(e.store[STATS_STORE_KEY]).byDay[TODAY]?.presses).toBe(1);
+  expect((await storeTotal(e.store)).presses).toBe(1);
 
   // The pair was held: Undo still restores the draft
   await press($, "undo");
@@ -209,7 +208,7 @@ test("a hash read that throws after the answer still records the call", async ($
   expect(e.toasts[0]).toContain("state gone");
   // Paid for the answer (G5, C19): the totals and the day row count it
   expect(presses).toEqual([1]);
-  expect(asStats(e.store[STATS_STORE_KEY]).byDay[TODAY]?.presses).toBe(1);
+  expect((await storeTotal(e.store)).presses).toBe(1);
 });
 
 test("a command resets a running phase no call backs", async ($, on) => {

@@ -115,8 +115,9 @@ export type EngineOptions = {
   /** Make `session.messages` reject for this reason: enhance's failure path. */
   denyMessages?: string;
   /**
-   * Make `store.set` of this key reject for this reason: the path where a
-   * stats write fails.
+   * Make `store.set` of any key with this prefix reject for this reason: the
+   * path where a ledger write fails. A whole key is its own prefix; the day
+   * rows carry a writer id the test cannot know, so their prefix is given.
    */
   denyStoreSet?: { key: string; reason: string };
   /** Make `prompt.submit` refuse with this reason instead of taking the text. */
@@ -331,7 +332,7 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
   on("store.get", ($, e) => ({ value: store[e.key] }));
   on("store.set", ($, e) => {
     const denied = opts.denyStoreSet;
-    if (denied !== undefined && denied.key === e.key) {
+    if (denied !== undefined && e.key.startsWith(denied.key)) {
       return { deny: denied.reason };
     }
     store[e.key] = e.value;
@@ -341,6 +342,7 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     delete store[e.key];
     return { value: undefined };
   });
+  on("store.keys", () => ({ value: Object.keys(store) }));
   const clock = mock.clock(on, { now: NOW_MS });
 
   return {

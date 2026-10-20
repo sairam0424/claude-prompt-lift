@@ -16,7 +16,8 @@ import {
 } from "./engine";
 import { formatDollars } from "../hooks/chain";
 import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
-import { addCall, dayRow, EMPTY_DAY, type DayStats } from "../hooks/stats";
+import { addCall, dayRow, EMPTY_DAY, type DayStats } from "../hooks/ledger";
+import { storeTotal } from "./ledger-fake";
 
 // Spec G5 and C19: every call the chain paid for is recorded and its dollars
 // end every toast that follows it; `status` shows the last call, not the last
@@ -32,7 +33,6 @@ const FINE = "prompt-lift: already specific, left as is";
 const OPUS = "us.anthropic.claude-opus-4-1";
 /** How every cost tail reads when the price table has no row (R3). */
 const UNPRICED = "$? · (no price)";
-type Stats = { byDay: Record<string, DayStats> };
 
 test(
   "model failure leaves the draft and names the attempts",
@@ -64,7 +64,7 @@ test(
     expect(e.toasts[0]?.endsWith(` · ${formatDollars(0)}`)).toBe(true);
     expect(e.logs).toHaveLength(1);
     expect(e.logs[0]).toContain("rate_limit");
-    expect((e.store.stats as Stats).byDay[TODAY]).toEqual({
+    expect(await storeTotal(e.store)).toEqual({
       presses: 1,
       usd: 0,
       unpriced: 0,
@@ -99,9 +99,9 @@ test("a chain that fails after a paid rung records the spend", async ($, on) => 
   await press($, DRAFT);
 
   const usd = estimateUsd(USAGE, FABLE, DEFAULT_PRICES) ?? 0;
-  const day = (e.store.stats as Stats).byDay[TODAY];
-  expect(day?.presses).toBe(1);
-  expect(Math.abs((day?.usd ?? 0) - usd)).toBeLessThan(1e-9);
+  const day = await storeTotal(e.store);
+  expect(day.presses).toBe(1);
+  expect(Math.abs(day.usd - usd)).toBeLessThan(1e-9);
   expect(presses).toEqual([1]);
   expect(e.toasts[0]?.startsWith("prompt-lift: no model answered ·")).toBe(
     true,
@@ -142,8 +142,8 @@ test(
     );
     expect(status).toContain(`session: 1 press · ${both}`);
     expect(status).toContain(`today: 1 press · ${both}`);
-    const day = (e.store.stats as Stats).byDay[TODAY];
-    expect(Math.abs((day?.usd ?? 0) - (fable + sonnet))).toBeLessThan(1e-9);
+    const day = await storeTotal(e.store);
+    expect(Math.abs(day.usd - (fable + sonnet))).toBeLessThan(1e-9);
   },
 );
 
@@ -178,9 +178,9 @@ test(
     await press($, DRAFT);
     const status = ((await press($, "status")) as { text: string }).text;
 
-    const day = (e.store.stats as Stats).byDay[TODAY];
-    expect(day?.presses).toBe(1);
-    expect(day?.usd ?? 0).toBeGreaterThan(0);
+    const day = await storeTotal(e.store);
+    expect(day.presses).toBe(1);
+    expect(day.usd).toBeGreaterThan(0);
     expect(presses).toEqual([1]);
     expect(status).toContain(`session: 1 press · ${COST}`);
     expect(status).toContain(`today: 1 press · ${COST}`);
@@ -260,9 +260,9 @@ test("stats accumulate presses and dollars by day", async ($, on) => {
   await press($, DRAFT_2);
 
   const usd = estimateUsd(USAGE, FABLE, DEFAULT_PRICES) ?? 0;
-  const stats = e.store.stats as Stats;
-  expect(stats.byDay[TODAY]?.presses).toBe(2);
-  expect(Math.abs((stats.byDay[TODAY]?.usd ?? 0) - 2 * usd)).toBeLessThan(1e-9);
+  const day = await storeTotal(e.store);
+  expect(day.presses).toBe(2);
+  expect(Math.abs(day.usd - 2 * usd)).toBeLessThan(1e-9);
   expect(usd).toBeGreaterThan(0);
   expect(presses).toEqual([1, 2]);
 });
@@ -301,7 +301,7 @@ test(
     );
     expect(status).toContain("session: 1 press · $0.000 · unpriced calls: 1");
     expect(status).toContain("today: 1 press · $0.000 · unpriced calls: 1");
-    expect((e.store.stats as Stats).byDay[TODAY]).toEqual({
+    expect(await storeTotal(e.store)).toEqual({
       presses: 1,
       usd: 0,
       unpriced: 1,
@@ -329,11 +329,11 @@ test(
       `session: 2 presses · ${COST} · unpriced calls: 1`,
     );
     expect(status).toContain(`today: 2 presses · ${COST} · unpriced calls: 1`);
-    const day = (e.store.stats as Stats).byDay[TODAY];
-    expect(day?.presses).toBe(2);
-    expect(day?.unpriced).toBe(1);
+    const day = await storeTotal(e.store);
+    expect(day.presses).toBe(2);
+    expect(day.unpriced).toBe(1);
     const usd = estimateUsd(USAGE, FABLE, DEFAULT_PRICES) ?? 0;
-    expect(Math.abs((day?.usd ?? 0) - usd)).toBeLessThan(1e-9);
+    expect(Math.abs(day.usd - usd)).toBeLessThan(1e-9);
   },
 );
 
@@ -362,7 +362,7 @@ test(
     );
     expect(e.toasts[0]?.endsWith(` · ${UNPRICED}`)).toBe(true);
     expect(status).toContain("session: 1 press · $0.000 · unpriced calls: 1");
-    expect((e.store.stats as Stats).byDay[TODAY]).toEqual({
+    expect(await storeTotal(e.store)).toEqual({
       presses: 1,
       usd: 0,
       unpriced: 1,

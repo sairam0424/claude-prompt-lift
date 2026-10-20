@@ -83,7 +83,7 @@ The mod touches the filesystem through `$.fs.read`, `$.fs.list` and `$.fs.exists
 
 Writes happen through `$.prompt.fill` (which writes the prompt box) and `$.prompt.submit` (which sends only when you press Send; Enter is the engine's own path). Nothing is sent on a timer or while you type.
 
-Persistence is local to this machine: `$.state` holds the session's held pair, phase, last usage, model choice, the static block's hash and size, session cap override, and tail override; `$.store` holds the per-day press and cost rows and the chosen model.
+Persistence is local to this machine: `$.state` holds the session's held pair, phase, last usage, model choice, the static block's hash and size, session cap override, and tail override; `$.store` holds one day row per session (`spend:<day>:<writer>`), summed on read and pruned after seven days, plus the pinned model.
 
 The mod uses no `$.http.fetch`, no `$.process.run`, no clipboard access, no telemetry, no analytics, and no file writes.
 
@@ -231,7 +231,6 @@ After the call (the toast ends with what the call cost):
 - Terminal only (no desktop footer, no VS Code); one band row; no timers, so the day figure on the idle row refreshes at the next press after midnight.
 - Shares your account's model quota with the main turn; a rate limit on the first rung falls back to the next and the toast says so.
 - The mod sends instruction file text to the model, so a hostile `CLAUDE.md` in a cloned repository can attempt prompt injection. Tag-like markup is neutralised and the model is told to treat that text as data; the residual risk is yours to weigh in untrusted repositories.
-- Within a session the day ledger is written in order; the plugin store has no compare-and-set across sessions, so two Claude Code sessions pressing in the same instant may each read the day row before the other writes it.
 
 ## Development
 

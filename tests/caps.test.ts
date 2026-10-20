@@ -27,8 +27,10 @@ import {
   parseCapArg,
 } from "../hooks/caps";
 import { doneRowText, idleRowText } from "../hooks/band";
+import { spendKey } from "../hooks/ledger";
 import { statusText, type StatusInput } from "../hooks/status";
 import type { LastUsage } from "../types";
+import { storeTotal } from "./ledger-fake";
 
 // Spend caps (R9): a press is refused before any model call once the mod's
 // own ledger shows the session or the day at its cap; the rows show what is
@@ -66,7 +68,6 @@ const LAST: LastUsage = {
 const DONE_ROW =
   "fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04 · +12 words · 1 skill";
 type Band = Mounted<"terminal", "AbovePrompt">;
-type Stats = { byDay: Record<string, { presses: number; usd: number }> };
 
 function caps(sessionCapUsd: number, dayCapUsd: number) {
   return parseOptions({ sessionCapUsd, dayCapUsd });
@@ -197,7 +198,7 @@ test(
     expect(e.toasts).toHaveLength(2);
     expect(e.toasts[1]).toBe(SESSION_REACHED);
     expect(presses).toEqual([1]);
-    expect((e.store.stats as Stats).byDay[TODAY]?.presses).toBe(1);
+    expect((await storeTotal(e.store)).presses).toBe(1);
     // The refusal settles the phase where it stood: the held pair keeps Send
     expect(phases).toEqual(["running", "done", "running", "done"]);
   },
@@ -268,10 +269,8 @@ test(
   { options: { sessionCapUsd: 1, dayCapUsd: 0.5 } },
   async ($, on) => {
     const e = engine(on, { replies: [answered(GOOD, PRICEY), answered(GOOD)] });
-    // An earlier session today spent $0.40 of the day's $0.50
-    e.store.stats = {
-      byDay: { [TODAY]: { presses: 2, usd: 0.4, unpriced: 0 } },
-    };
+    // Another session today spent $0.40 of the day's $0.50: its own row (R24)
+    e.store[spendKey(TODAY, "other")] = { presses: 2, usd: 0.4, unpriced: 0 };
     const ui = await mount($);
 
     expect(await rowText(ui)).toContain(" · $0.10 left (day)");

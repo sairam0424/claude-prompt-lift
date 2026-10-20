@@ -7,13 +7,7 @@ import { costText, formatDollars, formatTokens } from "./chain";
 import { selectInstructionFiles, type MemoryFile } from "./context";
 import { resolveChain } from "./gather";
 import { capsLine, readCapStatus, type CapStatus } from "./caps";
-import {
-  asStats,
-  dayOf,
-  dayRow,
-  STATS_STORE_KEY,
-  type DayStats,
-} from "./stats";
+import { dayOf, dayTotal, type DayStats } from "./ledger";
 import { readTailCount } from "./tail";
 
 // `/prompt-lift status` (spec §5.2, §12): what the mod would send and what
@@ -135,7 +129,6 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
   const files = breakdown?.memoryFiles ?? [];
   const included = selectInstructionFiles(files, cfg, home);
   const includedPaths = new Set(included.map((file) => file.path));
-  const stats = asStats(await $.store.get(STATS_STORE_KEY));
   return statusText({
     chain: await resolveChain($, cfg),
     last: await read($, lastUsage),
@@ -144,7 +137,8 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
       usd: await read($, sessionUsd),
       unpriced: await read($, sessionUnpriced),
     },
-    today: dayRow(stats, dayOf(await $.clock.now())),
+    // Every session's row for today summed (R24), not this writer's alone
+    today: await dayTotal($, dayOf(await $.clock.now())),
     caps: await readCapStatus($, cfg),
     sessionTotal: typeof total === "number" ? total : undefined,
     staticChars: await read($, staticChars),

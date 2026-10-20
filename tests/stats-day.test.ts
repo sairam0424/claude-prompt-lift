@@ -1,6 +1,6 @@
 import { expect, test } from "claude-code/testing";
 import { localDay, NOW_MS, TODAY } from "./engine";
-import { dayOf } from "../hooks/stats";
+import { dayOf } from "../hooks/ledger";
 
 // --- R6: the stats day is the local day ---
 
