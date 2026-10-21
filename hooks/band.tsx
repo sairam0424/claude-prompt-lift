@@ -1,21 +1,29 @@
 import { atom, read } from "claude-code";
 import type { EngineInterface, RenderElement, RenderInput } from "claude-code";
-import type { LastUsage } from "../types";
 import type { Config } from "./config";
-import { hasUnpricedAlias, shortModel } from "./config";
-import { costText, formatTokens } from "./chain";
+import { hasUnpricedAlias } from "./config";
 import { enhance, isCallInFlight } from "./enhance";
 import { cancel, send, undo } from "./actions";
 import { resolveChain, resolveChainWithPlatform } from "./gather";
 import { leftText, readCapStatus } from "./caps";
 import { readTailCount } from "./tail";
+import type { BandState } from "./band-row";
+import {
+  doneRowText,
+  headline,
+  idleRowText,
+  runningRowText,
+  tierOf,
+  RESTORED_ROW,
+} from "./band-row";
 
-// The band (spec §5.1; C12, C17, C19): one row above the prompt, chained
+// The band (spec §5.1; C12, C17, C19; R25): one row above the prompt, chained
 // above whatever the engine and the plugins beneath draw there. It redraws
 // only when a value it reads changes or the engine redraws the band; it never
-// calls the model. The atoms are declared here as well as in enhance.ts:
-// `read` validates against an atom made in the calling file, and the same
-// plugin and key name the same value.
+// calls the model and runs no timer. The atoms are declared here as well as
+// in enhance.ts: `read` validates against an atom made in the calling file,
+// and the same plugin and key name the same value. The row's words and the
+// width tiers live in band-row.tsx; this file alone touches `$`.
 
 const phase = atom({ plugin: "prompt-lift", key: "phase" } as const, "idle");
 const isUndone = atom(
@@ -36,63 +44,11 @@ const noCacheStreak = atom(
   0,
 );
 
-/** Presses without a cache hit before the row suggests a cheaper rung (C19). */
-const NO_CACHE_HINT_AFTER = 3;
-export const RESTORED_ROW = "restored your draft";
-const NO_CACHE_HINT = "cache not hitting — consider /prompt-lift model haiku";
+/** With no width from the engine, the 80-column tier: hint gone, figures kept. */
+const DEFAULT_COLUMNS = 80;
 
 export type BandEvent = RenderInput<"AbovePrompt">;
 export type BandNext = (e: BandEvent) => Promise<RenderElement>;
-
-/** The idle row: the keys and the first rung, then what a cap leaves (R9) and tail N (R10). */
-export function idleRowText(
-  firstRung: string,
-  left?: string,
-  tail?: number,
-): string {
-  const row = `ctrl+x b · or ctrl+x tab, e · prompt-lift: ${shortModel(firstRung)}`;
-  const parts = [row];
-  if (left !== undefined) {
-    parts.push(left);
-  }
-  if (tail !== undefined && tail > 0) {
-    parts.push(`tail ${tail}`);
-  }
-  return parts.join(" · ");
-}
-
-export function runningRowText(modelId: string): string {
-  return `Enhancing with ${shortModel(modelId)}…`;
-}
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
-
-/**
- * The done row: the last call's usage, what the rewrite added, then what a
- * cap leaves (R9), tail N (R10); the no-cache hint stays last.
- */
-export function doneRowText(
-  usage: LastUsage,
-  streak: number,
-  left?: string,
-  tail?: number,
-): string {
-  const hint = streak >= NO_CACHE_HINT_AFTER ? [NO_CACHE_HINT] : [];
-  return [
-    shortModel(usage.model),
-    `${formatTokens(usage.cached)} cached`,
-    `${formatTokens(usage.input + usage.written)} in`,
-    `${usage.output} out`,
-    costText(usage.usd ?? undefined),
-    `+${plural(usage.addedWords, "word")}`,
-    plural(usage.skills, "skill"),
-    ...(left === undefined ? [] : [left]),
-    ...(tail !== undefined && tail > 0 ? [`tail ${tail}`] : []),
-    ...hint,
-  ].join(" · ");
-}
 
 /** The `ui.render { component: 'AbovePrompt' }` hook's body. */
 export async function renderBand(
@@ -149,6 +105,25 @@ async function drawRow(
   cfg: Config,
 ): Promise<RenderElement> {
   const { Box, Button, Text } = $.ui.resolve(e);
+  // One read of the width per draw (R25); the tiers drop parts as it falls.
+  const tier = tierOf(e.props.bodyColumns ?? DEFAULT_COLUMNS);
+  // The headline leads in its own non-shrinking Box, so a squeeze lands on
+  // the details Text, which truncates: the row stays one line (§5.1).
+  const headlineNode = (state: BandState): RenderElement => {
+    const head = headline(state, tier);
+    return (
+      <Box flexShrink={0}>
+        <Text color={head.color} bold>
+          {head.text}
+        </Text>
+      </Box>
+    );
+  };
+  const detailsNode = (text: string): RenderElement => (
+    <Text dimColor wrap="truncate-end">
+      {text}
+    </Text>
+  );
   const current = await read($, phase);
   // A `running` no call backs is one a dropped environment left (§5.3 resets):
   // drawn as idle here and reset by the next command; a render never writes.
@@ -158,46 +133,55 @@ async function drawRow(
     const running = await read($, runningModel);
     return (
       <Box gap={1}>
-        <Button key="cancel" label="Cancel (c)" hotkey="c" onPress={cancel} />
-        <Text dimColor wrap="truncate-end">
-          {runningRowText(running)}
-        </Text>
+        {headlineNode("running")}
+        <Button
+          key="cancel"
+          label="Cancel (c)"
+          hotkey="c"
+          variant="primary"
+          onPress={cancel}
+        />
+        {detailsNode(runningRowText(running))}
       </Box>
     );
   }
   const left = await capLeft($, cfg);
   const tail = await readTailCount($, cfg);
   const action = cfg.enhanceAction === "" ? {} : { action: cfg.enhanceAction };
-  const enhanceButton = (
+  // The primary Button per state (R25): Enhance when idle, Send once done.
+  const enhanceButton = (primary: boolean): RenderElement => (
     <Button
       key="enhance"
       label="Enhance (e)"
       hotkey="e"
       {...action}
+      {...(primary ? { variant: "primary" } : {})}
       onPress={() => enhance($, cfg, { kind: "box" })}
     />
   );
   if (!isDone) {
     return (
       <Box gap={1}>
-        {enhanceButton}
-        <Text dimColor wrap="truncate-end">
-          {idleRowText(await firstRung($, cfg), left, tail)}
-        </Text>
+        {headlineNode("idle")}
+        {enhanceButton(true)}
+        {detailsNode(idleRowText(await firstRung($, cfg), left, tail, tier))}
       </Box>
     );
   }
   const undone = await read($, isUndone);
   const usage = await read($, lastUsage);
   const streak = await read($, noCacheStreak);
-  const summary = usage === null ? "" : doneRowText(usage, streak, left, tail);
+  const summary =
+    usage === null ? "" : doneRowText(usage, streak, left, tail, tier);
   return (
     <Box gap={1}>
-      {enhanceButton}
+      {headlineNode(undone ? "restored" : "done")}
+      {enhanceButton(false)}
       <Button
         key="send"
         label={e.props.isWorking ? "Send (queues)" : "Send (s)"}
         hotkey="s"
+        variant="primary"
         onPress={() => send($)}
       />
       <Button
@@ -206,9 +190,7 @@ async function drawRow(
         hotkey="u"
         onPress={() => undo($)}
       />
-      <Text dimColor wrap="truncate-end">
-        {undone ? RESTORED_ROW : summary}
-      </Text>
+      {detailsNode(undone ? RESTORED_ROW : summary)}
     </Box>
   );
 }

@@ -18,7 +18,7 @@ import {
   idleRowText,
   runningRowText,
   RESTORED_ROW,
-} from "../hooks/band";
+} from "../hooks/band-row";
 import { formatDollars } from "../hooks/chain";
 import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 import type { LastUsage } from "../types";
@@ -91,10 +91,10 @@ async function label(ui: Band, key: string): Promise<unknown> {
   return (await ui.find({ type: "Button", key }))?.props.label;
 }
 
+/** The details Text alone: the dim one, after the headline and the Buttons. */
 async function rowText(ui: Band): Promise<string> {
-  const texts = await ui.findAll({ type: "Text" });
-  return texts
-    .filter((t) => t.text !== "lower")
+  return (await ui.findAll({ type: "Text" }))
+    .filter((t) => t.props.dimColor === true)
     .map((t) => t.text)
     .join("");
 }

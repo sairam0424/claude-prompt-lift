@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The band's row leads with a headline, one glyph and a state word in a theme colour that follows light and dark themes (`↥ Ready`, `↻ Enhancing`, `✓ Enhanced`, `↶ Restored`), the details stay dim, and the state's main Button (Enhance, Cancel, Send) is drawn as the primary one; the row now reads the band's width and drops parts as it narrows: the key hint goes under 100 columns, the done row's three token figures under 80, the headline's word under 60.
+
 ## [0.5.0] - 2026-10-20
 
 ### Changed

@@ -26,7 +26,7 @@ import {
   leftText,
   parseCapArg,
 } from "../hooks/caps";
-import { doneRowText, idleRowText } from "../hooks/band";
+import { doneRowText, idleRowText } from "../hooks/band-row";
 import { spendKey } from "../hooks/ledger";
 import { statusText, type StatusInput } from "../hooks/status";
 import type { LastUsage } from "../types";
