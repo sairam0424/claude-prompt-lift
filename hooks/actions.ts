@@ -3,6 +3,7 @@ import type { EngineInterface, StateDollar } from "claude-code";
 import { armUndo, disarmUndo, undoArmedAt } from "./arm";
 import { capToast } from "./chain";
 import { cancel, TOAST_NOT_TAKEN, type DraftReader } from "./enhance";
+import { clearVerdict } from "./verdict";
 
 // Send, Undo/Redo, Cancel and the resets (spec §5.3; C3, C11, C13, C14).
 // The atoms are declared here as well as in enhance.ts: `read` and `update`
@@ -169,6 +170,8 @@ export async function undo($: EngineInterface): Promise<void> {
     $.ui.toast(TOAST_NOTHING_TO_UNDO);
     return;
   }
+  // Undo is the next action: it ends a verdict the row still shows (R25)
+  await clearVerdict($);
   if (decision.kind === "arm") {
     armUndo(now);
     $.ui.toast(TOAST_UNDO_ARM);
@@ -192,11 +195,13 @@ export async function undo($: EngineInterface): Promise<void> {
 }
 
 /**
- * What Send, Enter, /clear and a resume forget: the pair and the phase. Every
- * Enter comes through here, so nothing held and an idle phase write nothing.
+ * What Send, Enter, /clear and a resume forget: the pair, the phase and the
+ * last press's verdict. Every Enter comes through here, so nothing held, an
+ * idle phase and no verdict write nothing.
  */
 export async function clearHeld($: EngineInterface): Promise<void> {
   disarmUndo();
+  await clearVerdict($);
   const isHeld = (await read($, original)) !== null;
   const isIdle = (await read($, phase)) === "idle";
   if (!isHeld && isIdle) {

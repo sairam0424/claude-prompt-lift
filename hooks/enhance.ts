@@ -1,5 +1,6 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, StateValue } from "claude-code";
+import type { Verdict } from "../types";
 import type { Config, Platform } from "./config";
 import { SYSTEM } from "./rules";
 import { postProcess, preGuard, type PostOk } from "./guards";
@@ -30,6 +31,7 @@ import {
 } from "./stats";
 import { holdPair, recordSuccess } from "./record";
 import { capReachedToast, readCapStatus } from "./caps";
+import { clearVerdict, keepVerdict, verdictOf, type Stop } from "./verdict";
 
 // The Enhance flow (spec §5.3 steps 1–9) and the session state it writes.
 // Every atom this file reads or writes is declared here (the usage atoms live
@@ -107,25 +109,39 @@ export async function enhance(
   // Paid for whatever comes after the answer (G5, C19): owed until a record
   // is attempted; a throw before that leaves it to the catch.
   let unrecorded: AnsweredCall | undefined;
+  // How the press ended if it filled nothing: said now, kept by `settle` (R25)
+  let verdict: Verdict | undefined;
+  const stop: Stop = (kind, toast, cost) => {
+    verdict = verdictOf(
+      kind,
+      toast,
+      cost === undefined ? 0 : (cost.usd ?? null),
+    );
+    $.ui.toast(
+      cost === undefined ? capToast(toast) : withCost(toast, cost.usd),
+    );
+  };
   try {
     // The press's first clock read (R25): the record times the press from it
     // with one more read, no ticks
     const pressedAt = await $.clock.now();
     before = await read($, phase);
     const myId = await update($, requestId, (n) => n + 1);
+    // A new press ends the last press's verdict (R25)
+    await clearVerdict($);
     // A same-value write (over a stale `running`) still redraws the band
     await update($, phase, () => "running");
     const draft = await readDraft($, source);
     const rows = await $.session.messages();
     const guard = preGuard(draft, cfg, lastAssistantText(rows));
     if (!guard.ok) {
-      $.ui.toast(guard.toast);
+      stop("refused", guard.toast);
       return;
     }
     // R9: a window at its cap refuses the press the same way, before any call
     const capped = capReachedToast(await readCapStatus($, cfg));
     if (capped !== undefined) {
-      $.ui.toast(capped);
+      stop("refused", capped);
       return;
     }
     const prepared = await prepare($, cfg, draft, rows);
@@ -133,7 +149,7 @@ export async function enhance(
     const { chain, platform } = await resolveChainWithPlatform($, cfg);
     const run = await callChain($, cfg, chain, prepared, abort.signal);
     if (!run.ok) {
-      await reportFailure($, cfg, run, platform);
+      await reportFailure($, cfg, run, platform, stop);
       return;
     }
     // Judged now, written once the outcome is known: after the pair on a fill.
@@ -162,7 +178,9 @@ export async function enhance(
     if (!post.ok) {
       unrecorded = undefined;
       await recordOrLog($, call);
-      $.ui.toast(withCost("fine" in post ? TOAST_FINE : post.toast, call.usd));
+      stop("refused", "fine" in post ? TOAST_FINE : post.toast, {
+        usd: call.usd,
+      });
       return;
     }
     const filledText = await verifyAndFill($, {
@@ -174,6 +192,7 @@ export async function enhance(
       post,
       myId,
       usd: call.usd,
+      stop,
     });
     if (filledText === undefined) {
       unrecorded = undefined;
@@ -189,13 +208,20 @@ export async function enhance(
     }
     // The message is cut where it is composed (R2); capToast makes it one line
     const message = cut(errorMessage(err), ERROR_MAX);
-    $.ui.toast(capToast(`prompt-lift: enhance failed (${message})`));
+    const toast = capToast(`prompt-lift: enhance failed (${message})`);
+    // Its toast names no cost; the row's figure is what a paid call cost
+    verdict = verdictOf(
+      "failed",
+      toast,
+      unrecorded === undefined ? 0 : (unrecorded.usd ?? null),
+    );
+    $.ui.toast(toast);
     $.ui.log(`prompt-lift: enhance failed: ${String(err)}`, { to: "debug" });
   } finally {
     // In flight until the phase has settled: a command in that window must
     // not reset this press's phase, and a press then is rightly told "busy".
     try {
-      await settle($, before);
+      await settle($, before, verdict);
     } finally {
       busy = false;
       controller = undefined;
@@ -273,19 +299,20 @@ async function reportFailure(
   cfg: Config,
   run: ChainFail,
   platform: Platform,
+  stop: Stop,
 ): Promise<void> {
   if (run.attempts.length === 0) {
-    $.ui.toast(TOAST_NO_MODELS);
+    stop("failed", TOAST_NO_MODELS);
     return;
   }
   const usd = attemptsUsd(run.attempts, cfg.prices, platform);
   await recordSpend($, usd);
   if (run.cancelled) {
-    $.ui.toast(withCost(TOAST_CANCELLED, usd));
+    stop("cancelled", TOAST_CANCELLED, { usd });
     return;
   }
   const trail = run.attempts.map(describeAttempt).join(" → ");
-  $.ui.toast(withCost(`prompt-lift: no model answered · ${trail}`, usd));
+  stop("failed", `prompt-lift: no model answered · ${trail}`, { usd });
   $.ui.log(`prompt-lift: enhance failed: ${trail}`);
 }
 
@@ -301,6 +328,7 @@ async function verifyAndFill(
     post: PostOk;
     myId: number;
     usd: number | undefined;
+    stop: Stop;
   },
 ): Promise<string | undefined> {
   const hasPaths = await namedPathsExist($, {
@@ -311,14 +339,14 @@ async function verifyAndFill(
     rootDirs: a.rootDirs,
   });
   if (!hasPaths) {
-    $.ui.toast(withCost(TOAST_MISSING_PATH, a.usd));
+    a.stop("refused", TOAST_MISSING_PATH, { usd: a.usd });
     return undefined;
   }
   if ((await read($, requestId)) !== a.myId) {
     return undefined;
   }
   if ((await $.prompt.read()).text !== expectedBoxText(a.source, a.draft)) {
-    $.ui.toast(withCost(TOAST_DRAFT_CHANGED, a.usd));
+    a.stop("refused", TOAST_DRAFT_CHANGED, { usd: a.usd });
     return undefined;
   }
   const filled = await $.prompt.fill({
@@ -328,7 +356,7 @@ async function verifyAndFill(
   });
   if (!filled.isFilled) {
     const cause = filled.refusal ?? "refused";
-    $.ui.toast(withCost(`${TOAST_NOT_TAKEN} (${cause})`, a.usd));
+    a.stop("failed", `${TOAST_NOT_TAKEN} (${cause})`, { usd: a.usd });
     return undefined;
   }
   return filled.text;
@@ -336,12 +364,19 @@ async function verifyAndFill(
 
 /**
  * Never leaves the phase at `running` once a press has settled: `done` stays
- * `done` when a later press is refused, anything else returns to `idle`.
+ * `done` when a later press is refused, anything else returns to `idle`. A
+ * press that ended without a fill leaves its verdict first, so the settled
+ * row is drawn with the reason (R25).
  */
-async function settle($: EngineInterface, before: Phase): Promise<void> {
+async function settle(
+  $: EngineInterface,
+  before: Phase,
+  verdict: Verdict | undefined,
+): Promise<void> {
   try {
     await pendingNote;
     await update($, runningModel, () => "");
+    await keepVerdict($, verdict);
     if ((await read($, phase)) === "running") {
       await update($, phase, () => (before === "done" ? "done" : "idle"));
     }

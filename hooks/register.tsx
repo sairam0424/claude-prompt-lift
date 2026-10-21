@@ -4,6 +4,7 @@ import { cancel, clearHeld, resetStuckPhase } from "./actions";
 import { renderBand } from "./band";
 import { runCommand } from "./commands";
 import { isCallInFlight } from "./enhance";
+import { clearVerdict } from "./verdict";
 
 export { HINT } from "./commands";
 
@@ -22,6 +23,8 @@ export const register: Register = (on, options) => {
       $.ui.log(cfg.pricesIssue);
     }
     await resetStuckPhase($, isCallInFlight);
+    // A verdict the last session left is not this session's to show (R25)
+    await clearVerdict($);
     return next(e);
   });
 
@@ -65,7 +68,9 @@ export const register: Register = (on, options) => {
     renderBand($, e, next, cfg),
   );
 
-  on("command.run", { command: "prompt-lift" }, ($, e) =>
-    runCommand($, cfg, e.args),
-  );
+  // Any /prompt-lift command is the next action: it ends the row's verdict
+  on("command.run", { command: "prompt-lift" }, async ($, e) => {
+    await clearVerdict($);
+    return runCommand($, cfg, e.args);
+  });
 };

@@ -285,6 +285,8 @@ test(
     await press($, DRAFT_2);
     await press($, DRAFT);
     await press($, DRAFT_2);
+    // a refused press leaves its verdict in the row; a command ends it
+    await press($, "status");
 
     const band = await mount($);
     // Should be: "... · tail 4 · cache not hitting — consider /prompt-lift model haiku"

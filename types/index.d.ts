@@ -24,6 +24,18 @@ export type LastUsage = {
   elapsedMs?: number;
 };
 
+/**
+ * Why the last press ended without a fill, kept for the band's row until the
+ * next action (R25). `text` is the toast's reason less its `prompt-lift: `
+ * prefix and its cost; `usd` is what the press cost (0 when no call was
+ * made), null when the model has no price.
+ */
+export type Verdict = {
+  kind: "refused" | "failed" | "cancelled";
+  text: string;
+  usd: number | null;
+};
+
 declare module "claude-code" {
   interface PluginState {
     "prompt-lift": {
@@ -46,6 +58,8 @@ declare module "claude-code" {
       capOverride: number | null;
       /** The conversation tail `/prompt-lift tail` set; null = the option (R10). */
       tailOverride: number | null;
+      /** The last press's refusal, failure or cancel, shown until the next action (R25). */
+      lastVerdict: Verdict | null;
     };
   }
 }

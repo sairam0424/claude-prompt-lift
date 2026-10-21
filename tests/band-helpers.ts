@@ -66,13 +66,17 @@ export async function detailsText(ui: Band): Promise<string> {
 }
 
 /**
- * The rung strip's runs: the Texts nested in the details node, in chain
- * order; empty when the details carry plain text.
+ * The rung strip's runs, in chain order, picked by their shape: every run
+ * sets `dimColor` (true for a failed or pending rung, false for the active
+ * one) and none sets `wrap`, which the details node does, while the
+ * headline sets no `dimColor`. Position plays no part, so a Text drawn
+ * after the details is never taken for a run; empty when the details carry
+ * plain text.
  */
 export async function stripRuns(ui: Band): Promise<FoundElement[]> {
-  const texts = await rowTexts(ui);
-  const details = texts.findIndex((t) => t.props.dimColor === true);
-  return details === -1 ? [] : texts.slice(details + 1);
+  return (await rowTexts(ui)).filter(
+    (t) => typeof t.props.dimColor === "boolean" && t.props.wrap === undefined,
+  );
 }
 
 export async function keys(ui: Band): Promise<(string | undefined)[]> {

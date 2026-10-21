@@ -218,6 +218,9 @@ test(
     e.box.text = "";
     await press($, DRAFT_2);
     expect(e.calls).toHaveLength(1);
+    // the refusal stays in the row until the next action; a command ends it
+    expect(await rowText(ui)).toContain("session cap $0.10 reached");
+    await press($, "cap");
     expect(await rowText(ui)).toContain(" · $0.00 left");
 
     expect(await press($, "cap 1")).toEqual({});

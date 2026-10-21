@@ -27,13 +27,13 @@ import {
   keys,
   label,
   mount,
+  PLUGIN,
 } from "./band-helpers";
 
 // The band (spec §5.1; C12, C17, C19): one row chained above the engine's own
 // band content. Its buttons run with the mod's own `$`, which is how the box
 // path of Enhance, Send with `asUser` and Cancel get their end-to-end tests.
 
-const PLUGIN = "prompt-lift";
 const ENTER_TOAST =
   "prompt-lift: press Enter to send; @files and images only travel with Enter";
 const CANCELLED = `prompt-lift: cancelled, draft unchanged · ${formatDollars(0)}`;

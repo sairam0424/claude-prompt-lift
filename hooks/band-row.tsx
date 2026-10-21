@@ -1,5 +1,5 @@
 import type { ThemeKey } from "claude-code";
-import type { LastUsage } from "../types";
+import type { LastUsage, Verdict } from "../types";
 import { shortModel } from "./config";
 import { costText, formatTokens } from "./chain";
 
@@ -9,8 +9,16 @@ import { costText, formatTokens } from "./chain";
 // theme; the details keep their dim text. As the band's columns fall, the
 // tiers drop the least needed part first.
 
-/** The states the row draws; the verdicts and the armed window come later (R25). */
-export type BandState = "idle" | "running" | "done" | "restored";
+/**
+ * The states the row draws; the three verdicts are a press that ended
+ * without a fill, `Verdict["kind"]` (R25).
+ */
+export type BandState =
+  | "idle"
+  | "running"
+  | "done"
+  | "restored"
+  | Verdict["kind"];
 
 /**
  * What the band's width leaves room for (R25 width tiers): `full` keeps the
@@ -30,15 +38,18 @@ const WORD_COLUMNS = 60;
 type HeadlineSpec = { glyph: string; word: string; color: ThemeKey };
 
 /**
- * The headline per state. The glyphs are ↥ U+21A5, ↻ U+21BB, ✓ U+2713 and
- * ↶ U+21B6, all East-Asian-width N (one cell), no emoji; the colours are
- * theme keys, never raw names or hex, so each follows the theme.
+ * The headline per state. The glyphs are ↥ U+21A5, ↻ U+21BB, ✓ U+2713,
+ * ↶ U+21B6 and ✗ U+2717, all East-Asian-width N (one cell), no emoji; the
+ * colours are theme keys, never raw names or hex, so each follows the theme.
  */
 const HEADLINES: Record<BandState, HeadlineSpec> = {
   idle: { glyph: "↥", word: "Ready", color: "claude" },
   running: { glyph: "↻", word: "Enhancing", color: "warning" },
   done: { glyph: "✓", word: "Enhanced", color: "success" },
   restored: { glyph: "↶", word: "Restored", color: "warning" },
+  refused: { glyph: "✗", word: "Kept as is", color: "warning" },
+  failed: { glyph: "✗", word: "Failed", color: "error" },
+  cancelled: { glyph: "✗", word: "Cancelled", color: "warning" },
 };
 
 export const RESTORED_ROW = "restored your draft";
@@ -70,6 +81,14 @@ function hasRoom(tier: Tier): boolean {
 }
 
 export type Headline = { text: string; color: ThemeKey };
+
+/**
+ * The theme key of `state`'s headline: what the strip's active rung takes
+ * from `running`, so the rung and the headline above it cannot drift apart.
+ */
+export function colorOf(state: BandState): ThemeKey {
+  return HEADLINES[state].color;
+}
 
 /**
  * The headline for `state`: glyph and word, or the glyph alone when
@@ -123,6 +142,21 @@ export function counterText(strip: Strip, tier: Tier): string {
   return tier === "minimal"
     ? `${strip.rung}/${strip.rungs}`
     : `${strip.rung} of ${strip.rungs}`;
+}
+
+/** What a settled row leads and speaks with: a headline state and its details. */
+export type Face = { state: BandState; figure?: string; details: string };
+
+/**
+ * The verdict row (R25): the headline of the press's kind, then its reason and
+ * what the press cost, the toast's own words; the Buttons are the settled
+ * phase's, so a refusal after a done press keeps Send and Undo.
+ */
+export function verdictFace(verdict: Verdict): Face {
+  return {
+    state: verdict.kind,
+    details: `${verdict.text} · ${costText(verdict.usd ?? undefined)}`,
+  };
 }
 
 /**

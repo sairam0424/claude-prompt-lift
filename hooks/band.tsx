@@ -7,8 +7,9 @@ import { cancel, send, undo } from "./actions";
 import { resolveChain, resolveChainWithPlatform } from "./gather";
 import { leftText, readCapStatus } from "./caps";
 import { readTailCount } from "./tail";
-import type { BandState, Strip, StripRung } from "./band-row";
+import type { BandState, Face, Strip, StripRung } from "./band-row";
 import {
+  colorOf,
   counterText,
   doneCostText,
   doneRowText,
@@ -17,6 +18,7 @@ import {
   runningRowText,
   stripOf,
   tierOf,
+  verdictFace,
   RESTORED_ROW,
 } from "./band-row";
 
@@ -47,6 +49,10 @@ const lastUsage = atom(
 const noCacheStreak = atom(
   { plugin: "prompt-lift", key: "noCacheStreak" } as const,
   0,
+);
+const lastVerdict = atom(
+  { plugin: "prompt-lift", key: "lastVerdict" } as const,
+  null,
 );
 
 /** With no width from the engine, the 80-column tier: hint gone, figures kept. */
@@ -134,7 +140,7 @@ async function drawRow(
   // the headline's colour, a pending one dim; ` › ` between them.
   const rungNode = (run: StripRung): RenderElement =>
     run.state === "active" ? (
-      <Text bold color="warning" dimColor={false}>
+      <Text bold color={colorOf("running")} dimColor={false}>
         {run.label}
       </Text>
     ) : (
@@ -190,12 +196,22 @@ async function drawRow(
       onPress={() => enhance($, cfg, { kind: "box" })}
     />
   );
+  // A press that ended without a fill leaves its reason here until the next
+  // action (R25): the headline and details change, the Buttons do not.
+  const verdict = await read($, lastVerdict);
   if (!isDone) {
+    const face: Face =
+      verdict === null
+        ? {
+            state: "idle",
+            details: idleRowText(await firstRung($, cfg), left, tail, tier),
+          }
+        : verdictFace(verdict);
     return (
       <Box gap={1}>
-        {headlineNode("idle")}
+        {headlineNode(face.state, face.figure)}
         {enhanceButton(true)}
-        {detailsNode(idleRowText(await firstRung($, cfg), left, tail, tier))}
+        {detailsNode(face.details)}
       </Box>
     );
   }
@@ -207,9 +223,15 @@ async function drawRow(
   // The cost leads the done headline (R25), so a squeeze never truncates it;
   // a record that failed to write leaves the headline without one.
   const cost = usage === null ? undefined : doneCostText(usage);
+  const face: Face =
+    verdict !== null
+      ? verdictFace(verdict)
+      : undone
+        ? { state: "restored", details: RESTORED_ROW }
+        : { state: "done", figure: cost, details: summary };
   return (
     <Box gap={1}>
-      {undone ? headlineNode("restored") : headlineNode("done", cost)}
+      {headlineNode(face.state, face.figure)}
       {enhanceButton(false)}
       <Button
         key="send"
@@ -224,7 +246,7 @@ async function drawRow(
         hotkey="u"
         onPress={() => undo($)}
       />
-      {detailsNode(undone ? RESTORED_ROW : summary)}
+      {detailsNode(face.details)}
     </Box>
   );
 }

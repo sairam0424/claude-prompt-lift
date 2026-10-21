@@ -8,6 +8,7 @@ import {
   DRAFT,
   FABLE,
   GOOD,
+  HAIKU,
   SONNET,
   USAGE,
   ZERO_USAGE,
@@ -156,6 +157,42 @@ test(
     expect(done).toMatch(/ · \+\d+ words? · \d+ skills?$/);
     expect(await stripRuns(ui)).toEqual([]);
     expect(e.store.model).toBeUndefined();
+  },
+);
+
+test(
+  "three holds: frame 3 counts 3 of 3 with two struck rungs and the last active",
+  { options: BEDROCK },
+  async ($, on) => {
+    const fable = holdRung(on, FABLE);
+    const sonnet = holdRung(on, SONNET);
+    const haiku = holdRung(on, HAIKU);
+    const e = engine(on, {
+      replies: [RATE_LIMITED, RATE_LIMITED, answered(GOOD)],
+    });
+    e.box.text = DRAFT;
+    const ui = await mount($);
+
+    const run = ui.press({ key: "enhance" });
+    await fable.arrived;
+    fable.release();
+    await sonnet.arrived;
+    sonnet.release();
+    await haiku.arrived;
+    await ui.drawn();
+
+    expect(await headlineText(ui)).toBe("↻ Enhancing 3 of 3");
+    expect(runsByState(await stripRuns(ui))).toEqual({
+      struck: ["fable 5.1", "sonnet 5.5"],
+      active: ["haiku 5.5"],
+      pending: [],
+    });
+
+    haiku.release();
+    await run;
+
+    expect(e.calls).toHaveLength(3);
+    expect(await headlineText(ui)).toMatch(/^✓ Enhanced \$/);
   },
 );
 
