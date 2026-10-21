@@ -2,7 +2,7 @@
 # Record the README demo: a real Claude Code session in a throwaway sandbox,
 # driven key by key inside an isolated tmux server, recorded with asciinema and
 # converted to a GIF with agg. From the repo root:
-#   bash scripts/demo.sh --plugin-dir "$PWD" [--out-dir docs] [--shots-dir DIR] [--dry-run]
+#   bash scripts/demo.sh --plugin-dir "$PWD" [--out-dir docs] [--shots-dir DIR] [--dry-run] [--theme light|dark]
 # The session runs under an isolated HOME ($WORK/home): one rules file
 # (.claude/rules/testing.md), a settings.json with the status line only (plus, on
 # Bedrock, the README's full-model-id pin so the done row shows dollars), a seeded
@@ -12,7 +12,11 @@
 # name from the real ~/.claude/settings.json env and the parent environment;
 # values are never printed. --dry-run stops after the idle band and
 # `/prompt-lift status` and checks the sandbox, including that the chain is priced
-# (no `aliases: unpriced` row): no model call, $0, docs/ untouched.
+# (no `aliases: unpriced` row): no model call, $0, docs/ untouched. --theme seeds
+# the sandbox's theme (default dark); with --shots-dir the dry run also writes
+# 1-idle.txt, the idle band as plain text, and band-sgr.txt, the same screen with
+# its colour codes (tmux capture-pane -e), so the band's theme colours can be
+# checked on both themes for free.
 # The take costs one real Enhance call (about $0.01 to $0.20 on a 10k-token
 # static block). It never presses Send and never submits free text: the only
 # thing entered is the in-process `/prompt-lift status` command.
@@ -57,13 +61,14 @@ readonly RULES_LINES=('A bug fix starts with a regression test that reproduces t
   'Cover the error path, not only the happy path.')
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-PLUGIN_DIR="" OUT_DIR="$REPO/docs" SHOTS_DIR="" WORK="" CAST="" GIF="" DEMO_STARTED="" REC_STARTED="" KEEP_WORK="" DRY_RUN=""
+PLUGIN_DIR="" OUT_DIR="$REPO/docs" SHOTS_DIR="" WORK="" CAST="" GIF="" DEMO_STARTED="" REC_STARTED="" KEEP_WORK="" DRY_RUN="" THEME="dark"
 SESSION_ENV=() # NAME=value words for the session: never echoed, logged or written to a file
 
 die() { echo "demo.sh: $*" >&2; exit 1; }
 tm() { tmux -L "$DEMO_SOCKET" "$@"; }
 rec() { tmux -L "$REC_SOCKET" "$@"; }
 pane() { tm capture-pane -p -t "$SESSION"; }
+pane_sgr() { tm capture-pane -p -e -t "$SESSION"; } # with the colour codes (SGR) kept
 
 cleanup() {
   # Only what THIS run started: the flags are set after our own new-session, so a refused run kills nothing.
@@ -84,6 +89,10 @@ parse_args() {
       --out-dir) OUT_DIR="${2:?--out-dir needs a path}"; shift 2 ;;
       --shots-dir) SHOTS_DIR="${2:?--shots-dir needs a path}"; shift 2 ;;
       --dry-run) DRY_RUN=1; shift ;;
+      --theme)
+        THEME="${2:?--theme needs light or dark}"
+        case "$THEME" in light | dark) ;; *) die "--theme must be light or dark (got $THEME)" ;; esac
+        shift 2 ;;
       -h | --help) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "${BASH_SOURCE[0]}"; exit 0 ;;
       *) die "unknown argument: $1" ;;
     esac
@@ -176,8 +185,8 @@ build_home() {
   [[ "$version" =~ ^[0-9]+[.][0-9]+[.][0-9]+ ]] || die "cannot read the claude version (got: ${version:-nothing})"
   # hasCompletedOnboarding + lastOnboardingVersion keep the welcome screens away; the
   # folder-trust menu is per project and stays (start_session answers it).
-  jq -n --arg version "$version" '{hasCompletedOnboarding: true, lastOnboardingVersion: $version, theme: "dark"}' \
-    >"$home/.claude.json"
+  jq -n --arg version "$version" --arg theme "$THEME" \
+    '{hasCompletedOnboarding: true, lastOnboardingVersion: $version, theme: $theme}' >"$home/.claude.json"
   # SSO caches and config resolve from $HOME/.aws; the link is read through, never written by this script.
   if [ -d "$REAL_HOME/.aws" ]; then ln -s "$REAL_HOME/.aws" "$home/.aws"; fi
 }
@@ -237,6 +246,7 @@ box_is_exactly() {
 }
 
 snap() { [ -z "$SHOTS_DIR" ] || pane >"$SHOTS_DIR/$1.txt"; }
+snap_sgr() { [ -z "$SHOTS_DIR" ] || pane_sgr >"$SHOTS_DIR/$1.txt"; }
 size_of() { wc -c <"$1" | tr -d ' '; }
 
 # --- the session -----------------------------------------------------------
@@ -308,6 +318,7 @@ run_status() {
 # recorder, nothing written to $OUT_DIR; use it until the sandbox is right.
 dry_run() {
   sleep "$IDLE_PAUSE_S"
+  snap 1-idle; snap_sgr band-sgr # the idle band plain, and with its colour codes
   run_status
   sleep "$STEP_PAUSE_S"
   local screen included rules_dir="${WORK##*/}/home/.claude/rules/" count
@@ -330,6 +341,7 @@ dry_run() {
   included="$(tr -s ' \n' ' ' <<<"${included#*included: }")"
   echo "demo.sh: dry run passed: one prompt-lift band, status lists ${included% }"
   echo "demo.sh: $(grep -Eo 'skills [0-9]+/[0-9]+' <<<"$screen" | head -n 1) in status; no model call, $OUT_DIR untouched"
+  [ -z "$SHOTS_DIR" ] || echo "demo.sh: theme $THEME; the idle band with its colour codes is in $SHOTS_DIR/band-sgr.txt"
 }
 
 # Done row up: success. Cancel gone with no done row: the press ended without a

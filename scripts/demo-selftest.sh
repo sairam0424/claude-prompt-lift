@@ -66,8 +66,11 @@ echo '{"env": {"SOME_OTHER": "x"}}' >"$FAKE2/.claude/settings.json"
 help_text="$(bash "$SCRIPT" --help)"
 check "--help documents --dry-run" grep -q -- '--dry-run' <<<"$help_text"
 check "--help documents the isolated HOME" grep -qi 'isolated HOME' <<<"$help_text"
+check "--help documents --theme" grep -q -- '--theme light|dark' <<<"$help_text"
 refusal="$(bash "$SCRIPT" --plugin-dir /tmp 2>&1 || true)"
 check "a foreign --plugin-dir is still refused" grep -q 'must be' <<<"$refusal"
+theme_refusal="$(bash "$SCRIPT" --theme blue 2>&1 || true)"
+check "an unknown --theme is refused before anything runs" grep -q 'must be light or dark' <<<"$theme_refusal"
 
 # 2. env allow-list: only named variables, parent env wins, nothing else leaks
 out="$(HOME="$FAKE" AWS_REGION=parent-region bash -c '
@@ -116,6 +119,16 @@ check "--settings overlay has no enabledPlugins" jq -e 'has("enabledPlugins") | 
 check "statusLine command is the neutral one" jq -e '.statusLine.command == "jq -r '"'"'.model.display_name'"'"'"' "$W/settings.json"
 check ".aws is a symlink to the real one" test "$(readlink "$W/home/.aws")" = "$FAKE/.aws"
 check "no real-home path in any sandbox file but the symlink" bash -c '! grep -rIl --exclude-dir=.aws -- "$1" "$2" >/dev/null' _ "$FAKE" "$W/home"
+
+# 3b. --theme light seeds the sandbox's theme (the default, dark, is checked above)
+layout_light="$(HOME="$FAKE" bash -c '
+  source "$1"
+  KEEP_WORK=1 THEME=light
+  build_sandbox
+  echo "WORK=$WORK"
+' _ "$SCRIPT" 2>&1)"
+WL="$(sed -n 's/^WORK=//p' <<<"$layout_light")"; TEMP_PATHS+=("$WL")
+check "--theme light: .claude.json seeds a light theme" jq -e '.theme == "light" and .hasCompletedOnboarding == true' "$WL/home/.claude.json"
 
 # 4. off Bedrock (an API-key setup) the overlay is the status line alone
 layout3="$(env -u CLAUDE_CODE_USE_BEDROCK -u CLAUDE_CODE_USE_VERTEX HOME="$FAKE2" bash -c '
