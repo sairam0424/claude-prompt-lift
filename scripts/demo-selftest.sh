@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Checks for the sandbox builders in scripts/demo.sh: the provider-variable
 # allow-list, the sandbox HOME, the Bedrock pin and what counts as Bedrock, the
-# cleanup that never follows the .aws link, and the dry run's unpriced-chain
-# guard. It sources the script and runs its functions under a FAKE real HOME,
+# cleanup that never follows the .aws link, the dry run's unpriced-chain guard,
+# and how the take reads the band's rows (idle, working, done, cast glyphs). It sources the script and runs its functions under a FAKE real HOME,
 # so nothing touches ~/.aws or the real settings; it needs bash and jq, and no
 # tmux, claude or model call (those are stubbed in the child shells).
 # usage: bash scripts/demo-selftest.sh [repo-dir]
@@ -37,6 +37,7 @@ cleanup_temp() {
       /tmp/pl-selftest-home* | /tmp/pl-demo.*)
         rm -f -- "$path/home/.aws" # a sandbox's symlink to the fake .aws goes first
         rm -rf -- "$path" ;;
+      /tmp/pl-selftest-cast.*) rm -f -- "$path" ;;
     esac
   done
 }
@@ -198,6 +199,53 @@ check "dry run: an unpriced chain fails" test "$unpriced_rc" != 0
 check "dry run: an unpriced chain says the take would fail after the call" grep -q 'the chain is unpriced here; the paid take would fail after the call' <<<"$unpriced"
 check "dry run: an unpriced chain shows the screen" grep -q 'aliases: unpriced on bedrock' <<<"$unpriced"
 check "dry run: an unpriced chain never reports a pass" bash -c '! grep -q "dry run passed" <<<"$1"' _ "$unpriced"
+
+# 8. the take reads the band's rows (0.6.0): the done headline carries the cost, the
+# working row carries the counter and the rung strip, and a take that never showed
+# them fails before it is recorded. The screens are the rows the mod draws.
+DONE_ROW='✓ Enhanced $0.03 [ Enhance (e) ] [ Send (s) ] [ Undo (u) ] fable 5.1 · 1 of 3 · 2.3s · 6.8k cached'
+UNPRICED_ROW='✓ Enhanced $? · (no price) [ Enhance (e) ] [ Send (s) ] [ Undo (u) ] fable 5.1 · 1 of 3'
+RUNNING_ROW='↻ Enhancing 2 of 3 [ Cancel (c) ] fable 5.1 › sonnet 5.5 › haiku 5.5'
+BARE_RUNNING_ROW='↻ Enhancing [ Cancel (c) ] Enhancing with fable 5.1…'
+KEPT_ROW='✗ Kept as is [ Enhance (e) ] session cap $0.10 reached · /prompt-lift cap off'
+IDLE_ROW='↥ Ready [ Enhance (e) ] ctrl+x b · or ctrl+x tab, e · prompt-lift: fable 5.1'
+on_screen() { # $1 = a fake screen, the rest = a demo.sh function; prints its output, returns its status
+  local screen="$1"; shift
+  SCREEN="$screen" bash -c '
+    source "$1"; shift
+    pane() { printf "%s\n" "$SCREEN"; }
+    "$@"
+  ' _ "$SCRIPT" "$@" 2>&1
+}
+check "the done headline with its cost settles the press" on_screen "$DONE_ROW" enhance_settled
+unpriced_done="$(on_screen "$UNPRICED_ROW" enhance_settled)"; unpriced_done_rc=$?
+check "an unpriced done headline fails the take" test "$unpriced_done_rc" != 0
+check "an unpriced done headline says the chain needs full ids" grep -q 'the done row is unpriced' <<<"$unpriced_done"
+on_screen "$RUNNING_ROW" enhance_settled >/dev/null; running_settled_rc=$?
+check "a working row has not settled yet" test "$running_settled_rc" = 1
+kept_settled="$(on_screen "$KEPT_ROW" enhance_settled)"; kept_settled_rc=$?
+check "a kept-as-is row (no Cancel, no rewrite) fails the take" test "$kept_settled_rc" != 0
+check "a kept-as-is row says the press ended without a rewrite" grep -q 'Enhance ended without a rewrite' <<<"$kept_settled"
+check "the idle headline leads the idle row" on_screen "$IDLE_ROW" idle_headline
+check "a 0.5.0 Button row is not the idle headline" bash -c '! "$@"' _ on_screen '[ Enhance (e) ] prompt-lift: fable 5.1' idle_headline
+check "a kept-as-is row is not the idle headline" bash -c '! "$@"' _ on_screen "$KEPT_ROW" idle_headline
+check "the working row with its counter and strip is recognised" on_screen "$RUNNING_ROW" enhance_running
+check "a working row with no strip is not the strip" bash -c '! "$@"' _ on_screen "$BARE_RUNNING_ROW" enhance_running
+check "a done row is not a working row" bash -c '! "$@"' _ on_screen "$DONE_ROW" enhance_running
+
+fake_cast="$(mktemp /tmp/pl-selftest-cast.XXXX)"; TEMP_PATHS+=("$fake_cast")
+cast_with() { # $1 = a glyph to leave out; writes a fake cast holding every string check_cast wants
+  printf '%s\n' 'Enhance Undo Redo restored your draft $0.03 chain:' ↥ ↻ ✓ ↶ | grep -vF -- "$1" >"$fake_cast"
+}
+cast_ok() { bash -c 'source "$1"; CAST="$2"; check_cast' _ "$SCRIPT" "$fake_cast"; }
+cast_with none
+check "a cast that shows every row passes the cast check" cast_ok
+for glyph in ↥ ↻ ✓ ↶; do
+  cast_with "$glyph"
+  cast_out="$(cast_ok 2>&1)"; cast_rc=$?
+  check "a cast without $glyph fails the cast check" test "$cast_rc" != 0
+  check "a cast without $glyph names it" grep -qF -- "the cast never shows: $glyph" <<<"$cast_out"
+done
 
 echo "---- $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

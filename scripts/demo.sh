@@ -271,7 +271,11 @@ start_session() {
   local bands; bands="$(pane | grep -c 'Enhance (e)' || true)"
   [ "$bands" = 1 ] || { dump_pane; die "expected exactly one band, saw $bands (another mod draws one?)"; }
   screen_has 'Enhance \(e\).*prompt-lift:' || { dump_pane; die "the band is not prompt-lift's"; }
+  idle_headline || { dump_pane; die "the idle band does not lead with ↥ Ready"; }
 }
+
+# The idle row: the headline leads, then the Enhance Button (↥ Ready [ Enhance (e) ] ...).
+idle_headline() { screen_has '↥ Ready.*Enhance \(e\)'; }
 
 start_recorder() {
   # env -u TMUX: tmux refuses to attach from inside another tmux otherwise.
@@ -286,19 +290,22 @@ rec_shows_band() { local s; s="$(rec capture-pane -p -t "$REC_SESSION")"; grep -
 recorder_gone() { ! rec has-session -t "$REC_SESSION" 2>/dev/null; }
 
 # --- the take --------------------------------------------------------------
-# Order: idle band, draft, Enhance, done row, Undo, Redo, status.
+# Order: idle band (↥ Ready), draft, Enhance (↻ Enhancing with the rung strip),
+# done row (✓ Enhanced with its cost), Undo (↶ Restored), Redo, status. Each step
+# is asserted on the live screen, so a take that never showed the band's new rows
+# fails instead of being recorded.
 drive() {
   sleep "$IDLE_PAUSE_S"; snap 1-idle
   type_text "$DRAFT"; sleep "$TYPE_SETTLE_S"
   box_is_exactly "$DRAFT" || { dump_pane; die "the box does not hold the draft"; }
   snap 2-draft
   tm send-keys -t "$SESSION" C-x b # Enhance, from the prompt
-  wait_until "enhance running" "$STEP_TIMEOUT_S" screen_has 'Cancel \(c\)'
+  wait_until "enhance running with the rung strip" "$STEP_TIMEOUT_S" enhance_running
   sleep "$STEP_PAUSE_S"; snap 3-running
   wait_until "done row" "$ENHANCE_TIMEOUT_S" enhance_settled
   sleep "$READ_PAUSE_S"; snap 4-done
-  band_key u 'Redo \(u\)'; sleep "$READ_PAUSE_S"; snap 5-undone
-  band_key u 'Undo \(u\)'; sleep "$READ_PAUSE_S"; snap 6-redone
+  band_key u '↶ Restored.*Redo \(u\)'; sleep "$READ_PAUSE_S"; snap 5-undone
+  band_key u '✓ Enhanced.*Undo \(u\)'; sleep "$READ_PAUSE_S"; snap 6-redone
 
   # Typing into a non-empty box appends, so empty it before the slash command.
   tm send-keys -t "$SESSION" -N "$BACKSPACES" BSpace
@@ -344,15 +351,21 @@ dry_run() {
   [ -z "$SHOTS_DIR" ] || echo "demo.sh: theme $THEME; the idle band with its colour codes is in $SHOTS_DIR/band-sgr.txt"
 }
 
-# Done row up: success. Cancel gone with no done row: the press ended without a
-# rewrite (a guard refused it, or the chain failed), and its toast is still up.
+# The working row: the counter in the headline and the rung strip (rungs joined by
+# ` › `) after the Cancel button. A chain of one rung has no strip, so this also
+# keeps the take honest about the chain it records.
+enhance_running() { screen_has '↻ Enhancing [0-9]+ of [0-9]+.*Cancel \(c\).* › '; }
+
+# Done row up: success, the cost in the headline (`✓ Enhanced $0.03`). Cancel gone
+# with no done row: the press ended without a rewrite (a guard refused it, or the
+# chain failed), and its row and toast say why.
 enhance_settled() {
   local s; s="$(pane)" # one capture: the row can flip between two
-  grep -Eq 'Send \(s\).*\$[0-9]+\.[0-9]+' <<<"$s" && return 0
-  if grep -Eq 'Send \(s\).*\$\?' <<<"$s"; then
+  grep -Eq '✓ Enhanced \$[0-9]+\.[0-9]+.*Send \(s\)' <<<"$s" && return 0
+  if grep -Eq '✓ Enhanced \$\?.*Send \(s\)' <<<"$s"; then
     echo "$s" >&2; die "the done row is unpriced (\$?): on Bedrock or Vertex the chain needs full model ids (README, Bedrock users)"
   fi
-  grep -Eq 'Cancel \(c\)' <<<"$s" || { echo "$s" >&2; die "Enhance ended without a rewrite; the toast above says why"; }
+  grep -Eq 'Cancel \(c\)' <<<"$s" || { echo "$s" >&2; die "Enhance ended without a rewrite; the row above says why"; }
   return 1
 }
 
@@ -435,7 +448,9 @@ convert() {
 
 check_cast() {
   local want
-  for want in 'Enhance' 'Undo' 'Redo' 'restored your draft' '[$]0[.]' 'chain:'; do
+  # The glyphs are single code points, so a screen redraw cannot split them: ↥ idle,
+  # ↻ enhancing, ✓ enhanced, ↶ restored.
+  for want in 'Enhance' 'Undo' 'Redo' 'restored your draft' '[$]0[.]' 'chain:' '↥' '↻' '✓' '↶'; do
     grep -Eq -- "$want" "$CAST" || die "the cast never shows: $want"
   done
   local bytes; bytes="$(size_of "$CAST")"
