@@ -110,6 +110,18 @@ export function platformOf(sessionModelId: string): Platform {
 }
 
 /**
+ * Whether `chain` holds an alias rung the platform leaves unpriced (R19): a
+ * press on it is `$?` and counts toward no cap. `status` and the caps' texts
+ * say so rather than let a cap read as protection it is not.
+ */
+export function hasUnpricedAlias(
+  chain: readonly string[],
+  platform: Platform,
+): boolean {
+  return platform !== "anthropic" && chain.some(isAlias);
+}
+
+/**
  * Parse a JSON string of price overrides. Returns a Record of valid Price
  * entries, or an empty object if the JSON is invalid. When `log` is provided,
  * invalid input triggers exactly one call with a short reason.

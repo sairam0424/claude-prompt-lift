@@ -2,11 +2,11 @@ import { atom, read } from "claude-code";
 import type { EngineInterface, RenderElement, RenderInput } from "claude-code";
 import type { LastUsage } from "../types";
 import type { Config } from "./config";
-import { shortModel } from "./config";
+import { hasUnpricedAlias, shortModel } from "./config";
 import { costText, formatTokens } from "./chain";
 import { enhance, isCallInFlight } from "./enhance";
 import { cancel, send, undo } from "./actions";
-import { resolveChain } from "./gather";
+import { resolveChain, resolveChainWithPlatform } from "./gather";
 import { leftText, readCapStatus } from "./caps";
 import { readTailCount } from "./tail";
 
@@ -126,6 +126,23 @@ async function firstRung($: EngineInterface, cfg: Config): Promise<string> {
   return (await resolveChain($, cfg))[0] ?? "";
 }
 
+/**
+ * What a cap leaves (R9), or nothing with no cap; over a chain whose alias
+ * rungs the platform leaves unpriced it ends with the R19 note, since none
+ * of those presses count toward the cap.
+ */
+async function capLeft(
+  $: EngineInterface,
+  cfg: Config,
+): Promise<string | undefined> {
+  const caps = await readCapStatus($, cfg);
+  if (leftText(caps) === undefined) {
+    return undefined;
+  }
+  const { chain, platform } = await resolveChainWithPlatform($, cfg);
+  return leftText(caps, hasUnpricedAlias(chain, platform));
+}
+
 async function drawRow(
   $: EngineInterface,
   e: BandEvent,
@@ -148,7 +165,7 @@ async function drawRow(
       </Box>
     );
   }
-  const left = leftText(await readCapStatus($, cfg));
+  const left = await capLeft($, cfg);
   const tail = await readTailCount($, cfg);
   const action = cfg.enhanceAction === "" ? {} : { action: cfg.enhanceAction };
   const enhanceButton = (

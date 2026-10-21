@@ -188,7 +188,7 @@ The cache lives 5 minutes. Every toast that follows a model call ends with the c
 
 ### Spend caps
 
-`sessionCapUsd` caps this session's priced presses (`/prompt-lift cap <usd>` moves it for the session, `cap off` lifts it); `dayCapUsd` caps today's presses across every session on this machine. Both are off (`0`) by default. A press is refused before any model call once the recorded spend meets the cap (`prompt-lift: session cap $0.10 reached · /prompt-lift cap off`), the check reads only the mod's own ledger (an unpriced `$?` press never counts), and while a cap is active the band's rows end with ` · $0.85 left` (`(day)` when the day cap is tighter). `status` prints `caps:` and the engine's `session total (all tools)`.
+`sessionCapUsd` caps this session's priced presses (`/prompt-lift cap <usd>` moves it for the session, `cap off` lifts it); `dayCapUsd` caps today's presses across every session on this machine. Both are off (`0`) by default. A press is refused before any model call once the recorded spend meets the cap (`prompt-lift: session cap $0.10 reached · /prompt-lift cap off`), the check reads only the mod's own ledger (an unpriced `$?` press never counts), and while a cap is active the band's rows end with ` · $0.85 left` (`(day)` when the day cap is tighter). `status` prints `caps:` and the engine's `session total (all tools)`. On Bedrock and Vertex an alias chain is unpriced, so the caps count nothing until you pin full ids (Bedrock users, above). While a cap is active over such a chain, the `caps:` line and the rows end with ` · alias rungs not counted`.
 
 ## Why was my draft refused?
 

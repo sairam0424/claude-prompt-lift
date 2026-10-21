@@ -1,6 +1,6 @@
 import { atom, read, update } from "claude-code";
 import type { CommandRunResult, EngineInterface } from "claude-code";
-import type { Config } from "./config";
+import { hasUnpricedAlias, type Config } from "./config";
 import { decide } from "./chain";
 import { wordDiffLines } from "./diff";
 import { enhance, isCallInFlight } from "./enhance";
@@ -11,6 +11,7 @@ import {
   matchRungs,
   MODEL_STORE_KEY,
   resolveChain,
+  resolveChainWithPlatform,
   lastAssistantText,
 } from "./gather";
 import {
@@ -200,7 +201,10 @@ async function runCap(
     return { text: CAP_USAGE };
   }
   if (arg.kind === "show") {
-    return { text: capsLine(await readCapStatus($, cfg)) };
+    // As `status` prints it: the R19 note where alias rungs never count
+    const { chain, platform } = await resolveChainWithPlatform($, cfg);
+    const uncounted = hasUnpricedAlias(chain, platform);
+    return { text: capsLine(await readCapStatus($, cfg), uncounted) };
   }
   await update($, capOverride, () => arg.usd);
   $.ui.toast(

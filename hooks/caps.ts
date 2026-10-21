@@ -102,30 +102,55 @@ export function capReachedToast(status: CapStatus): string | undefined {
 }
 
 /**
+ * R19 meets R9: an alias rung is unpriced off the Anthropic API, so a press
+ * on it never counts toward a cap. The texts end with this while a cap is
+ * active over such a chain, so the cap is not read as protection it is not.
+ */
+const ALIAS_NOTE = "alias rungs not counted";
+
+/** `text` with the R19 note when the chain's alias rungs are `uncounted`. */
+function noted(text: string, uncounted: boolean): string {
+  return uncounted ? `${text} · ${ALIAS_NOTE}` : text;
+}
+
+/**
  * The rows' remaining budget: the session's, or the day's marked `(day)`
  * when that window is the tighter (or the only) one; nothing with no cap.
+ * `uncounted` (R19) appends the note to an active window's text.
  */
-export function leftText(status: CapStatus): string | undefined {
+export function leftText(
+  status: CapStatus,
+  uncounted = false,
+): string | undefined {
   const { session, day } = status;
   if (day !== undefined && (session === undefined || day.left < session.left)) {
-    return `${capDollars(day.left)} left (day)`;
+    return noted(`${capDollars(day.left)} left (day)`, uncounted);
   }
-  return session === undefined ? undefined : `${capDollars(session.left)} left`;
+  if (session === undefined) {
+    return undefined;
+  }
+  return noted(`${capDollars(session.left)} left`, uncounted);
 }
 
 function windowText(name: string, w: CapWindow): string {
   return `${name} ${capDollars(w.cap)} (${capDollars(w.left)} left)`;
 }
 
-/** The `caps:` line `status` and `cap` print: `off`, or each active window. */
-export function capsLine(status: CapStatus): string {
+/**
+ * The `caps:` line `status` and `cap` print: `off`, or each active window,
+ * with the R19 note when the chain's alias rungs are `uncounted`.
+ */
+export function capsLine(status: CapStatus, uncounted = false): string {
   const windows = [
     ...(status.session === undefined
       ? []
       : [windowText("session", status.session)]),
     ...(status.day === undefined ? [] : [windowText("day", status.day)]),
   ];
-  return `caps: ${windows.length === 0 ? "off" : windows.join(" · ")}`;
+  if (windows.length === 0) {
+    return "caps: off";
+  }
+  return noted(`caps: ${windows.join(" · ")}`, uncounted);
 }
 
 /**

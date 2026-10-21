@@ -1,7 +1,12 @@
 import { atom, read } from "claude-code";
 import type { EngineInterface } from "claude-code";
 import type { LastUsage } from "../types";
-import { isAlias, shortModel, type Config, type Platform } from "./config";
+import {
+  hasUnpricedAlias,
+  shortModel,
+  type Config,
+  type Platform,
+} from "./config";
 import { costText, formatDollars, formatTokens } from "./chain";
 import { selectInstructionFiles, type MemoryFile } from "./context";
 import { resolveChainWithPlatform } from "./gather";
@@ -102,8 +107,8 @@ function filesText(files: readonly MemoryFile[]): string {
  * R19: the line after `chain:` when a rung is an alias the platform leaves
  * unpriced, with the way out; none on the Anthropic API or for full ids.
  */
-function aliasLines(chain: readonly string[], platform: Platform): string[] {
-  if (platform === "anthropic" || !chain.some(isAlias)) {
+function aliasLines(platform: Platform, unpriced: boolean): string[] {
+  if (!unpriced) {
     return [];
   }
   return [
@@ -116,14 +121,16 @@ export function statusText(a: StatusInput): string {
     a.tail === 0
       ? "conversation: off"
       : `conversation: last ${a.tail} messages`;
+  // R19: the aliases line and the caps' note go by the same fact
+  const unpriced = hasUnpricedAlias(a.chain, a.platform);
   return [
     "prompt-lift status",
     `chain: ${a.chain.join(" → ")}`,
-    ...aliasLines(a.chain, a.platform),
+    ...aliasLines(a.platform, unpriced),
     `last call: ${lastCallText(a.last)}`,
     `session: ${totalsText(a.session)}`,
     `today: ${totalsText(a.today)}`,
-    capsLine(a.caps),
+    capsLine(a.caps, unpriced),
     conversation,
     ...(a.sessionTotal === undefined
       ? []
