@@ -158,11 +158,17 @@ test(
 
 // --- the pure parts ---
 
+/** A valid ANTHROPIC_MODEL on Bedrock: it names no model, so an alias rung on
+ * it stays unpriced like on any other Bedrock session. */
+const PROFILE_ARN =
+  "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123";
+
 test("platformOf reads the platform off the session's model id", () => {
   const table: [string, Platform][] = [
     ["us.anthropic.claude-sonnet-5-5", "bedrock"],
     ["anthropic.claude-haiku-4-5-20251001-v1:0", "bedrock"],
     ["eu.anthropic.claude-fable-5-1", "bedrock"],
+    [PROFILE_ARN, "bedrock"],
     ["claude-sonnet-5-5@20251001", "vertex"],
     ["claude-sonnet-5-5", "anthropic"],
     ["sonnet", "anthropic"],
@@ -171,6 +177,12 @@ test("platformOf reads the platform off the session's model id", () => {
   for (const [id, platform] of table) {
     expect([id, platformOf(id)]).toEqual([id, platform]);
   }
+});
+
+test("an alias rung on a Bedrock inference-profile ARN session is unpriced", () => {
+  expect(
+    priceFor("sonnet", DEFAULT_PRICES, platformOf(PROFILE_ARN)),
+  ).toBeUndefined();
 });
 
 test("priceFor prices an alias on the Anthropic API only; a full id everywhere", () => {

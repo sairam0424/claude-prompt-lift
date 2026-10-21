@@ -88,6 +88,7 @@ export function isAlias(model: string): boolean {
 export type Platform = "anthropic" | "bedrock" | "vertex";
 
 const BEDROCK_ID = /(^|\.)anthropic\.claude-/;
+const BEDROCK_ARN = /^arn:aws:bedrock:/;
 const BEDROCK_VERSION = /-v\d+:\d+$/;
 const VERTEX_VERSION = /@\d{8}$/;
 const VERTEX_ID = /^claude-[a-z0-9.-]+@/;
@@ -95,12 +96,17 @@ const VERTEX_ID = /^claude-[a-z0-9.-]+@/;
 /**
  * The platform a session model id names (R19): a Bedrock id carries an
  * `anthropic.claude-` segment (`us.anthropic.claude-…`) or a `-v1:0`
- * version, a Vertex id a `@YYYYMMDD` version; anything else, a bare alias
- * included, is the Anthropic API. Pure: a press and `status` read
- * `$.session.model()` once and hand the result on.
+ * version, or is an inference-profile ARN (`arn:aws:bedrock:…`, a valid
+ * `ANTHROPIC_MODEL` there); a Vertex id carries a `@YYYYMMDD` version;
+ * anything else, a bare alias included, is the Anthropic API. Pure: a press
+ * and `status` read `$.session.model()` once and hand the result on.
  */
 export function platformOf(sessionModelId: string): Platform {
-  if (BEDROCK_ID.test(sessionModelId) || BEDROCK_VERSION.test(sessionModelId)) {
+  if (
+    BEDROCK_ID.test(sessionModelId) ||
+    BEDROCK_VERSION.test(sessionModelId) ||
+    BEDROCK_ARN.test(sessionModelId)
+  ) {
     return "bedrock";
   }
   if (VERTEX_VERSION.test(sessionModelId) || VERTEX_ID.test(sessionModelId)) {
