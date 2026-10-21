@@ -52,3 +52,17 @@ test("the dollars are absent, null or the figure as given", () => {
   expect(verdictOf("refused", "prompt-lift: why", 0.036).usd).toBe(0.036);
   expect(verdictOf("failed", "prompt-lift: why", 0).usd).toBe(0);
 });
+
+test("a long multi-line reason is one line, cut and ended with an ellipsis as the toast is", () => {
+  const reason = Array.from({ length: 5 }, (_, i) => `${i}`.repeat(50))
+    .join("\n")
+    .slice(0, 250);
+  expect(reason).toHaveLength(250);
+
+  const { text } = verdictOf("failed", `prompt-lift: ${reason}`, 0);
+
+  expect(text).not.toMatch(/\s{2}|\n/);
+  expect(text.startsWith(`${"0".repeat(50)} ${"1".repeat(50)} `)).toBe(true);
+  expect(text.endsWith("…")).toBe(true);
+  expect(Array.from(text)).toHaveLength(200);
+});

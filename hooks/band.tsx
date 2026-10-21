@@ -10,6 +10,8 @@ import { leftText, readCapStatus } from "./caps";
 import { readTailCount } from "./tail";
 import type { BandState, Face, Strip, StripRung } from "./band-row";
 import {
+  CANCEL_LABEL,
+  RUNG_SEPARATOR,
   colorOf,
   counterText,
   doneCostText,
@@ -30,7 +32,8 @@ import {
 // moves because each rung's `runningModel` write (enhance.ts) redraws the
 // band, a refusal's reason stays because `settle` writes `lastVerdict` and
 // the next action writes it away, and the Undo window's marker (module
-// state, so no write) is drawn because `undo()` asks for the redraw (R25).
+// state, so no write) is drawn because `undo()` asks for the redraw (R25), and
+// dropped by the same ask when a refused restore disarms it.
 // The atoms are declared here as well as in enhance.ts: `read` validates
 // against an atom made in the calling file, and the same plugin and key name
 // the same value. The row's words and the width tiers live in band-row.tsx;
@@ -121,7 +124,8 @@ async function drawRow(
 ): Promise<RenderElement> {
   const { Box, Button, Text } = $.ui.resolve(e);
   // One read of the width per draw (R25); the tiers drop parts as it falls.
-  const tier = tierOf(e.props.bodyColumns ?? DEFAULT_COLUMNS);
+  const columns = e.props.bodyColumns ?? DEFAULT_COLUMNS;
+  const tier = tierOf(columns);
   // The headline leads in its own non-shrinking Box, so a squeeze lands on
   // the details Text, which truncates: the row stays one line (§5.1).
   const headlineNode = (state: BandState, figure?: string): RenderElement => {
@@ -155,7 +159,7 @@ async function drawRow(
   const stripNode = (strip: Strip): RenderElement => (
     <Text dimColor wrap="truncate-end">
       {strip.runs.flatMap((run, index) =>
-        index === 0 ? [rungNode(run)] : [" › ", rungNode(run)],
+        index === 0 ? [rungNode(run)] : [RUNG_SEPARATOR, rungNode(run)],
       )}
     </Text>
   );
@@ -165,8 +169,10 @@ async function drawRow(
   const isRunning = current === "running" && isCallInFlight();
   const isDone = current === "done";
   if (isRunning) {
+    // Empty between the phase's write and the first rung's: stripOf then
+    // draws the chain's first rung, so the strip and counter lead the frame
     const running = await read($, runningModel);
-    const strip = stripOf(await resolveChain($, cfg), running, tier);
+    const strip = stripOf(await resolveChain($, cfg), running, tier, columns);
     return (
       <Box gap={1}>
         {headlineNode(
@@ -175,7 +181,7 @@ async function drawRow(
         )}
         <Button
           key="cancel"
-          label="Cancel (c)"
+          label={CANCEL_LABEL}
           hotkey="c"
           variant="primary"
           onPress={cancel}

@@ -367,7 +367,10 @@ async function verifyAndFill(
  * Never leaves the phase at `running` once a press has settled: `done` stays
  * `done` when a later press is refused, anything else returns to `idle`. A
  * press that ended without a fill leaves its verdict first, so the settled
- * row is drawn with the reason (R25).
+ * row is drawn with the reason (R25). The running rung is cleared last: the
+ * running row reads it, so clearing it while the phase is still `running`
+ * would draw one frame back on the chain's first rung; the settled rows do
+ * not read it.
  */
 async function settle(
   $: EngineInterface,
@@ -376,13 +379,19 @@ async function settle(
 ): Promise<void> {
   try {
     await pendingNote;
-    await update($, runningModel, () => "");
     await keepVerdict($, verdict);
     if ((await read($, phase)) === "running") {
       await update($, phase, () => (before === "done" ? "done" : "idle"));
     }
   } catch (err) {
     $.ui.log(`prompt-lift: could not reset the phase: ${errorMessage(err)}`, {
+      to: "debug",
+    });
+  }
+  try {
+    await update($, runningModel, () => "");
+  } catch (err) {
+    $.ui.log(`prompt-lift: could not clear the rung: ${errorMessage(err)}`, {
       to: "debug",
     });
   }

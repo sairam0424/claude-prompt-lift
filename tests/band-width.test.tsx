@@ -8,7 +8,7 @@ import {
   stripRuns,
   widen,
 } from "./band-helpers";
-import { doneRowText, idleRowText, tierOf } from "../hooks/band-row";
+import { doneRowText, idleRowText, stripOf, tierOf } from "../hooks/band-row";
 import { costText } from "../hooks/chain";
 import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 import type { LastUsage } from "../types";
@@ -77,6 +77,65 @@ test("done text drops the token figures and the elapsed time under 80 columns on
   expect(doneRowText(LAST, 3, "$0.30 left (day)", 6, "minimal")).toBe(
     `fable 5.1 · 1 of 1 · +12 words · 1 skill · $0.30 left (day) · tail 6 · ${NO_CACHE_HINT}`,
   );
+});
+
+// The running strip also yields to the room beside the headline (`↻ Enhancing
+// 1 of 3`, 18 cells), the primary Cancel Button (`[ Cancel (c) ]`, 14) and
+// the two gaps: at 80 columns that leaves 46 cells for the labels and their
+// ` › ` separators.
+const LONG_CHAIN = [
+  "us.anthropic.claude-opus-4-1-20250805-v1:0",
+  "us.anthropic.claude-sonnet-4-20250514-v1:0",
+  "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+];
+
+test("stripOf: rungs that fit keep every rung, however wide the tier", () => {
+  const strip = stripOf(
+    [FABLE, "x".repeat(20), "x".repeat(23)],
+    FABLE,
+    "full",
+    120,
+  );
+  expect(strip?.runs.map((run) => run.label)).toEqual([
+    "fable 5.1",
+    "x".repeat(20),
+    "x".repeat(23),
+  ]);
+  expect(strip).toMatchObject({ rung: 1, rungs: 3 });
+});
+
+test("stripOf: full ids that do not fit collapse to the active rung at a wide tier", () => {
+  const strip = stripOf(LONG_CHAIN, LONG_CHAIN[1] ?? "", "full", 120);
+  expect(strip?.runs).toEqual([{ label: LONG_CHAIN[1], state: "active" }]);
+  // the counter still counts the whole chain
+  expect(strip).toMatchObject({ rung: 2, rungs: 3 });
+});
+
+test("stripOf: the labels fit when they take the room exactly, not one cell more", () => {
+  const first = "x".repeat(20);
+  const exact = stripOf([first, "y".repeat(23)], first, "noHint", 80);
+  expect(exact?.runs).toHaveLength(2);
+  const over = stripOf([first, "y".repeat(24)], first, "noHint", 80);
+  expect(over?.runs).toEqual([{ label: first, state: "active" }]);
+  // a wider band takes the same labels back
+  expect(
+    stripOf([first, "y".repeat(24)], first, "noHint", 81)?.runs,
+  ).toHaveLength(2);
+});
+
+test("stripOf: under 80 columns the active rung alone, as before", () => {
+  const strip = stripOf([FABLE, "y"], FABLE, "compact", 70);
+  expect(strip?.runs).toEqual([{ label: "fable 5.1", state: "active" }]);
+});
+
+test("stripOf: an empty running id is the chain's first rung; an unnamed id has no strip", () => {
+  const chain = [FABLE, "y"];
+  expect(stripOf(chain, "", "full", 120)).toEqual(
+    stripOf(chain, FABLE, "full", 120),
+  );
+  expect(stripOf(chain, "", "full", 120)).toMatchObject({ rung: 1, rungs: 2 });
+  expect(stripOf(chain, "z", "full", 120)).toBeUndefined();
+  expect(stripOf([], "", "full", 120)).toBeUndefined();
 });
 
 // --- the drawing ---

@@ -1,5 +1,5 @@
 import { atom, read, update } from "claude-code";
-import type { EngineInterface, StateDollar } from "claude-code";
+import type { EngineInterface } from "claude-code";
 import type { Verdict } from "../types";
 import { capToast } from "./chain";
 import { errorMessage } from "./gather";
@@ -85,10 +85,18 @@ export async function keepVerdict(
 
 /**
  * The next action ends the verdict. Every Enter comes through here, so with
- * none held nothing is written.
+ * none held nothing is written. A read or write that fails costs the row its
+ * clearing, never the action: it is logged, like `keepVerdict`, so a
+ * /prompt-lift command and the session start cannot fail on it.
  */
-export async function clearVerdict($: StateDollar): Promise<void> {
-  if ((await read($, lastVerdict)) !== null) {
-    await update($, lastVerdict, () => null);
+export async function clearVerdict($: EngineInterface): Promise<void> {
+  try {
+    if ((await read($, lastVerdict)) !== null) {
+      await update($, lastVerdict, () => null);
+    }
+  } catch (err) {
+    $.ui.log(`prompt-lift: could not clear the verdict: ${errorMessage(err)}`, {
+      to: "debug",
+    });
   }
 }

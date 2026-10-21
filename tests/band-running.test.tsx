@@ -20,6 +20,7 @@ import {
   keys,
   mount,
   stripRuns,
+  type Band,
 } from "./band-helpers";
 import { runningRowText } from "../hooks/band-row";
 import { costText } from "../hooks/chain";
@@ -40,6 +41,18 @@ const RATE_LIMITED: ModelCompleteResult = {
 };
 /** What the three-rung press costs: fable's refusal carried no tokens. */
 const SONNET_COST = costText(estimateUsd(USAGE, SONNET, DEFAULT_PRICES));
+/** A reply the guards read as "already specific": the press ends without a fill. */
+const FINE = answered(JSON.stringify({ verdict: "fine" }));
+/**
+ * Full ids `shortModel` leaves whole, as a chain pinned to older models has
+ * them: three of them joined are wider than the band at any tier.
+ */
+const OPUS = "us.anthropic.claude-opus-4-1-20250805-v1:0";
+const LONG_CHAIN = [
+  OPUS,
+  "us.anthropic.claude-sonnet-4-20250514-v1:0",
+  "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+];
 
 type Held = {
   /** Resolves once the rung's model call has arrived at the stub. */
@@ -246,6 +259,131 @@ test(
       runningRowText("us.anthropic.claude-opus-4-1"),
     );
     expect(await stripRuns(ui)).toEqual([]);
+
+    e.release();
+    await run;
+  },
+);
+
+/** Holds the first write of one state key until the test lets it land. */
+function holdWrite(on: On, key: string): Held {
+  let release: () => void = () => undefined;
+  let signal: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const arrived = new Promise<void>((resolve) => {
+    signal = resolve;
+  });
+  let isFirst = true;
+  on(
+    "state.set",
+    { plugin: "prompt-lift", key } as never,
+    async ($, ev, next) => {
+      if (isFirst) {
+        isFirst = false;
+        signal();
+        await gate;
+      }
+      return next(ev);
+    },
+  );
+  return { arrived, release: () => release() };
+}
+
+test(
+  "right after the press, before the first rung's write, the row draws the chain's first rung",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on, { delay: true });
+    const first = holdWrite(on, "runningModel");
+    e.box.text = DRAFT;
+    const ui = await mount($);
+
+    const run = ui.press({ key: "enhance" });
+    await first.arrived;
+    await ui.drawn();
+
+    // phase is running, runningModel still "": the strip and counter are drawn
+    expect(await keys(ui)).toEqual(["cancel"]);
+    expect(await headlineText(ui)).toBe("↻ Enhancing 1 of 3");
+    expect(await detailsText(ui)).toBe("fable 5.1 › sonnet 5.5 › haiku 5.5");
+    expect(runsByState(await stripRuns(ui))).toEqual({
+      struck: [],
+      active: ["fable 5.1"],
+      pending: ["sonnet 5.5", "haiku 5.5"],
+    });
+
+    first.release();
+    e.release();
+    await run;
+  },
+);
+
+test(
+  "a press that ends without a fill settles its verdict and phase before it clears the rung",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on, { replies: [RATE_LIMITED, FINE] });
+    // The frame on screen just before each of settle's three writes lands
+    const frames: string[] = [];
+    let ui: Band | undefined;
+    const isSettling = (key: string, value: unknown): boolean =>
+      (key === "lastVerdict" && value !== null) ||
+      (key === "phase" && value === "idle") ||
+      (key === "runningModel" && value === "");
+    for (const key of ["phase", "runningModel", "lastVerdict"]) {
+      on(
+        "state.set",
+        { plugin: "prompt-lift", key } as never,
+        async (_, ev, next) => {
+          if (ui !== undefined && isSettling(key, ev.value)) {
+            await ui.drawn();
+            frames.push(`${await headlineText(ui)} | ${key}`);
+          }
+          return next(ev);
+        },
+      );
+    }
+    e.box.text = DRAFT;
+    ui = await mount($);
+
+    await ui.press({ key: "enhance" });
+
+    expect(e.calls).toHaveLength(2);
+    // The chain ended on rung 2. Until the verdict and the phase have landed
+    // the row stays on "2 of 3"; the rung is cleared last, under the settled
+    // row, so no frame draws rung 1 or an "Enhancing" with no strip.
+    expect(frames).toEqual([
+      "↻ Enhancing 2 of 3 | lastVerdict",
+      "↻ Enhancing 2 of 3 | phase",
+      "✗ Kept as is | runningModel",
+    ]);
+    expect(await headlineText(ui)).toBe("✗ Kept as is");
+  },
+);
+
+test(
+  "rungs too long to fit beside the headline and Cancel collapse to the active rung",
+  { options: { models: LONG_CHAIN.join(",") } },
+  async ($, on) => {
+    const e = engine(on, { delay: true });
+    e.box.text = DRAFT;
+    const ui = await mount($);
+
+    const run = ui.press({ key: "enhance" });
+    await e.modelCalled;
+    await ui.drawn();
+
+    // 120 columns is the full tier, yet three full ids do not fit: only the
+    // active rung is drawn, and the counter still counts all three
+    expect(await headlineText(ui)).toBe("↻ Enhancing 1 of 3");
+    expect(await detailsText(ui)).toBe(OPUS);
+    expect(runsByState(await stripRuns(ui))).toEqual({
+      struck: [],
+      active: [OPUS],
+      pending: [],
+    });
 
     e.release();
     await run;

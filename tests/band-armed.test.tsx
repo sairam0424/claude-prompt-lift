@@ -1,7 +1,16 @@
 import { expect, test } from "claude-code/testing";
 import type { Engine as Harness } from "claude-code/testing";
 import type { On } from "claude-code";
-import { engine, watch, BEDROCK, BETTER, DRAFT, FABLE, USAGE } from "./engine";
+import {
+  engine,
+  watch,
+  BEDROCK,
+  BETTER,
+  DRAFT,
+  FABLE,
+  USAGE,
+  type EngineOptions,
+} from "./engine";
 import {
   detailsText,
   headlineOf,
@@ -41,8 +50,9 @@ function invalidations(on: On): string[] {
 async function editedAfterEnhance(
   $: Harness,
   on: On,
+  opts: EngineOptions = {},
 ): Promise<{ e: ReturnType<typeof engine>; ui: Band }> {
-  const e = engine(on);
+  const e = engine(on, opts);
   e.box.text = DRAFT;
   const ui = await mount($);
   await ui.press({ key: "enhance" });
@@ -170,5 +180,32 @@ test(
     await ui.press({ key: "enhance" });
 
     expect(await headlineText(ui)).toBe(DONE);
+  },
+);
+
+test(
+  "a second Undo the box refuses disarms the window and the marker goes at once",
+  { options: BEDROCK },
+  async ($, on) => {
+    const redraws = invalidations(on);
+    const opts: EngineOptions = {};
+    const { e, ui } = await editedAfterEnhance($, on, opts);
+    await ui.press({ key: "undo" });
+    expect(await headlineText(ui)).toBe("↶ Undo?");
+    expect(redraws).toEqual(["ui.render"]);
+
+    // the restore is refused: no fill, so no state write follows the disarm
+    opts.fill = { isFilled: false, refusal: "dialog" };
+    await e.clock.advance(5_000);
+    await ui.press({ key: "undo" });
+
+    expect(e.box.text).toBe(EDITED);
+    expect(e.toasts.at(-1)).toBe(
+      "prompt-lift: the prompt box did not take the text (refused)",
+    );
+    // the disarm asks for its own redraw, since nothing else will
+    expect(redraws).toEqual(["ui.render", "ui.render"]);
+    expect(await headlineText(ui)).toBe(DONE);
+    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
   },
 );

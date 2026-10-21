@@ -115,19 +115,51 @@ export type StripRung = { label: string; state: RungState };
 /** The strip and its counter: rung `rung` of `rungs` runs now. */
 export type Strip = { rung: number; rungs: number; runs: StripRung[] };
 
+/** The primary Cancel Button's label, and what the strip's row spends on it. */
+export const CANCEL_LABEL = "Cancel (c)";
+/** The terminal draws a primary Button as `[ label ]`: four cells of chrome. */
+const BUTTON_CHROME_CELLS = 4;
+/** The running row's headline, Button and strip sit a cell apart: two gaps. */
+const RUNNING_GAP_CELLS = 2;
+/** Between two rungs of the strip. */
+export const RUNG_SEPARATOR = " › ";
+
+/** The cells the strip's rungs and their separators take whole. */
+function stripCells(runs: readonly StripRung[]): number {
+  return (
+    runs.reduce((cells, run) => cells + run.label.length, 0) +
+    RUNG_SEPARATOR.length * Math.max(0, runs.length - 1)
+  );
+}
+
+/**
+ * The cells left for the strip in a band `columns` wide: what the headline
+ * (with its counter) and the Cancel Button do not take.
+ */
+function stripRoom(strip: Strip, tier: Tier, columns: number): number {
+  const lead = headline("running", tier, counterText(strip, tier)).text.length;
+  const button = CANCEL_LABEL.length + BUTTON_CHROME_CELLS;
+  return columns - lead - button - RUNNING_GAP_CELLS;
+}
+
 /**
  * The rung strip for the chain with `running` under way: every rung by its
  * short name, the ones before `running` failed (the chain advances only on
- * failure), the rest pending; under 80 columns the active rung alone.
- * Undefined when the chain does not name `running` (a stored alias that
- * matched nothing): the row falls back to `runningRowText`.
+ * failure), the rest pending. The active rung alone under 80 columns, and at
+ * any width where the whole strip would not fit beside the headline and the
+ * Cancel Button (full ids, which `shortModel` leaves whole, are long). An
+ * empty `running` is the moment between the phase and the first rung's
+ * write: the chain's first rung. Undefined when the chain does not name
+ * `running` (a stored alias that matched nothing): the row falls back to
+ * `runningRowText`.
  */
 export function stripOf(
   chain: readonly string[],
   running: string,
   tier: Tier,
+  columns: number,
 ): Strip | undefined {
-  const active = chain.indexOf(running);
+  const active = chain.indexOf(running === "" ? (chain[0] ?? "") : running);
   if (active === -1) {
     return undefined;
   }
@@ -135,11 +167,12 @@ export function stripOf(
     label: shortModel(id),
     state: index < active ? "failed" : index === active ? "active" : "pending",
   }));
-  return {
-    rung: active + 1,
-    rungs: chain.length,
-    runs: hasRoom(tier) ? runs : runs.filter((run) => run.state === "active"),
-  };
+  const strip: Strip = { rung: active + 1, rungs: chain.length, runs };
+  const isWhole =
+    hasRoom(tier) && stripCells(runs) <= stripRoom(strip, tier, columns);
+  return isWhole
+    ? strip
+    : { ...strip, runs: runs.filter((run) => run.state === "active") };
 }
 
 /** The running headline's counter: `N of M`, or `N/M` when `minimal`. */

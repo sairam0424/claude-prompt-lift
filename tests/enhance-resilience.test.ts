@@ -246,15 +246,16 @@ test("a command leaves a running phase alone while its call is in flight", async
 test("a press stays in flight until its phase has settled", async ($, on) => {
   const e = engine(on);
   const phases = watch(on, "phase");
-  // Settling begins by clearing runningModel; a press that arrives right then
-  // finds the first press's phase still `running` and must be told "busy",
-  // not run a second call: the first press is live until its phase is set.
+  // Settling writes the phase back to idle (after the verdict, before it
+  // clears the running rung); a press that arrives right then finds the first
+  // press's phase still `running` and must be told "busy", not run a second
+  // call: the first press is live until its phase is set.
   let inWindow: Promise<unknown> | undefined;
   on(
     "state.set",
-    { plugin: "prompt-lift", key: "runningModel" },
+    { plugin: "prompt-lift", key: "phase" },
     async (_, ev, next) => {
-      if (inWindow === undefined) {
+      if (inWindow === undefined && ev.value === "idle") {
         inWindow = press($, DRAFT);
         await inWindow;
       }

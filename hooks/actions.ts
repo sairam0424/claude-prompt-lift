@@ -203,6 +203,9 @@ export async function undo($: EngineInterface): Promise<void> {
   });
   if (!filled.isFilled) {
     const cause = filled.refusal ?? "refused";
+    // The disarm above is module state too, and no write follows a refused
+    // fill: ask for the redraw that drops a stale `↶ Undo?` marker (R25)
+    $.ui.invalidate("ui.render");
     $.ui.toast(capToast(`${TOAST_NOT_TAKEN} (${cause})`));
     return;
   }
