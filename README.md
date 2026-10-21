@@ -155,7 +155,7 @@ These are the ids the cost table below prices and the rungs `/prompt-lift model 
 
 ### Extra rules
 
-`extraRules` appends project preferences to the rewrite rules as rule 11, visible only to the model (max 1,000 characters; tag-like markup is neutralised; changing it rebuilds the cached block once): Tag-like markup in the text is neutralised so it cannot open or close a section of the prompt; that also catches a comparison written as `a < b and c > d`, so write comparisons in words or as `<=` and `>=`.
+`extraRules` appends project preferences to the rewrite rules as rule 11, visible only to the model (max 1,000 characters; tag-like markup is neutralised, which also catches a comparison written as `a < b and c > d` — write comparisons in words or as `<=`/`>=`; changing it rebuilds the cached block once):
 
 ```json
 "extraRules": "Prefer bun over npm. Use single quotes in TypeScript."

@@ -137,8 +137,10 @@ export type ResolvedChain = { chain: string[]; platform: Platform };
 
 /**
  * The chain as `resolveChain` gives it, with the platform the session's
- * model id names (R19), from one `$.session.model()` read: a press prices
- * its rungs by it and `status` says where an alias rung is unpriced.
+ * model id names (R19). It reads `$.session.model()` once per press or
+ * command, for the platform and, when `models` holds `session`, for that
+ * token too: a press prices its rungs by the platform and `status` says
+ * where an alias rung is unpriced.
  */
 export async function resolveChainWithPlatform(
   $: EngineInterface,

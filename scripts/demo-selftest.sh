@@ -41,6 +41,14 @@ cleanup_temp() {
   done
 }
 trap cleanup_temp EXIT
+is_tracked() { # $1 = a path; true when it is a non-empty member of TEMP_PATHS
+  local path
+  [ -n "$1" ] || return 1
+  for path in ${TEMP_PATHS[@]+"${TEMP_PATHS[@]}"}; do
+    [ "$path" = "$1" ] && return 0
+  done
+  return 1
+}
 FAKE="$(mktemp -d /tmp/pl-selftest-home.XXXX)"; TEMP_PATHS+=("$FAKE")
 FAKE2="$(mktemp -d /tmp/pl-selftest-home2.XXXX)"; TEMP_PATHS+=("$FAKE2")
 FAKE3="$(mktemp -d /tmp/pl-selftest-home3.XXXX)"; TEMP_PATHS+=("$FAKE3")
@@ -79,13 +87,14 @@ check "the names line carries no values" bash -c '! grep -E "provider variables"
 
 # 3. sandbox HOME layout and a cleanup that never follows the .aws symlink
 layout="$(HOME="$FAKE" bash -c '
-TEMP_PATHS+=("$(sed -n 's/^WORK=//p' <<<"$layout")")
   source "$1"
   build_sandbox
   echo "WORK=$WORK"
   cleanup
   [ ! -e "$WORK" ] && echo "workgone"
 ' _ "$SCRIPT" 2>&1)"
+first_work="$(sed -n 's/^WORK=//p' <<<"$layout")"; TEMP_PATHS+=("$first_work")
+check "the first sandbox is tracked in TEMP_PATHS" is_tracked "$first_work"
 check "build_sandbox then cleanup ran" grep -q workgone <<<"$layout"
 check "cleanup did not follow the .aws symlink" test -f "$FAKE/.aws/sso/token-sentinel"
 

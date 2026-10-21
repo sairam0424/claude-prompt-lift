@@ -19,7 +19,7 @@
     "models": {
       "type": "string",
       "title": "Model Chain",
-      "description": "Comma-separated models to try in order: an alias (fable, sonnet, haiku), a full model id, or session for the session's model",
+      "description": "Comma-separated models to try in order: an alias (fable, sonnet, haiku), a full model id, or session for the session's model; on Bedrock/Vertex pin full ids for prices",
       "default": "fable,sonnet,haiku"
     },
     "effortModels": {
