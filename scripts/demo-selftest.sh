@@ -30,6 +30,7 @@ export -f claude git
 ok() { PASS=$((PASS + 1)); echo "ok   - $1"; }
 bad() { FAIL=$((FAIL + 1)); echo "FAIL - $1"; }
 check() { local label="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$label"; else bad "$label"; fi; }
+check_not() { local label="$1" rc; shift; "$@" >/dev/null 2>&1; rc=$?; if [ "$rc" = 1 ]; then ok "$label"; else bad "$label (exit $rc, want 1)"; fi; } # a clean no, run in THIS shell: 126/127 or a crash is a FAIL, not a pass
 
 # Every temp path this run makes goes in TEMP_PATHS and the one EXIT trap deletes them. Only
 # the two shapes this script and demo.sh's build_sandbox create are ever deleted.
@@ -275,13 +276,13 @@ for notice in 'Fable 5.1 via Bedrock' '✔ Update installed · Restart to update
   check "dry run shots: '$notice' writes no shot" test "$(shot_count "$shots_bad")" = 0
 done
 # a shot of the take itself (snap and snap_sgr, not only the dry run's)
-take_shot() { # $1 = a fake screen, $2 = snap or snap_sgr, $3 = a shots dir; prints the output, returns the shot's status
+take_shot() { # $1 = a fake screen, $2 = snap or snap_sgr, $3 = a shots dir; prints the output, returns the shot's status. KEEP_WORK=1 (set after the source, which resets it) keeps the EXIT trap off the shared work dir
   SCREEN="$1" SHOTS="$3" bash -c '
     source "$1"
     pane() { printf "%s\n" "$SCREEN"; }
     pane_sgr() { pane; }
     id() { echo selftest-account; }
-    WORK="$3" SHOTS_DIR="$SHOTS"
+    KEEP_WORK=1 WORK="$3" SHOTS_DIR="$SHOTS"
     mkdir -p "$WORK"
     "$2" 3-running
   ' _ "$SCRIPT" "$2" "$DRY_WORK" 2>&1
@@ -296,6 +297,7 @@ for shot in snap snap_sgr; do
   check "$shot: a shot the sanitiser refuses stops the take" test "$take_bad_rc" != 0
   check "$shot: and is not written" test "$(shot_count "$shots_take_bad")" = 0
 done
+check "take_shot: the selftest's shared work dir survives a take" test -d "$DRY_WORK"
 
 # 8. the take reads the band's rows (0.6.0): the done headline carries the cost, the
 # working row carries the counter and the rung strip, and a take that never showed
@@ -325,11 +327,11 @@ kept_settled="$(on_screen "$KEPT_ROW" enhance_settled)"; kept_settled_rc=$?
 check "a kept-as-is row (no Cancel, no rewrite) fails the take" test "$kept_settled_rc" != 0
 check "a kept-as-is row says the press ended without a rewrite" grep -q 'Enhance ended without a rewrite' <<<"$kept_settled"
 check "the idle headline leads the idle row" on_screen "$IDLE_ROW" idle_headline
-check "a 0.5.0 Button row is not the idle headline" bash -c '! "$@"' _ on_screen '[ Enhance (e) ] prompt-lift: fable 5.1' idle_headline
-check "a kept-as-is row is not the idle headline" bash -c '! "$@"' _ on_screen "$KEPT_ROW" idle_headline
+check_not "a 0.5.0 Button row is not the idle headline" on_screen '[ Enhance (e) ] prompt-lift: fable 5.1' idle_headline
+check_not "a kept-as-is row is not the idle headline" on_screen "$KEPT_ROW" idle_headline
 check "the working row with its counter and strip is recognised" on_screen "$RUNNING_ROW" enhance_running
-check "a working row with no strip is not the strip" bash -c '! "$@"' _ on_screen "$BARE_RUNNING_ROW" enhance_running
-check "a done row is not a working row" bash -c '! "$@"' _ on_screen "$DONE_ROW" enhance_running
+check_not "a working row with no strip is not the strip" on_screen "$BARE_RUNNING_ROW" enhance_running
+check_not "a done row is not a working row" on_screen "$DONE_ROW" enhance_running
 
 fake_cast="$(mktemp /tmp/pl-selftest-cast.XXXX)"; TEMP_PATHS+=("$fake_cast")
 cast_with() { # $1 = a glyph to leave out; writes a fake cast holding every string check_cast wants
