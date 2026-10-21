@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 - The README describes the new band: a row per state (idle, enhancing with the strip, done with the cost headline, kept as is after a call and before any call, the armed Undo, restored), the glyphs and the theme-key colours, the width tiers, and under Limits that the band changes only on events and that the strike-through on a failed rung depends on the terminal; Data handling lists the new state key `lastVerdict`.
-- The README demo is re-recorded with the new band: the idle headline, the rung strip while the call runs, the done headline with its cost, Undo to `↶ Restored`, Redo and `/prompt-lift status`. `scripts/demo.sh` asserts each of these rows on the live screen and fails the take if one is missing; `--theme light|dark` seeds the sandbox's theme, and `--dry-run --shots-dir` also writes `band-sgr.txt`, the idle band with its colour codes.
+- The README demo is re-recorded with the new band: the idle headline, the rung strip while the call runs, the done headline with its cost, Undo to `↶ Restored`, Redo and `/prompt-lift status`. `scripts/demo.sh` asserts each of these rows on the live screen and fails the take if one is missing; `--theme light|dark` seeds the sandbox's theme, and `--dry-run --shots-dir` also writes `band-sgr.txt`, the idle band with its colour codes; the take names no provider and the engine's auto-update is off while it records.
 
 ## [0.5.0] - 2026-10-20
 
