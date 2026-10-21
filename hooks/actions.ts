@@ -1,5 +1,9 @@
 import { atom, read, update } from "claude-code";
-import type { EngineInterface, StateDollar } from "claude-code";
+import type {
+  EngineInterface,
+  PromptFillArgs,
+  StateDollar,
+} from "claude-code";
 import { armUndo, disarmUndo, undoArmedAt } from "./arm";
 import { capToast } from "./chain";
 import { cancel, TOAST_NOT_TAKEN, type DraftReader } from "./enhance";
@@ -168,6 +172,22 @@ export function isUndoWindowOpen(
   return armedAt !== undefined && now - armedAt <= UNDO_REARM_MS;
 }
 
+/**
+ * Undo's fill, after the window was disarmed. A refusal resolves and `undo`
+ * redraws for it; a rejection (the box dropped out from under the press)
+ * escapes before that, with no state write to draw the disarm either: ask for
+ * the redraw that drops a stale `↶ Undo?` marker, then let the same error go
+ * (R27).
+ */
+async function fillOrRedraw($: EngineInterface, args: PromptFillArgs) {
+  try {
+    return await $.prompt.fill(args);
+  } catch (err) {
+    $.ui.invalidate("ui.render");
+    throw err;
+  }
+}
+
 /** Undo / Redo (spec §5.3): the band button and `/prompt-lift undo`. */
 export async function undo($: EngineInterface): Promise<void> {
   const now = await $.clock.now();
@@ -196,7 +216,7 @@ export async function undo($: EngineInterface): Promise<void> {
   disarmUndo();
   const isRedo = decision.kind === "redo";
   const decorations = isRedo ? await read($, lastDecorations) : null;
-  const filled = await $.prompt.fill({
+  const filled = await fillOrRedraw($, {
     text: decision.text,
     mode: "replace",
     ...(decorations && { decorations }),

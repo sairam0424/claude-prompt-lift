@@ -209,3 +209,48 @@ test(
     expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
   },
 );
+
+test(
+  "a second Undo whose fill is rejected redraws the band, rethrows the error and leaves the window shut",
+  { options: BEDROCK },
+  async ($, on) => {
+    const redraws = invalidations(on);
+    const opts: EngineOptions = {};
+    const { e, ui } = await editedAfterEnhance($, on, opts);
+    await ui.press({ key: "undo" });
+    expect(await headlineText(ui)).toBe("↶ Undo?");
+    expect(redraws).toEqual(["ui.render"]);
+    // Enhance's fill is the only one so far
+    expect(e.fills).toHaveLength(1);
+
+    // the box drops out from under the restore: the fill hook throws, so the
+    // call rejects (a refusal would resolve) after the window was disarmed
+    opts.denyFill = "composer gone";
+    await e.clock.advance(5_000);
+    const failure = await ui.press({ key: "undo" }).then(
+      () => undefined,
+      (err: unknown) => err,
+    );
+
+    // the kit's own rejection of the call (a throwing hook is skipped and
+    // nothing else answers) escapes as it came, not a toast in its place
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toContain(
+      "no implementation for prompt.fill",
+    );
+    expect(e.fills).toHaveLength(2);
+    expect(e.box.text).toBe(EDITED);
+    expect(e.toasts).toHaveLength(2);
+    // the disarm asks for its own redraw, since no state write follows (R27)
+    expect(redraws).toEqual(["ui.render", "ui.render"]);
+    expect(await headlineText(ui)).toBe(DONE);
+
+    // the window is shut: the next Undo arms again instead of confirming
+    opts.denyFill = undefined;
+    await ui.press({ key: "undo" });
+    expect(e.fills).toHaveLength(2);
+    expect(e.box.text).toBe(EDITED);
+    expect(await headlineText(ui)).toBe("↶ Undo?");
+    expect(redraws).toEqual(["ui.render", "ui.render", "ui.render"]);
+  },
+);
