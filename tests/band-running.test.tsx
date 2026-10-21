@@ -62,11 +62,11 @@ type Held = {
 };
 
 /**
- * Holds the call to one rung until the test lets it go, so every frame of
- * the strip can be read: the engine's own `delay` has one gate for them all.
- * A matched registration on the rung's id, chained to the stub's reply.
+ * The gate every hold shares. The held call awaits `hold()`, which says it
+ * has arrived and then parks until the test calls `release()`; the test reads
+ * `arrived` and `release` and never sees `hold`.
  */
-function holdRung(on: On, model: string): Held {
+function held(): Held & { hold: () => Promise<void> } {
   let release: () => void = () => undefined;
   let signal: () => void = () => undefined;
   const gate = new Promise<void>((resolve) => {
@@ -75,12 +75,28 @@ function holdRung(on: On, model: string): Held {
   const arrived = new Promise<void>((resolve) => {
     signal = resolve;
   });
+  return {
+    arrived,
+    release: () => release(),
+    hold: () => {
+      signal();
+      return gate;
+    },
+  };
+}
+
+/**
+ * Holds the call to one rung until the test lets it go, so every frame of
+ * the strip can be read: the engine's own `delay` has one gate for them all.
+ * A matched registration on the rung's id, chained to the stub's reply.
+ */
+function holdRung(on: On, model: string): Held {
+  const { hold, ...rung } = held();
   on("model.complete", { model }, async ($, e, next) => {
-    signal();
-    await gate;
+    await hold();
     return next(e);
   });
-  return { arrived, release: () => release() };
+  return rung;
 }
 
 function runsByState(runs: FoundElement[]): {
@@ -267,14 +283,7 @@ test(
 
 /** Holds the first write of one state key until the test lets it land. */
 function holdWrite(on: On, key: string): Held {
-  let release: () => void = () => undefined;
-  let signal: () => void = () => undefined;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const arrived = new Promise<void>((resolve) => {
-    signal = resolve;
-  });
+  const { hold, ...write } = held();
   let isFirst = true;
   on(
     "state.set",
@@ -282,13 +291,12 @@ function holdWrite(on: On, key: string): Held {
     async ($, ev, next) => {
       if (isFirst) {
         isFirst = false;
-        signal();
-        await gate;
+        await hold();
       }
       return next(ev);
     },
   );
-  return { arrived, release: () => release() };
+  return write;
 }
 
 test(
