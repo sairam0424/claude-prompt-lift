@@ -201,8 +201,8 @@ build_home() {
 # this process's environment or, failing that, in the real ~/.claude/settings.json env.
 # Values stay in the array. DISABLE_AUTOUPDATER=1: an engine that updates itself mid-take
 # prints "Update installed" into the recording.
-# HOME is the physical path: the engine reports /private/tmp/... for /tmp/..., and the
-# mod recognises ~/.claude/rules files by their textual prefix under HOME.
+# HOME is the physical path: the engine reports /private/tmp/... for /tmp/..., so the
+# recording shows the paths the engine reports (the mod also handles a symlinked HOME).
 collect_session_env() {
   local settings="$REAL_HOME/.claude/settings.json" name value names="" home
   home="$(cd "$WORK/home" && pwd -P)" || die "no sandbox home at $WORK/home"
