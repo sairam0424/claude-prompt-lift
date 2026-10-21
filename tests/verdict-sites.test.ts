@@ -33,11 +33,10 @@ test("a draft the guards refuse is refused before any call, with no cost", async
   await press($, "/clear the screen and start over please");
 
   expect(e.calls).toHaveLength(0);
-  expect(verdicts).toEqual([
+  expect(verdicts).toStrictEqual([
     {
       kind: "refused",
       text: "commands and shell lines are sent as typed",
-      usd: undefined,
     },
   ]);
 });
@@ -49,18 +48,17 @@ test(
     const e = engine(on);
     const verdicts = watch(on, "lastVerdict");
     await press($, DRAFT);
-    expect(verdicts).toEqual([]);
+    expect(verdicts).toStrictEqual([]);
 
     e.box.text = "";
     await press($, DRAFT);
 
     expect(e.calls).toHaveLength(1);
-    expect(verdicts).toEqual([
+    expect(verdicts).toStrictEqual([
       {
         kind: "refused",
         text: "session cap $0.01 reached · /prompt-lift cap off",
-        usd: undefined,
-      },
+        },
     ]);
   },
 );
@@ -74,7 +72,7 @@ test(
 
     await press($, DRAFT);
 
-    expect(verdicts).toEqual([
+    expect(verdicts).toStrictEqual([
       {
         kind: "refused",
         text: "rewrite too long, kept your prompt",
@@ -93,7 +91,7 @@ test(
 
     await press($, DRAFT);
 
-    expect(verdicts).toEqual([
+    expect(verdicts).toStrictEqual([
       {
         kind: "refused",
         text: "named a file that does not exist, kept your prompt",
@@ -117,7 +115,7 @@ test(
     e.release();
     await run;
 
-    expect(verdicts).toEqual([
+    expect(verdicts).toStrictEqual([
       {
         kind: "refused",
         text: "draft changed while enhancing, left as is",
@@ -136,7 +134,7 @@ test(
 
     await press($, DRAFT);
 
-    expect(verdicts).toEqual([
+    expect(verdicts).toStrictEqual([
       {
         kind: "failed",
         text: "the prompt box did not take the text (refused)",
@@ -157,8 +155,8 @@ test(
 
     expect(e.calls).toHaveLength(0);
     expect(e.toasts).toEqual(["prompt-lift: no models configured"]);
-    expect(verdicts).toEqual([
-      { kind: "failed", text: "no models configured", usd: undefined },
+    expect(verdicts).toStrictEqual([
+      { kind: "failed", text: "no models configured" },
     ]);
   },
 );
@@ -202,7 +200,7 @@ test("an unpriced model's refusal carries null, not zero", async ($, on) => {
   await press($, DRAFT);
 
   // the default chain is aliases, which no price table row names off Anthropic
-  expect(verdicts).toEqual([
+  expect(verdicts).toStrictEqual([
     { kind: "refused", text: "already specific, left as is", usd: null },
   ]);
 });
@@ -220,7 +218,7 @@ test(
 
     expect(e.box.text).toBe(BETTER);
     expect(e.toasts).toHaveLength(1);
-    expect(verdicts).toEqual([]);
+    expect(verdicts).toStrictEqual([]);
   },
 );
 
@@ -238,6 +236,6 @@ test(
     await first;
 
     expect(e.toasts[0]).toBe("prompt-lift: already enhancing");
-    expect(verdicts).toEqual([]);
+    expect(verdicts).toStrictEqual([]);
   },
 );
