@@ -3,7 +3,8 @@ import type { EngineInterface, RenderElement, RenderInput } from "claude-code";
 import type { Config } from "./config";
 import { hasUnpricedAlias } from "./config";
 import { enhance, isCallInFlight } from "./enhance";
-import { cancel, send, undo } from "./actions";
+import { cancel, isUndoWindowOpen, send, undo } from "./actions";
+import { undoArmedAt } from "./arm";
 import { resolveChain, resolveChainWithPlatform } from "./gather";
 import { leftText, readCapStatus } from "./caps";
 import { readTailCount } from "./tail";
@@ -12,6 +13,7 @@ import {
   colorOf,
   counterText,
   doneCostText,
+  doneFace,
   doneRowText,
   headline,
   idleRowText,
@@ -19,7 +21,6 @@ import {
   stripOf,
   tierOf,
   verdictFace,
-  RESTORED_ROW,
 } from "./band-row";
 
 // The band (spec §5.1; C12, C17, C19; R25): one row above the prompt, chained
@@ -27,10 +28,13 @@ import {
 // only when a value it reads changes or the engine redraws the band; it never
 // calls the model and runs no timer: while the chain runs, the rung strip
 // moves because each rung's `runningModel` write (enhance.ts) redraws the
-// band (R25). The atoms are declared here as well as in enhance.ts: `read`
-// validates against an atom made in the calling file, and the same plugin and
-// key name the same value. The row's words and the width tiers live in
-// band-row.tsx; this file alone touches `$`.
+// band, a refusal's reason stays because `settle` writes `lastVerdict` and
+// the next action writes it away, and the Undo window's marker (module
+// state, so no write) is drawn because `undo()` asks for the redraw (R25).
+// The atoms are declared here as well as in enhance.ts: `read` validates
+// against an atom made in the calling file, and the same plugin and key name
+// the same value. The row's words and the width tiers live in band-row.tsx;
+// this file alone touches `$`.
 
 const phase = atom({ plugin: "prompt-lift", key: "phase" } as const, "idle");
 const isUndone = atom(
@@ -223,12 +227,12 @@ async function drawRow(
   // The cost leads the done headline (R25), so a squeeze never truncates it;
   // a record that failed to write leaves the headline without one.
   const cost = usage === null ? undefined : doneCostText(usage);
-  const face: Face =
-    verdict !== null
-      ? verdictFace(verdict)
-      : undone
-        ? { state: "restored", details: RESTORED_ROW }
-        : { state: "done", figure: cost, details: summary };
+  // The Undo window is module state, so a draw asks the clock once; nothing
+  // ticks, and a window that has closed drops its marker at this next redraw
+  const armedAt = undoArmedAt();
+  const isArmed =
+    armedAt !== undefined && isUndoWindowOpen(armedAt, await $.clock.now());
+  const face = doneFace({ verdict, isArmed, isUndone: undone, cost, summary });
   return (
     <Box gap={1}>
       {headlineNode(face.state, face.figure)}

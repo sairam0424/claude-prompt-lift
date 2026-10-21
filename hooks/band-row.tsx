@@ -18,6 +18,7 @@ export type BandState =
   | "running"
   | "done"
   | "restored"
+  | "armed"
   | Verdict["kind"];
 
 /**
@@ -47,12 +48,16 @@ const HEADLINES: Record<BandState, HeadlineSpec> = {
   running: { glyph: "↻", word: "Enhancing", color: "warning" },
   done: { glyph: "✓", word: "Enhanced", color: "success" },
   restored: { glyph: "↶", word: "Restored", color: "warning" },
+  armed: { glyph: "↶", word: "Undo?", color: "warning" },
   refused: { glyph: "✗", word: "Kept as is", color: "warning" },
   failed: { glyph: "✗", word: "Failed", color: "error" },
   cancelled: { glyph: "✗", word: "Cancelled", color: "warning" },
 };
 
 export const RESTORED_ROW = "restored your draft";
+/** The armed-Undo row's details (R25): what the second press would do. */
+export const ARMED_ROW =
+  "box edited since Enhance · press Undo again to discard it";
 const KEY_HINT = "ctrl+x b · or ctrl+x tab, e";
 /** Presses without a cache hit before the row suggests a cheaper rung (C19). */
 const NO_CACHE_HINT_AFTER = 3;
@@ -157,6 +162,30 @@ export function verdictFace(verdict: Verdict): Face {
     state: verdict.kind,
     details: `${verdict.text} · ${costText(verdict.usd ?? undefined)}`,
   };
+}
+
+/**
+ * What the done phase's row shows, newest news first (R25): the last press's
+ * verdict, else the open Undo window, else the restored draft, else the
+ * result with its cost in the headline (`cost` undefined: no record).
+ */
+export function doneFace(a: {
+  verdict: Verdict | null;
+  isArmed: boolean;
+  isUndone: boolean;
+  cost: string | undefined;
+  summary: string;
+}): Face {
+  if (a.verdict !== null) {
+    return verdictFace(a.verdict);
+  }
+  if (a.isArmed) {
+    return { state: "armed", details: ARMED_ROW };
+  }
+  if (a.isUndone) {
+    return { state: "restored", details: RESTORED_ROW };
+  }
+  return { state: "done", figure: a.cost, details: a.summary };
 }
 
 /**

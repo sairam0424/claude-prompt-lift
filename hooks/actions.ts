@@ -151,8 +151,21 @@ export function decideUndo(a: {
   }
   const shown = a.isUndone ? a.original : a.enhanced;
   const isClean = a.boxText === "" || a.boxText === shown;
-  const isArmed = a.armedAt !== undefined && a.now - a.armedAt <= UNDO_REARM_MS;
-  return !isClean && !isArmed ? { kind: "arm" } : target;
+  return !isClean && !isUndoWindowOpen(a.armedAt, a.now)
+    ? { kind: "arm" }
+    : target;
+}
+
+/**
+ * Whether a second Undo press at `now` still confirms (C13): the window opened
+ * by the press at `armedAt` lasts UNDO_REARM_MS, its last millisecond
+ * included. The band draws its `↶ Undo?` marker by the same test.
+ */
+export function isUndoWindowOpen(
+  armedAt: number | undefined,
+  now: number,
+): boolean {
+  return armedAt !== undefined && now - armedAt <= UNDO_REARM_MS;
 }
 
 /** Undo / Redo (spec §5.3): the band button and `/prompt-lift undo`. */
@@ -174,6 +187,9 @@ export async function undo($: EngineInterface): Promise<void> {
   await clearVerdict($);
   if (decision.kind === "arm") {
     armUndo(now);
+    // The window is module state, which the band cannot see change: ask for
+    // the redraw that draws its marker (R25)
+    $.ui.invalidate("ui.render");
     $.ui.toast(TOAST_UNDO_ARM);
     return;
   }
