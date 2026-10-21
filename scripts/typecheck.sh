@@ -16,13 +16,20 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 bundled_glob='/private/tmp/claude-*/bundled-skills/*/*/plugin-authoring/types/claude-code.d.ts'
 stale_cache="$HOME/.cache/claim-verify/claude-code.d.ts"
 
-shopt -s nullglob
-candidates=( $bundled_glob )
-shopt -u nullglob
+# The glob stays in a variable (the STALE message below names it); compgen -G
+# expands it one match per line, and an unmatched glob prints nothing.
+candidates=()
+while IFS= read -r candidate; do
+  candidates+=("$candidate")
+done < <(compgen -G "$bundled_glob" || true)
 
 dts=""
 if [ "${#candidates[@]}" -gt 0 ]; then
-  dts="$(ls -t "${candidates[@]}" | head -n 1)"
+  dts="${candidates[0]}"
+  for candidate in "${candidates[@]}"; do
+    # newest by mtime; on a tie the first in glob (name) order stays, as `ls -t` ordered it
+    if [ "$candidate" -nt "$dts" ]; then dts="$candidate"; fi
+  done
 elif [ -f "$stale_cache" ]; then
   dts="$stale_cache"
   echo "typecheck: STALE types: no bundled claude-code.d.ts under $bundled_glob;" >&2
