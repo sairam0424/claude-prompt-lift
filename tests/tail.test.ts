@@ -12,6 +12,7 @@ import {
   GOOD,
   type Message,
 } from "./engine";
+import { detailsText as rowText } from "./band-helpers";
 
 // Conversation tail (R10): `/prompt-lift tail` command controls the transcript
 // grounding override for this session; the rows show ` · tail N` when active;
@@ -55,14 +56,6 @@ function mount($: Harness, extra: Partial<typeof PROPS> = {}): Promise<Band> {
 
 async function text($: Harness, args: string): Promise<string | undefined> {
   return ((await press($, args)) as { text?: string }).text;
-}
-
-async function rowText(band: Band): Promise<string> {
-  const texts = await band.findAll({ type: "Text" });
-  return texts
-    .filter((t) => t.text !== "lower")
-    .map((t) => t.text)
-    .join("");
 }
 
 test("tail off by default: no suffix, no tail in dynamic block", async ($, on) => {

@@ -60,17 +60,68 @@ export function tierOf(bodyColumns: number): Tier {
   return "minimal";
 }
 
-/** The three token figures stay at `noHint` and above (80 columns and up). */
-function keepsFigures(tier: Tier): boolean {
+/**
+ * What 80 columns and up (`noHint` and above) leave room for: the done row's
+ * three token figures and the whole rung strip; narrower, both go first.
+ */
+function hasRoom(tier: Tier): boolean {
   return tier === "full" || tier === "noHint";
 }
 
 export type Headline = { text: string; color: ThemeKey };
 
-/** The headline for `state`: glyph and word, or the glyph alone when `minimal`. */
-export function headline(state: BandState, tier: Tier): Headline {
+/**
+ * The headline for `state`: glyph and word, or the glyph alone when
+ * `minimal`; `figure` (the running counter, the done cost) follows either.
+ */
+export function headline(
+  state: BandState,
+  tier: Tier,
+  figure?: string,
+): Headline {
   const { glyph, word, color } = HEADLINES[state];
-  return { text: tier === "minimal" ? glyph : `${glyph} ${word}`, color };
+  const lead = tier === "minimal" ? glyph : `${glyph} ${word}`;
+  return { text: figure === undefined ? lead : `${lead} ${figure}`, color };
+}
+
+/** How a rung stands in the strip: failed before the active one, pending after. */
+export type RungState = "failed" | "active" | "pending";
+export type StripRung = { label: string; state: RungState };
+/** The strip and its counter: rung `rung` of `rungs` runs now. */
+export type Strip = { rung: number; rungs: number; runs: StripRung[] };
+
+/**
+ * The rung strip for the chain with `running` under way: every rung by its
+ * short name, the ones before `running` failed (the chain advances only on
+ * failure), the rest pending; under 80 columns the active rung alone.
+ * Undefined when the chain does not name `running` (a stored alias that
+ * matched nothing): the row falls back to `runningRowText`.
+ */
+export function stripOf(
+  chain: readonly string[],
+  running: string,
+  tier: Tier,
+): Strip | undefined {
+  const active = chain.indexOf(running);
+  if (active === -1) {
+    return undefined;
+  }
+  const runs = chain.map((id, index): StripRung => ({
+    label: shortModel(id),
+    state: index < active ? "failed" : index === active ? "active" : "pending",
+  }));
+  return {
+    rung: active + 1,
+    rungs: chain.length,
+    runs: hasRoom(tier) ? runs : runs.filter((run) => run.state === "active"),
+  };
+}
+
+/** The running headline's counter: `N of M`, or `N/M` when `minimal`. */
+export function counterText(strip: Strip, tier: Tier): string {
+  return tier === "minimal"
+    ? `${strip.rung}/${strip.rungs}`
+    : `${strip.rung} of ${strip.rungs}`;
 }
 
 /**
@@ -91,6 +142,7 @@ export function idleRowText(
   ].join(" · ");
 }
 
+/** The running details when the chain does not name the running rung. */
 export function runningRowText(modelId: string): string {
   return `Enhancing with ${shortModel(modelId)}…`;
 }
@@ -111,7 +163,7 @@ export function doneRowText(
   tail?: number,
   tier: Tier = "full",
 ): string {
-  const figures = keepsFigures(tier)
+  const figures = hasRoom(tier)
     ? [
         `${formatTokens(usage.cached)} cached`,
         `${formatTokens(usage.input + usage.written)} in`,

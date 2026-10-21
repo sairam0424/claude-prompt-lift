@@ -1,5 +1,4 @@
 import { expect, test } from "claude-code/testing";
-import type { Engine as Harness, Mounted } from "claude-code/testing";
 import type { ModelCompleteResult, ModelUsage } from "claude-code";
 import {
   answered,
@@ -22,24 +21,19 @@ import {
 import { formatDollars } from "../hooks/chain";
 import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 import type { LastUsage } from "../types";
+import {
+  detailsText as rowText,
+  headlineText,
+  keys,
+  label,
+  mount,
+} from "./band-helpers";
 
 // The band (spec §5.1; C12, C17, C19): one row chained above the engine's own
 // band content. Its buttons run with the mod's own `$`, which is how the box
 // path of Enhance, Send with `asUser` and Cancel get their end-to-end tests.
 
 const PLUGIN = "prompt-lift";
-const SURFACE = "terminal" as const;
-const PROPS = {
-  hasSurvey: false,
-  isWorking: false,
-  maxRows: 12,
-  bodyColumns: 120,
-  scroll: { offset: 0, bodyRows: 12 },
-  view: {},
-};
-type Props = typeof PROPS;
-type Band = Mounted<typeof SURFACE, "AbovePrompt">;
-
 const ENTER_TOAST =
   "prompt-lift: press Enter to send; @files and images only travel with Enter";
 const CANCELLED = `prompt-lift: cancelled, draft unchanged · ${formatDollars(0)}`;
@@ -73,31 +67,6 @@ const LAST: LastUsage = {
   skills: 1,
   hashChanged: false,
 };
-
-function mount($: Harness, extra: Partial<Props> = {}): Promise<Band> {
-  return $.ui.mount({
-    plugin: PLUGIN,
-    surface: SURFACE,
-    component: "AbovePrompt",
-    props: { ...PROPS, ...extra },
-  });
-}
-
-async function keys(ui: Band): Promise<(string | undefined)[]> {
-  return (await ui.findAll({ type: "Button" })).map((b) => b.key);
-}
-
-async function label(ui: Band, key: string): Promise<unknown> {
-  return (await ui.find({ type: "Button", key }))?.props.label;
-}
-
-/** The details Text alone: the dim one, after the headline and the Buttons. */
-async function rowText(ui: Band): Promise<string> {
-  return (await ui.findAll({ type: "Text" }))
-    .filter((t) => t.props.dimColor === true)
-    .map((t) => t.text)
-    .join("");
-}
 
 // --- pure row text ---
 
@@ -303,7 +272,8 @@ test(
     expect(await keys(ui)).toEqual(["cancel"]);
     expect(await label(ui, "cancel")).toBe("Cancel (c)");
     expect((await ui.find({ key: "cancel" }))?.props.hotkey).toBe("c");
-    expect(await rowText(ui)).toBe(runningRowText(FABLE));
+    expect(await headlineText(ui)).toBe("↻ Enhancing 1 of 3");
+    expect(await rowText(ui)).toBe("fable 5.1 › sonnet 5.5 › haiku 5.5");
     await ui.press({ key: "cancel" });
     e.release();
     await run;

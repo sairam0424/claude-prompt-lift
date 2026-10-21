@@ -1,52 +1,17 @@
 import { expect, test } from "claude-code/testing";
-import type { Engine as Harness, Mounted } from "claude-code/testing";
-import type { FoundElement } from "claude-code/testing";
 import { engine, DRAFT } from "./engine";
+import {
+  detailsOf,
+  headlineOf,
+  mount,
+  rowTexts,
+  variantOf,
+  type Band,
+} from "./band-helpers";
 
 // R25 part 1: the row leads with a headline, one glyph and a state word in a
 // theme key, bold; the details stay dim and truncate; the primary Button of
 // each state is marked `variant="primary"` (the 2.1.303 d.ts declares it).
-
-const PLUGIN = "prompt-lift";
-const SURFACE = "terminal" as const;
-const PROPS = {
-  hasSurvey: false,
-  isWorking: false,
-  maxRows: 12,
-  bodyColumns: 120,
-  scroll: { offset: 0, bodyRows: 12 },
-  view: {},
-};
-type Props = typeof PROPS;
-type Band = Mounted<typeof SURFACE, "AbovePrompt">;
-
-function mount($: Harness, extra: Partial<Props> = {}): Promise<Band> {
-  return $.ui.mount({
-    plugin: PLUGIN,
-    surface: SURFACE,
-    component: "AbovePrompt",
-    props: { ...PROPS, ...extra },
-  });
-}
-
-/** The row's Texts in document order, the drawing beneath left out. */
-async function rowTexts(ui: Band): Promise<FoundElement[]> {
-  return (await ui.findAll({ type: "Text" })).filter((t) => t.text !== "lower");
-}
-
-/** The headline: the one bold Text; undefined when the row draws none. */
-async function headlineOf(ui: Band): Promise<FoundElement | undefined> {
-  return (await rowTexts(ui)).find((t) => t.props.bold === true);
-}
-
-/** The details: the one dim Text. */
-async function detailsOf(ui: Band): Promise<FoundElement | undefined> {
-  return (await rowTexts(ui)).find((t) => t.props.dimColor === true);
-}
-
-async function variantOf(ui: Band, key: string): Promise<unknown> {
-  return (await ui.find({ type: "Button", key }))?.props.variant;
-}
 
 async function expectHeadline(
   ui: Band,
@@ -84,7 +49,8 @@ test("running: ↻ Enhancing in warning; Cancel is primary", async ($, on) => {
   await e.modelCalled;
   await ui.drawn();
 
-  await expectHeadline(ui, "↻ Enhancing", "warning");
+  // the counter is the working state's (R25 part 2, tests/band-running)
+  await expectHeadline(ui, "↻ Enhancing 1 of 3", "warning");
   expect(await variantOf(ui, "cancel")).toBe("primary");
 
   e.release();

@@ -7,12 +7,14 @@ import { cancel, send, undo } from "./actions";
 import { resolveChain, resolveChainWithPlatform } from "./gather";
 import { leftText, readCapStatus } from "./caps";
 import { readTailCount } from "./tail";
-import type { BandState } from "./band-row";
+import type { BandState, Strip, StripRung } from "./band-row";
 import {
+  counterText,
   doneRowText,
   headline,
   idleRowText,
   runningRowText,
+  stripOf,
   tierOf,
   RESTORED_ROW,
 } from "./band-row";
@@ -20,10 +22,12 @@ import {
 // The band (spec §5.1; C12, C17, C19; R25): one row above the prompt, chained
 // above whatever the engine and the plugins beneath draw there. It redraws
 // only when a value it reads changes or the engine redraws the band; it never
-// calls the model and runs no timer. The atoms are declared here as well as
-// in enhance.ts: `read` validates against an atom made in the calling file,
-// and the same plugin and key name the same value. The row's words and the
-// width tiers live in band-row.tsx; this file alone touches `$`.
+// calls the model and runs no timer: while the chain runs, the rung strip
+// moves because each rung's `runningModel` write (enhance.ts) redraws the
+// band (R25). The atoms are declared here as well as in enhance.ts: `read`
+// validates against an atom made in the calling file, and the same plugin and
+// key name the same value. The row's words and the width tiers live in
+// band-row.tsx; this file alone touches `$`.
 
 const phase = atom({ plugin: "prompt-lift", key: "phase" } as const, "idle");
 const isUndone = atom(
@@ -109,8 +113,8 @@ async function drawRow(
   const tier = tierOf(e.props.bodyColumns ?? DEFAULT_COLUMNS);
   // The headline leads in its own non-shrinking Box, so a squeeze lands on
   // the details Text, which truncates: the row stays one line (§5.1).
-  const headlineNode = (state: BandState): RenderElement => {
-    const head = headline(state, tier);
+  const headlineNode = (state: BandState, figure?: string): RenderElement => {
+    const head = headline(state, tier, figure);
     return (
       <Box flexShrink={0}>
         <Text color={head.color} bold>
@@ -124,6 +128,26 @@ async function drawRow(
       {text}
     </Text>
   );
+  // The strip's runs nest in the dim details Text (the d.ts allows inline
+  // elements in a Text): a failed rung struck and dim, the active one bold in
+  // the headline's colour, a pending one dim; ` › ` between them.
+  const rungNode = (run: StripRung): RenderElement =>
+    run.state === "active" ? (
+      <Text bold color="warning" dimColor={false}>
+        {run.label}
+      </Text>
+    ) : (
+      <Text dimColor strikethrough={run.state === "failed"}>
+        {run.label}
+      </Text>
+    );
+  const stripNode = (strip: Strip): RenderElement => (
+    <Text dimColor wrap="truncate-end">
+      {strip.runs.flatMap((run, index) =>
+        index === 0 ? [rungNode(run)] : [" › ", rungNode(run)],
+      )}
+    </Text>
+  );
   const current = await read($, phase);
   // A `running` no call backs is one a dropped environment left (§5.3 resets):
   // drawn as idle here and reset by the next command; a render never writes.
@@ -131,9 +155,13 @@ async function drawRow(
   const isDone = current === "done";
   if (isRunning) {
     const running = await read($, runningModel);
+    const strip = stripOf(await resolveChain($, cfg), running, tier);
     return (
       <Box gap={1}>
-        {headlineNode("running")}
+        {headlineNode(
+          "running",
+          strip === undefined ? undefined : counterText(strip, tier),
+        )}
         <Button
           key="cancel"
           label="Cancel (c)"
@@ -141,7 +169,9 @@ async function drawRow(
           variant="primary"
           onPress={cancel}
         />
-        {detailsNode(runningRowText(running))}
+        {strip === undefined
+          ? detailsNode(runningRowText(running))
+          : stripNode(strip)}
       </Box>
     );
   }

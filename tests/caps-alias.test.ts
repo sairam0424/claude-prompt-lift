@@ -5,6 +5,7 @@ import { capsLine, leftText } from "../hooks/caps";
 import { hasUnpricedAlias } from "../hooks/config";
 import { statusText, type StatusInput } from "../hooks/status";
 import { storeTotal } from "./ledger-fake";
+import { detailsText as rowText } from "./band-helpers";
 
 // R9 meets R19: on Bedrock and Vertex an alias rung is unpriced, so a press on
 // it never counts toward a cap. A cap over such a chain would read as
@@ -48,14 +49,6 @@ function mount($: Harness): Promise<Band> {
       view: {},
     },
   });
-}
-
-async function rowText(ui: Band): Promise<string> {
-  const texts = await ui.findAll({ type: "Text" });
-  return texts
-    .filter((t) => t.text !== "lower")
-    .map((t) => t.text)
-    .join("");
 }
 
 async function text($: Harness, args: string): Promise<string | undefined> {

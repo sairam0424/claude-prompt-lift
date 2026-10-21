@@ -1,25 +1,22 @@
 import { expect, test } from "claude-code/testing";
-import type { Engine as Harness, Mounted } from "claude-code/testing";
 import { engine, BEDROCK, DRAFT, FABLE } from "./engine";
+import {
+  detailsText,
+  headlineText,
+  keys,
+  mount,
+  stripRuns,
+  widen,
+} from "./band-helpers";
 import { doneRowText, idleRowText, tierOf } from "../hooks/band-row";
 import type { LastUsage } from "../types";
 
 // R25 width tiers, from `e.props.bodyColumns`: at 100 and up the whole row;
 // 80-99 the idle key hint goes; under 80 the done row's three token figures
-// go; under 60 the headline keeps its glyph alone. The kit's `redraw(props)`
-// is the engine handing the hook new props, as a narrower terminal does.
+// and the strip's other rungs go; under 60 the headline keeps its glyph alone
+// (the running counter as `N/M`). The kit's `redraw(props)` is the engine
+// handing the hook new props, as a narrower terminal does.
 
-const PLUGIN = "prompt-lift";
-const SURFACE = "terminal" as const;
-const PROPS = {
-  hasSurvey: false,
-  isWorking: false,
-  maxRows: 12,
-  bodyColumns: 120,
-  scroll: { offset: 0, bodyRows: 12 },
-  view: {},
-};
-type Band = Mounted<typeof SURFACE, "AbovePrompt">;
 const NO_CACHE_HINT = "cache not hitting — consider /prompt-lift model haiku";
 const LAST: LastUsage = {
   model: FABLE,
@@ -36,34 +33,6 @@ const LAST: LastUsage = {
 };
 const FULL_DONE =
   "fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04 · +12 words · 1 skill";
-
-function mount($: Harness): Promise<Band> {
-  return $.ui.mount({
-    plugin: PLUGIN,
-    surface: SURFACE,
-    component: "AbovePrompt",
-    props: PROPS,
-  });
-}
-
-/** The engine's redraw with the band `bodyColumns` wide. */
-function widen(ui: Band, bodyColumns: number): Promise<void> {
-  return ui.redraw({ ...PROPS, bodyColumns });
-}
-
-async function headlineText(ui: Band): Promise<string | undefined> {
-  const texts = await ui.findAll({ type: "Text" });
-  return texts.find((t) => t.props.bold === true)?.text;
-}
-
-async function detailsText(ui: Band): Promise<string | undefined> {
-  const texts = await ui.findAll({ type: "Text" });
-  return texts.find((t) => t.props.dimColor === true)?.text;
-}
-
-async function keys(ui: Band): Promise<(string | undefined)[]> {
-  return (await ui.findAll({ type: "Button" })).map((b) => b.key);
-}
 
 // --- pure tiers ---
 
@@ -163,6 +132,40 @@ test(
     expect(await detailsText(ui)).toBe(compact);
     expect(await headlineText(ui)).toBe("✓");
     expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+  },
+);
+
+test(
+  "running row: the whole strip at 120 and 90, the active rung alone at 70, ↻ 1/3 at 50",
+  { options: BEDROCK },
+  async ($, on) => {
+    const e = engine(on, { delay: true });
+    e.box.text = DRAFT;
+    const ui = await mount($);
+    const run = ui.press({ key: "enhance" });
+    await e.modelCalled;
+    await ui.drawn();
+
+    expect(await headlineText(ui)).toBe("↻ Enhancing 1 of 3");
+    expect(await detailsText(ui)).toBe("fable 5.1 › sonnet 5.5 › haiku 5.5");
+    expect(await stripRuns(ui)).toHaveLength(3);
+
+    await widen(ui, 90);
+    expect(await headlineText(ui)).toBe("↻ Enhancing 1 of 3");
+    expect(await detailsText(ui)).toBe("fable 5.1 › sonnet 5.5 › haiku 5.5");
+
+    await widen(ui, 70);
+    expect(await headlineText(ui)).toBe("↻ Enhancing 1 of 3");
+    expect(await detailsText(ui)).toBe("fable 5.1");
+    expect((await stripRuns(ui)).map((r) => r.props.bold)).toEqual([true]);
+
+    await widen(ui, 50);
+    expect(await headlineText(ui)).toBe("↻ 1/3");
+    expect(await detailsText(ui)).toBe("fable 5.1");
+    expect(await keys(ui)).toEqual(["cancel"]);
+
+    e.release();
+    await run;
   },
 );
 

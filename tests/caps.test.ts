@@ -31,6 +31,7 @@ import { spendKey } from "../hooks/ledger";
 import { statusText, type StatusInput } from "../hooks/status";
 import type { LastUsage } from "../types";
 import { storeTotal } from "./ledger-fake";
+import { detailsText as rowText } from "./band-helpers";
 
 // Spend caps (R9): a press is refused before any model call once the mod's
 // own ledger shows the session or the day at its cap; the rows show what is
@@ -89,14 +90,6 @@ function mount($: Harness): Promise<Band> {
       view: {},
     },
   });
-}
-
-async function rowText(ui: Band): Promise<string> {
-  const texts = await ui.findAll({ type: "Text" });
-  return texts
-    .filter((t) => t.text !== "lower")
-    .map((t) => t.text)
-    .join("");
 }
 
 async function text($: Harness, args: string): Promise<string | undefined> {
