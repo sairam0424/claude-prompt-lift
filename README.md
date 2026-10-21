@@ -8,7 +8,7 @@ A Claude Code mod that turns a vague prompt into a specific one before you send 
 
 <sub>Full film with sound: <a href="https://github.com/sairam0424/claude-prompt-lift/releases/download/v0.4.0/prompt-lift-0.4.0-launch.mp4">MP4 on the v0.4.0 release</a>.</sub>
 
-The band row sits above the prompt: `[ Enhance (e) ] [ Send (s) ] [ Undo (u) ]` (`Cancel (c)` while a call runs, `Redo (u)` after an Undo). Nothing runs while idle: no timers, no per-keystroke hooks.
+The band row sits above the prompt and shows where the last press stands: `Enhance (e)` when idle, `Cancel (c)` while a call runs, then `Send (s)` and `Undo (u)` (`Redo (u)` after an Undo) beside the result's cost (see The band, under Using it). Nothing runs while idle: no timers, no per-keystroke hooks.
 
 ## Install
 
@@ -30,6 +30,28 @@ Three ways to press Enhance:
 **Send vs Enter.** Both send what is in the box. Send refuses drafts with `@file` mentions or pasted images (`press Enter to send; @files and images only travel with Enter`) because a plugin-submitted prompt does not expand them.
 
 **Undo.** The original is kept until you submit or `/clear`. Undo acts only when the box still holds the enhanced text (or is empty); otherwise it asks for a second press within 10 s. Undo is two-way (Redo).
+
+### The band
+
+The row leads with a headline (one glyph and a state word, in bold), then the Buttons, then the details in dim text. These are the rows as the mod draws them at 100 columns or more, on a chain pinned to full model ids (an alias chain on Bedrock or Vertex is unpriced, so the dollars read `$? · (no price)`; see Cost):
+
+| State | Row |
+|-------|-----|
+| Idle | `↥ Ready [ Enhance (e) ] ctrl+x b · or ctrl+x tab, e · prompt-lift: fable 5.1` |
+| Enhancing | `↻ Enhancing 1 of 3 [ Cancel (c) ] fable 5.1 › sonnet 5.5 › haiku 5.5` |
+| Done | `✓ Enhanced $0.03 [ Enhance (e) ] [ Send (s) ] [ Undo (u) ] fable 5.1 · 1 of 3 · 2.3s · 6.8k cached · 1.4k in · 310 out · +12 words · 1 skill` |
+| Kept as is, after a call | `✗ Kept as is [ Enhance (e) ] already specific, left as is · $0.03` |
+| Kept as is, before any call | `✗ Kept as is [ Enhance (e) ] session cap $0.10 reached · /prompt-lift cap off` |
+| Undo on a box you edited | `↶ Undo? [ Enhance (e) ] [ Send (s) ] [ Undo (u) ] box edited since Enhance · press Undo again to discard it` |
+| Undone | `↶ Restored [ Enhance (e) ] [ Send (s) ] [ Redo (u) ] restored your draft` |
+
+**Glyph and colour.** One glyph per state, one cell wide and never an emoji: `↥` ready, `↻` enhancing, `✓` enhanced, `↶` restored or undo, `✗` kept as is, failed or cancelled. The glyph and its word take a key from your theme (`claude` for `Ready`, `success` for `Enhanced`, `error` for `Failed`, `warning` for the rest), never a fixed colour, so they follow a light or dark theme; the primary Button is the state's main action (Enhance when idle, Cancel while enhancing, Send once there is a result).
+
+**While enhancing.** The counter is the rung running of the chain's length, and the strip names every rung: one that failed is struck through and dim, the one running now is bold in the headline's colour, the rest wait in dim text. The chain advances only when a rung fails, so a strip that has moved on means the rung before it failed. The done row then says which rung answered (`1 of 3`) and how long the press took.
+
+**Kept as is, failed, cancelled.** A press that ends without a rewrite leaves its reason in the row, under `✗ Kept as is`, `✗ Failed` or `✗ Cancelled`, until your next action: a press, Enter, any `/prompt-lift` command, a new session or the Undo button. Nothing times it out, and the toast appears as before. The reason ends with what the press cost only when it called a model: `$0.03` for a priced call, `$0.000` for one that cost nothing, `$? · (no price)` for a model without a price; a press that stopped before any call (a guard, a spend cap, no models configured) shows its reason alone. The Buttons stay the phase's own, so a refusal after a result keeps Send and Undo.
+
+**Width.** The row stays on one line and narrows from the least needed part: under 100 columns the idle row drops its key hint (`ctrl+x b · or ctrl+x tab, e`); under 80 the done row drops the elapsed time and the three token figures, and the strip shows the running rung alone; under 60 the headline keeps its glyph and drops its word (`↻ 2/3`, `✓ $0.03`). What still does not fit is cut at the end of the details; the headline is never cut.
 
 ### Commands
 
@@ -83,7 +105,7 @@ The mod touches the filesystem through `$.fs.read`, `$.fs.list` and `$.fs.exists
 
 Writes happen through `$.prompt.fill` (which writes the prompt box) and `$.prompt.submit` (which sends only when you press Send; Enter is the engine's own path). Nothing is sent on a timer or while you type.
 
-Persistence is local to this machine: `$.state` holds the session's held pair, phase, last usage, model choice, the static block's hash and size, session cap override, and tail override; `$.store` holds one day row per session (`spend:<day>:<writer>`), summed on read and pruned after seven days, plus the pinned model.
+Persistence is local to this machine: `$.state` holds the session's held pair, phase, last usage, model choice, the static block's hash and size, session cap override, tail override, and `lastVerdict` (why the last press ended without a rewrite, kept for the band's row until your next action; session only, never written to the store); `$.store` holds one day row per session (`spend:<day>:<writer>`), summed on read and pruned after seven days, plus the pinned model.
 
 The mod uses no `$.http.fetch`, no `$.process.run`, no clipboard access, no telemetry, no analytics, and no file writes.
 
@@ -192,7 +214,7 @@ The cache lives 5 minutes. Every toast that follows a model call ends with the c
 
 ## Why was my draft refused?
 
-Each refusal is one toast and leaves the box exactly as typed.
+Each refusal is one toast and leaves the box exactly as typed. The band keeps the reason in its row (`✗ Kept as is`) until your next action, so it is still there to read after the toast has gone.
 
 Before any model call (nothing is spent):
 
@@ -230,6 +252,8 @@ After the call (the toast ends with what the call cost):
 
 - One band above the prompt, shared by every mod: hooks run in `enabledPlugins` order (earlier = outer). prompt-lift passes the band through and stacks above the mods beneath, but a mod listed *before* it that draws without passing through (the playground `token-weather` does) hides the row. Fix: move `prompt-lift@claude-prompt-lift` above that mod's line, then `/reload-plugins`. The `/prompt-lift …` commands keep working meanwhile.
 - Terminal only (no desktop footer, no VS Code); one band row; no timers, so the day figure on the idle row refreshes at the next press after midnight.
+- The band changes only on events: a press starting, a rung starting or failing, a result, a refusal, Undo. Nothing animates while a single model call is in flight; the strip advances per rung, so a slow rung shows the same row until it answers or fails.
+- The strike-through on a failed rung depends on your terminal: one that draws none shows a failed rung in dim text like a pending one, and the counter (`2 of 3`) still tells you which rung is running.
 - Shares your account's model quota with the main turn; a rate limit on the first rung falls back to the next and the toast says so.
 - The mod sends instruction file text to the model, so a hostile `CLAUDE.md` in a cloned repository can attempt prompt injection. Tag-like markup is neutralised and the model is told to treat that text as data; the residual risk is yours to weigh in untrusted repositories.
 
