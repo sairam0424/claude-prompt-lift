@@ -33,7 +33,7 @@ Three ways to press Enhance:
 
 ### The band
 
-The row leads with a headline (one glyph and a state word, in bold), then the Buttons, then the details in dim text. These are the rows as the mod draws them at a width that fits them (the done row needs about 150 columns whole; narrower terminals cut its details from the right), on a chain pinned to full model ids (an alias chain on Bedrock or Vertex is unpriced, so the dollars read `$? · (no price)`; see Cost):
+The row leads with a headline (one glyph and a state word, in bold), then the Buttons, then the details in dim text. Every width below is the band's own: the terminal's width less the engine's margin of about five cells, or the transcript column beside a docked pane. These are the rows as the mod draws them at a width that fits them (the done row needs about 150 columns whole; a narrower band cuts its details from the right), on a chain pinned to full model ids (an alias chain on Bedrock or Vertex is unpriced, so the dollars read `$? · (no price)`; see Cost):
 
 | State | Row |
 |-------|-----|
@@ -51,7 +51,7 @@ The row leads with a headline (one glyph and a state word, in bold), then the Bu
 
 **Kept as is, failed, cancelled.** A press that ends without a rewrite leaves its reason in the row, under `✗ Kept as is`, `✗ Failed` or `✗ Cancelled`, until your next action: a press, Enter, any `/prompt-lift` command, a new session or the Undo button. Nothing times it out, and the toast appears as before. The reason ends with what the press cost only when it called a model: `$0.03` for a priced call, `$0.000` for one that cost nothing, `$? · (no price)` for a model without a price; a press that stopped before any call (a guard, a spend cap, no models configured) shows its reason alone. The Buttons stay the phase's own, so a refusal after a result keeps Send and Undo.
 
-**Width.** The row stays on one line and narrows from the least needed part: under 100 columns the idle row drops its key hint (`ctrl+x b · or ctrl+x tab, e`); under 80 the done row drops the elapsed time and the three token figures, and the strip shows the running rung alone; under 60 the headline keeps its glyph and drops its word (`↻ 2/3`, `✓ $0.03`). What still does not fit is cut at the end of the details; the headline is never cut.
+**Width.** The row stays on one line and narrows from the least needed part: under 100 columns the idle row drops its key hint (`ctrl+x b · or ctrl+x tab, e`); under 80 the done row drops the elapsed time and the three token figures, and the strip shows the running rung alone, as it does at any width where the rungs' names would not fit beside the headline and Cancel (full model ids are long); under 60 the headline keeps its glyph and drops its word (`↻ 2/3`, `✓ $0.03`). What still does not fit is cut at the end of the details; the headline is never cut.
 
 ### Commands
 

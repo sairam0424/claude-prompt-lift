@@ -14,7 +14,8 @@
 # DISABLE_AUTOUPDATER=1 keeps the engine from installing an update mid-take, on
 # Bedrock the session starts on the first pinned model id (the banner names the model
 # the mod calls), and sanitize blanks ` · Amazon Bedrock` and refuses any provider or
-# update text left. --dry-run stops after the idle band and
+# update text left; every shot for --shots-dir is sanitised as it is taken, so a run that
+# dies leaves no raw capture there. --dry-run stops after the idle band and
 # `/prompt-lift status` and checks the sandbox, including that the chain is priced
 # (no `aliases: unpriced` row): no model call, $0, docs/ untouched. --theme seeds
 # the sandbox's theme (default dark); with --shots-dir the dry run also writes
@@ -239,8 +240,9 @@ type_text() {
   done
 }
 
-snap() { [ -z "$SHOTS_DIR" ] || pane >"$SHOTS_DIR/$1.txt"; }
-snap_sgr() { [ -z "$SHOTS_DIR" ] || pane_sgr >"$SHOTS_DIR/$1.txt"; }
+# A shot is sanitised before it reaches $SHOTS_DIR (shoot, in demo-rows.sh).
+snap() { shoot "$1" pane; }
+snap_sgr() { shoot "$1" pane_sgr; }
 size_of() { wc -c <"$1" | tr -d ' '; }
 
 # --- the session -----------------------------------------------------------
@@ -330,7 +332,6 @@ dry_run() {
   local screen included; screen="$(pane)"
   included="$(check_status_screen "$screen")" || exit 1
   snap 7-status
-  [ -z "$SHOTS_DIR" ] || sanitize "$SHOTS_DIR"/*.txt
   echo "demo.sh: dry run passed: one prompt-lift band, status lists ${included% }"
   echo "demo.sh: $(grep -Eo 'skills [0-9]+/[0-9]+' <<<"$screen" | head -n 1) in status; no model call, $OUT_DIR untouched"
   [ -z "$SHOTS_DIR" ] || echo "demo.sh: theme $THEME; the idle band with its colour codes is in $SHOTS_DIR/band-sgr.txt"
@@ -380,7 +381,7 @@ main() {
   start_recorder
   drive
   stop_recorder
-  sanitize "$CAST"; [ -z "$SHOTS_DIR" ] || sanitize "$SHOTS_DIR"/*.txt
+  sanitize "$CAST"
   check_cast
   local out=("$CAST") file
   convert && out+=("$GIF")

@@ -203,15 +203,15 @@ instruction files included: /private/tmp/pl-demo.SELFTEST/home/.claude/rules/tes
 instruction files excluded: none'
 DRY_IDLE='Fable 5.1
 ↥ Ready [ Enhance (e) ] ctrl+x b · or ctrl+x tab, e · prompt-lift: fable 5.1'
-dry_run_on() { # $1 = the chain row(s) of a fake status screen, $2 = the idle screen (default DRY_IDLE); prints the run's output
-  SCREEN="$(printf 'prompt-lift status\n%s\n%s\n' "$1" "$STATUS_REST")" IDLE="${2:-$DRY_IDLE}" bash -c '
+dry_run_on() { # $1 = the chain row(s) of a fake status screen, $2 = the idle screen (default DRY_IDLE), $3 = a --shots-dir (default none); prints the run's output
+  SCREEN="$(printf 'prompt-lift status\n%s\n%s\n' "$1" "$STATUS_REST")" IDLE="${2:-$DRY_IDLE}" SHOTS="${3:-}" bash -c '
     source "$1"
     pane() { if [ -n "${STATUSED:-}" ]; then printf "%s\n" "$SCREEN"; else printf "%s\n" "$IDLE"; fi; }
     pane_sgr() { pane; }
     run_status() { STATUSED=1; }
     sleep() { :; }
     id() { echo selftest-account; }
-    KEEP_WORK=1 WORK="$2" OUT_DIR=/tmp/pl-selftest-none
+    KEEP_WORK=1 WORK="$2" OUT_DIR=/tmp/pl-selftest-none SHOTS_DIR="$SHOTS"
     mkdir -p "$WORK"
     dry_run
   ' _ "$SCRIPT" "$DRY_WORK" 2>&1
@@ -247,6 +247,55 @@ vertex_run="$(dry_run_on "$PRICED_CHAIN" "$(printf '%s\n%s' 'Fable 5.1 · Vertex
 vertex_rc=$?
 check "dry run: Vertex on the idle screen fails" test "$vertex_rc" != 0
 check "dry run: Vertex is named" grep -qi 'vertex' <<<"$vertex_run"
+
+# 7b. the shots a run leaves in --shots-dir are sanitised as they are taken, not at the end:
+# a run that dies part-way leaves no capture that still shows the banner's provider text
+BANNER_IDLE="$(printf '%s\n%s' 'Fable 5.1 · Amazon Bedrock' "$DRY_IDLE")"
+shots_dir() { local dir; dir="$(mktemp -d /tmp/pl-selftest-home-shots.XXXX)"; TEMP_PATHS+=("$dir"); echo "$dir"; }
+shot_count() { find "$1" -type f | wc -l | tr -d ' '; }
+is_clean() { ! grep -rqiE 'bedrock|vertex|update installed' "$1"; } # no provider or update text under $1
+has_shot() { [ -f "$1/$2" ]; }
+shots_pass="$(shots_dir)"
+dry_run_on "$PRICED_CHAIN" "$BANNER_IDLE" "$shots_pass" >/dev/null; shots_pass_rc=$?
+check "dry run shots: a passing run succeeds with a banner on the idle screen" test "$shots_pass_rc" = 0
+check "dry run shots: it writes the idle, colour-code and status shots" test "$(shot_count "$shots_pass")" = 3
+check "dry run shots: the banner's provider text is blanked in every one" is_clean "$shots_pass"
+# the unpriced chain stops the run AFTER the idle shot was taken
+shots_late="$(shots_dir)"
+dry_run_on 'chain: fable → sonnet → haiku
+aliases: unpriced on bedrock — pin full ids in models for prices (README › Cost)' "$BANNER_IDLE" "$shots_late" >/dev/null; late_rc=$?
+check "dry run shots: an unpriced chain still fails the run" test "$late_rc" != 0
+check "dry run shots: the shot taken before the failure is there" has_shot "$shots_late" 1-idle.txt
+check "dry run shots: the failure left no unsanitised capture" is_clean "$shots_late"
+for notice in 'Fable 5.1 via Bedrock' '✔ Update installed · Restart to update' 'Fable 5.1 · Vertex AI'; do
+  shots_bad="$(shots_dir)"
+  bad_out="$(dry_run_on "$PRICED_CHAIN" "$(printf '%s\n%s' "$notice" "$DRY_IDLE")" "$shots_bad")"; bad_rc=$?
+  check "dry run shots: '$notice' on the idle screen fails the run" test "$bad_rc" != 0
+  check "dry run shots: '$notice' names the shot" grep -q 'the 1-idle shot' <<<"$bad_out"
+  check "dry run shots: '$notice' writes no shot" test "$(shot_count "$shots_bad")" = 0
+done
+# a shot of the take itself (snap and snap_sgr, not only the dry run's)
+take_shot() { # $1 = a fake screen, $2 = snap or snap_sgr, $3 = a shots dir; prints the output, returns the shot's status
+  SCREEN="$1" SHOTS="$3" bash -c '
+    source "$1"
+    pane() { printf "%s\n" "$SCREEN"; }
+    pane_sgr() { pane; }
+    id() { echo selftest-account; }
+    WORK="$3" SHOTS_DIR="$SHOTS"
+    mkdir -p "$WORK"
+    "$2" 3-running
+  ' _ "$SCRIPT" "$2" "$DRY_WORK" 2>&1
+}
+for shot in snap snap_sgr; do
+  shots_take="$(shots_dir)"
+  take_shot "$(printf '%s\n%s' '↻ Enhancing 2 of 3 [ Cancel (c) ] fable 5.1 › sonnet 5.5' 'Fable 5.1 · Amazon Bedrock')" "$shot" "$shots_take" >/dev/null; take_rc=$?
+  check "$shot: a take shot with the banner succeeds" test "$take_rc" = 0
+  check "$shot: it is written, with the banner blanked" bash -c '[ -f "$1/3-running.txt" ] && ! grep -qi bedrock "$1/3-running.txt"' _ "$shots_take"
+  shots_take_bad="$(shots_dir)"
+  take_shot 'Fable 5.1 via Bedrock' "$shot" "$shots_take_bad" >/dev/null; take_bad_rc=$?
+  check "$shot: a shot the sanitiser refuses stops the take" test "$take_bad_rc" != 0
+  check "$shot: and is not written" test "$(shot_count "$shots_take_bad")" = 0
+done
 
 # 8. the take reads the band's rows (0.6.0): the done headline carries the cost, the
 # working row carries the counter and the rung strip, and a take that never showed

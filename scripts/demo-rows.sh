@@ -4,7 +4,8 @@
 # functions and constants and does nothing else. A reader looks at the live screen
 # (`pane`) or the cast ($CAST) and either answers yes or no, or stops the take through
 # demo.sh's `die`; the sanitiser is the one that also rewrites what it reads. It relies
-# on demo.sh's pane, pane_sgr, die, dump_pane and size_of, and on WORK, CAST and REAL_HOME.
+# on demo.sh's pane, pane_sgr, die, dump_pane and size_of, and on WORK, CAST, SHOTS_DIR and
+# REAL_HOME.
 
 # demo.sh sources this file and the selftest sources it again: the second time is a no-op.
 [ -z "${DEMO_ROWS_LOADED:-}" ] || return 0
@@ -128,6 +129,18 @@ for path in paths:
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
 PY
+}
+
+# One screen shot for --shots-dir (<name> and the reader, pane or pane_sgr): read into $WORK,
+# sanitised there, and only then moved into $SHOTS_DIR. A screen the sanitiser refuses stops
+# the run with nothing written, so a run that dies at any step leaves no raw capture, with
+# the banner's provider text, in the person's directory: each file there is already clean.
+shoot() {
+  [ -n "$SHOTS_DIR" ] || return 0
+  local raw="$WORK/shot-$1.txt"
+  "$2" >"$raw"
+  sanitize "$raw" || die "the $1 shot shows provider, update or account text; nothing written to $SHOTS_DIR"
+  mv -f -- "$raw" "$SHOTS_DIR/$1.txt"
 }
 
 check_cast() {
