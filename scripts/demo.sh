@@ -10,7 +10,11 @@
 # caches still resolve. Provider variables (CLAUDE_CODE_USE_BEDROCK, AWS_REGION,
 # ANTHROPIC_DEFAULT_*_MODEL and the other names in PROVIDER_VARS) are copied by
 # name from the real ~/.claude/settings.json env and the parent environment;
-# values are never printed. --dry-run stops after the idle band and
+# values are never printed. The take shows no provider text and no update notice:
+# DISABLE_AUTOUPDATER=1 keeps the engine from installing an update mid-take, on
+# Bedrock the session starts on the first pinned model id (the banner names the model
+# the mod calls), and sanitize blanks ` · Amazon Bedrock` and refuses any provider or
+# update text left. --dry-run stops after the idle band and
 # `/prompt-lift status` and checks the sandbox, including that the chain is priced
 # (no `aliases: unpriced` row): no model call, $0, docs/ untouched. --theme seeds
 # the sandbox's theme (default dark); with --shots-dir the dry run also writes
@@ -20,6 +24,7 @@
 # The take costs one real Enhance call (about $0.01 to $0.20 on a 10k-token
 # static block). It never presses Send and never submits free text: the only
 # thing entered is the in-process `/prompt-lift status` command.
+# The screen and cast readers (and the sanitiser) live in scripts/demo-rows.sh.
 set -euo pipefail
 
 # Captured first: the session runs under a sandbox HOME, so the settings env, the
@@ -37,8 +42,6 @@ readonly SETTLE_S=3 IDLE_PAUSE_S=2 READ_PAUSE_S=4 END_PAUSE_S=5 TYPE_DELAY_S=0.0
 readonly POLL_S=0.5 BACKSPACES=400 CAST_IDLE_LIMIT_S=2 GIF_LIMIT_BYTES=1048576 FONT_SIZE=14
 # Frame-readability waits, not synchronisation (wait_until does that).
 readonly TYPE_SETTLE_S=1.5 STEP_PAUSE_S=1 FOCUS_SETTLE_S=0.5
-# The directory submission treats 256 KiB as a per-file limit for non-image files.
-readonly CAST_LIMIT_BYTES=$((256 * 1024)) CAST_WARN_BYTES=$((240 * 1024))
 # A nested session must not inherit the parent session's identity variables, nor
 # a config dir that would bypass the sandbox HOME.
 readonly PARENT_SESSION_VARS=(CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESSAGING_SOCKET
@@ -61,6 +64,8 @@ readonly RULES_LINES=('A bug fix starts with a regression test that reproduces t
   'Cover the error path, not only the happy path.')
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+# shellcheck source=/dev/null
+source "$REPO/scripts/demo-rows.sh" # the screen and cast readers
 PLUGIN_DIR="" OUT_DIR="$REPO/docs" SHOTS_DIR="" WORK="" CAST="" GIF="" DEMO_STARTED="" REC_STARTED="" KEEP_WORK="" DRY_RUN="" THEME="dark"
 SESSION_ENV=() # NAME=value words for the session: never echoed, logged or written to a file
 
@@ -191,14 +196,16 @@ build_home() {
   if [ -d "$REAL_HOME/.aws" ]; then ln -s "$REAL_HOME/.aws" "$home/.aws"; fi
 }
 
-# SESSION_ENV <- HOME plus each PROVIDER_VARS name found in this process's environment
-# or, failing that, in the real ~/.claude/settings.json env. Values stay in the array.
+# SESSION_ENV <- HOME, the engine's auto-update switch, plus each PROVIDER_VARS name found in
+# this process's environment or, failing that, in the real ~/.claude/settings.json env.
+# Values stay in the array. DISABLE_AUTOUPDATER=1: an engine that updates itself mid-take
+# prints "Update installed" into the recording.
 # HOME is the physical path: the engine reports /private/tmp/... for /tmp/..., and the
 # mod recognises ~/.claude/rules files by their textual prefix under HOME.
 collect_session_env() {
   local settings="$REAL_HOME/.claude/settings.json" name value names="" home
   home="$(cd "$WORK/home" && pwd -P)" || die "no sandbox home at $WORK/home"
-  SESSION_ENV=("HOME=$home")
+  SESSION_ENV=("HOME=$home" "DISABLE_AUTOUPDATER=1")
   if [ -f "$settings" ]; then jq empty "$settings" 2>/dev/null || die "$settings is not valid JSON"; fi
   for name in "${PROVIDER_VARS[@]}"; do
     value="${!name:-}"
@@ -211,7 +218,6 @@ collect_session_env() {
   [ -n "$names" ] || echo "demo.sh: WARNING: none found; the isolated HOME has no login, so the session may ask to sign in" >&2
 }
 
-screen_has() { local s; s="$(pane)"; grep -Eq -- "$1" <<<"$s"; }
 dump_pane() { echo "--- screen at failure ---" >&2; pane >&2 || true; }
 # wait_until <label> <timeout_s> <command...>: poll instead of sleeping blind.
 wait_until() {
@@ -233,32 +239,27 @@ type_text() {
   done
 }
 
-# True when the prompt box holds exactly <text> (and nothing else): the last
-# prompt line equals it and a rule line follows (no second draft line). The
-# engine puts a no-break space after the glyph, so fold it to a plain one.
-box_is_exactly() {
-  local nbsp=$'\xc2\xa0' two first second
-  two="$(pane | grep -A1 '^❯' | tail -n 2)"
-  first="${two%%$'\n'*}" second="${two#*$'\n'}"
-  first="${first#❯}" first="${first//$nbsp/ }" first="${first# }"
-  first="${first%"${first##*[![:space:]]}"}"
-  [[ "$first" == "$1" && "$second" == ─* ]]
-}
-
 snap() { [ -z "$SHOTS_DIR" ] || pane >"$SHOTS_DIR/$1.txt"; }
 snap_sgr() { [ -z "$SHOTS_DIR" ] || pane_sgr >"$SHOTS_DIR/$1.txt"; }
 size_of() { wc -c <"$1" | tr -d ' '; }
 
 # --- the session -----------------------------------------------------------
-start_session() {
-  local unset_flags="" var
+# The command tmux runs. On Bedrock the session starts on the first pinned id, so the banner
+# and the status line name the model the mod calls, not the engine's default alias (the demo
+# makes no main-thread turn, so this costs nothing); off Bedrock the flag is left out.
+claude_command() {
+  local unset_flags="" model_flag="" var
   for var in "${PARENT_SESSION_VARS[@]}"; do unset_flags+=" -u $var"; done
+  if uses_bedrock; then model_flag=" --model $(printf %q "${BEDROCK_MODELS%%,*}")"; fi
+  echo "env$unset_flags claude --strict-mcp-config --plugin-dir $(printf %q "$REPO") --settings $(printf %q "$WORK/settings.json")$model_flag"
+}
+
+start_session() {
   # HOME and the provider values reach `claude` through the tmux server's environment:
   # export is a builtin, so no value lands in an argument list, a file or the cast.
   (
     export "${SESSION_ENV[@]}"
-    tm -f "$WORK/tmux.conf" new-session -d -s "$SESSION" -x "$COLS" -y "$ROWS" -c "$WORK/project" \
-      "env$unset_flags claude --strict-mcp-config --plugin-dir $(printf %q "$REPO") --settings $(printf %q "$WORK/settings.json")"
+    tm -f "$WORK/tmux.conf" new-session -d -s "$SESSION" -x "$COLS" -y "$ROWS" -c "$WORK/project" "$(claude_command)"
   )
   DEMO_STARTED=1
   wait_until "trust prompt" "$TRUST_TIMEOUT_S" screen_has 'Yes, I trust this folder'
@@ -273,9 +274,6 @@ start_session() {
   screen_has 'Enhance \(e\).*prompt-lift:' || { dump_pane; die "the band is not prompt-lift's"; }
   idle_headline || { dump_pane; die "the idle band does not lead with ↥ Ready"; }
 }
-
-# The idle row: the headline leads, then the Enhance Button (↥ Ready [ Enhance (e) ] ...).
-idle_headline() { screen_has '↥ Ready.*Enhance \(e\)'; }
 
 start_recorder() {
   # env -u TMUX: tmux refuses to attach from inside another tmux otherwise.
@@ -326,47 +324,16 @@ run_status() {
 dry_run() {
   sleep "$IDLE_PAUSE_S"
   snap 1-idle; snap_sgr band-sgr # the idle band plain, and with its colour codes
+  check_idle_screen
   run_status
   sleep "$STEP_PAUSE_S"
-  local screen included rules_dir="${WORK##*/}/home/.claude/rules/" count
-  screen="$(pane)"
-  # An alias chain is unpriced here (a mis-detected platform, a lost pin): the paid take
-  # would spend its call and then fail on the `$?` done row, so the free run refuses first.
-  if grep -Fq -- 'aliases: unpriced' <<<"$screen"; then
-    dump_pane; die "the chain is unpriced here; the paid take would fail after the call"
-  fi
-  # The row wraps onto indented lines: take everything up to the "excluded" row.
-  included="$(awk '/instruction files included:/ { on = 1 } /instruction files excluded:/ { on = 0 } on' <<<"$screen")"
-  [ -n "$included" ] || { dump_pane; die "status prints no 'instruction files included' row"; }
-  count="$({ grep -o -- '/[.]claude/rules/' <<<"$included" || true; } | wc -l | tr -d ' ')"
-  { [ "$count" = 1 ] && grep -Fq -- "$rules_dir" <<<"$included"; } ||
-    { dump_pane; die "expected exactly one rules file, under $WORK/home/.claude/rules/ (saw $count rules paths)"; }
-  if grep -Fq -- "$REAL_HOME" <<<"$screen"; then dump_pane; die "the screen shows the real home path"; fi
-  if grep -Fiq -- "$(id -un)" <<<"$screen"; then dump_pane; die "the screen shows the account name"; fi
+  local screen included; screen="$(pane)"
+  included="$(check_status_screen "$screen")" || exit 1
   snap 7-status
   [ -z "$SHOTS_DIR" ] || sanitize "$SHOTS_DIR"/*.txt
-  included="$(tr -s ' \n' ' ' <<<"${included#*included: }")"
   echo "demo.sh: dry run passed: one prompt-lift band, status lists ${included% }"
   echo "demo.sh: $(grep -Eo 'skills [0-9]+/[0-9]+' <<<"$screen" | head -n 1) in status; no model call, $OUT_DIR untouched"
   [ -z "$SHOTS_DIR" ] || echo "demo.sh: theme $THEME; the idle band with its colour codes is in $SHOTS_DIR/band-sgr.txt"
-}
-
-# The working row: the counter in the headline and the rung strip (rungs joined by
-# ` › `) after the Cancel button. A chain of one rung has no strip, so this also
-# keeps the take honest about the chain it records.
-enhance_running() { screen_has '↻ Enhancing [0-9]+ of [0-9]+.*Cancel \(c\).* › '; }
-
-# Done row up: success, the cost in the headline (`✓ Enhanced $0.03`). Cancel gone
-# with no done row: the press ended without a rewrite (a guard refused it, or the
-# chain failed), and its row and toast say why.
-enhance_settled() {
-  local s; s="$(pane)" # one capture: the row can flip between two
-  grep -Eq '✓ Enhanced \$[0-9]+\.[0-9]+.*Send \(s\)' <<<"$s" && return 0
-  if grep -Eq '✓ Enhanced \$\?.*Send \(s\)' <<<"$s"; then
-    echo "$s" >&2; die "the done row is unpriced (\$?): on Bedrock or Vertex the chain needs full model ids (README, Bedrock users)"
-  fi
-  grep -Eq 'Cancel \(c\)' <<<"$s" || { echo "$s" >&2; die "Enhance ended without a rewrite; the row above says why"; }
-  return 1
 }
 
 # Focus the band, press a hotkey, wait for the button label to flip.
@@ -389,48 +356,6 @@ stop_recorder() {
   wait_until "recorder exit" "$STEP_TIMEOUT_S" recorder_gone
 }
 
-# Drop the tmux client's tear-down (screen clear and "[detached ...]") from the
-# end of the cast, then swap the account name and the real home path for same-length
-# placeholders so the layout is unchanged. The sandbox HOME keeps both off screen, so
-# this is the fail-closed net, not the mechanism (the fake home path may show).
-# The replace is literal; the check then reads the events joined, escapes
-# stripped and case folded, which catches a name split by a colour change or
-# written in another case. Any hit fails the run.
-sanitize() {
-  python3 -I - "$REAL_HOME" "$(id -un)" "$@" <<'PY'
-import json, re, sys
-home, user, paths = sys.argv[1], sys.argv[2], sys.argv[3:]
-TEARDOWN_WINDOW_S = 0.25
-ESCAPE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[()][0-~]|[0-~])")
-def pad(seed, n): return (seed + "_" * n)[:n]
-def shown(text, is_cast):
-    if is_cast:  # the header, then every event's output as one stream
-        header, *events = [row for row in text.split("\n") if row]
-        text = header + "".join(json.loads(event)[2] for event in events)
-    return ESCAPE.sub("", text).lower()
-fake_home, fake_user = pad("/Users/developer", len(home)), pad("developer", len(user))
-for path in paths:
-    with open(path, encoding="utf-8") as fh:
-        lines = fh.readlines()
-    is_cast = path.endswith(".cast")
-    if is_cast:
-        times = [json.loads(line)[0] for line in lines[1:]]
-        keep = len(times)
-        while keep > 1 and times[keep - 1] >= times[-1] - TEARDOWN_WINDOW_S:
-            keep -= 1
-        if not any("[?1049l" in json.loads(line)[2] for line in lines[1 + keep:]):
-            sys.exit("sanitize: no tmux tear-down at the end of the cast")
-        lines = lines[: 1 + keep]
-    text = "".join(lines).replace(home, fake_home).replace(user, fake_user)
-    text = text.replace("\u00a0", " ")  # agg draws no-break spaces as stray glyphs
-    seen = shown(text, is_cast)
-    if user.lower() in seen or home.lower() in seen:
-        sys.exit(f"sanitize: {path} still names the account")
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(text)
-PY
-}
-
 # Gentler settings until the GIF fits; else return 1 and keep $WORK (R13: never in $OUT_DIR).
 convert() {
   local speed fps size
@@ -444,17 +369,6 @@ convert() {
   done
   echo "demo.sh: WARNING: the GIF is over 1 MiB; it stays in $WORK, only the cast goes to $OUT_DIR" >&2
   KEEP_WORK=1; return 1
-}
-
-check_cast() {
-  local want
-  # The glyphs are single code points, so a screen redraw cannot split them: ↥ idle,
-  # ↻ enhancing, ✓ enhanced, ↶ restored.
-  for want in 'Enhance' 'Undo' 'Redo' 'restored your draft' '[$]0[.]' 'chain:' '↥' '↻' '✓' '↶'; do
-    grep -Eq -- "$want" "$CAST" || die "the cast never shows: $want"
-  done
-  local bytes; bytes="$(size_of "$CAST")"
-  [ "$bytes" -le "$CAST_WARN_BYTES" ] || echo "demo.sh: WARNING: the cast is $bytes bytes, over $((CAST_WARN_BYTES / 1024)) KiB; the directory submission limits files to $((CAST_LIMIT_BYTES / 1024)) KiB" >&2
 }
 
 main() {

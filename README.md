@@ -33,7 +33,7 @@ Three ways to press Enhance:
 
 ### The band
 
-The row leads with a headline (one glyph and a state word, in bold), then the Buttons, then the details in dim text. These are the rows as the mod draws them at 100 columns or more, on a chain pinned to full model ids (an alias chain on Bedrock or Vertex is unpriced, so the dollars read `$? · (no price)`; see Cost):
+The row leads with a headline (one glyph and a state word, in bold), then the Buttons, then the details in dim text. These are the rows as the mod draws them at a width that fits them (the done row needs about 150 columns whole; narrower terminals cut its details from the right), on a chain pinned to full model ids (an alias chain on Bedrock or Vertex is unpriced, so the dollars read `$? · (no price)`; see Cost):
 
 | State | Row |
 |-------|-----|

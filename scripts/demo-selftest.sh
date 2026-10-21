@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
-# Checks for the sandbox builders in scripts/demo.sh: the provider-variable
-# allow-list, the sandbox HOME, the Bedrock pin and what counts as Bedrock, the
-# cleanup that never follows the .aws link, the dry run's unpriced-chain guard,
-# and how the take reads the band's rows (idle, working, done, cast glyphs). It sources the script and runs its functions under a FAKE real HOME,
-# so nothing touches ~/.aws or the real settings; it needs bash and jq, and no
-# tmux, claude or model call (those are stubbed in the child shells).
+# Checks for scripts/demo.sh and the screen readers it sources from scripts/demo-rows.sh:
+# the provider-variable allow-list, the sandbox HOME, the engine's auto-update switch,
+# the Bedrock pin and the session model, what counts as Bedrock, the cleanup that never
+# follows the .aws link, the dry run's unpriced-chain guard, how the take reads the
+# band's rows (idle, working, done, cast glyphs), and how the sanitiser blanks the
+# provider text and fails closed on provider and update notices. It sources the scripts
+# and runs their functions under a FAKE real HOME, so nothing touches ~/.aws or the
+# real settings; it needs bash, jq and python3, and no tmux, claude or model call
+# (those are stubbed in the child shells).
 # usage: bash scripts/demo-selftest.sh [repo-dir]
 # The single-quoted bash -c bodies below expand in the child shell on purpose.
 # shellcheck disable=SC2016
 set -uo pipefail
 REPO="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
-SCRIPT="$REPO/scripts/demo.sh"
+SCRIPT="$REPO/scripts/demo.sh" ROWS="$REPO/scripts/demo-rows.sh"
 [ -f "$SCRIPT" ] || { echo "demo-selftest.sh: no $SCRIPT" >&2; exit 2; }
 command -v jq >/dev/null || { echo "demo-selftest.sh: jq is required" >&2; exit 2; }
+command -v python3 >/dev/null || { echo "demo-selftest.sh: python3 is required" >&2; exit 2; }
 PASS=0 FAIL=0
 # The checks name their own provider variables: the developer's must not leak in.
 unset CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX AWS_REGION AWS_DEFAULT_REGION AWS_PROFILE \
@@ -50,6 +54,7 @@ is_tracked() { # $1 = a path; true when it is a non-empty member of TEMP_PATHS
   done
   return 1
 }
+DRY_WORK=/tmp/pl-demo.SELFTEST; TEMP_PATHS+=("$DRY_WORK") # the dry run writes its idle capture here
 FAKE="$(mktemp -d /tmp/pl-selftest-home.XXXX)"; TEMP_PATHS+=("$FAKE")
 FAKE2="$(mktemp -d /tmp/pl-selftest-home2.XXXX)"; TEMP_PATHS+=("$FAKE2")
 FAKE3="$(mktemp -d /tmp/pl-selftest-home3.XXXX)"; TEMP_PATHS+=("$FAKE3")
@@ -70,6 +75,7 @@ check "--help documents the isolated HOME" grep -qi 'isolated HOME' <<<"$help_te
 check "--help documents --theme" grep -q -- '--theme light|dark' <<<"$help_text"
 refusal="$(bash "$SCRIPT" --plugin-dir /tmp 2>&1 || true)"
 check "a foreign --plugin-dir is still refused" grep -q 'must be' <<<"$refusal"
+check "the screen readers live in the sourced scripts/demo-rows.sh" test -f "$ROWS"
 theme_refusal="$(bash "$SCRIPT" --theme blue 2>&1 || true)"
 check "an unknown --theme is refused before anything runs" grep -q 'must be light or dark' <<<"$theme_refusal"
 
@@ -83,6 +89,8 @@ out="$(HOME="$FAKE" AWS_REGION=parent-region bash -c '
 ' _ "$SCRIPT" "$FAKE" 2>&1)"
 check "HOME is the sandbox home, as a physical path" grep -Eqx "HOME=.*/work/home" <<<"$out"
 check "HOME has no symlink component left" bash -c 'h="$(sed -n "s/^HOME=//p" <<<"$1")"; [ "$h" = "$(cd "$h" && pwd -P)" ]' _ "$out"
+check "the engine's auto-update is off for the session" grep -qx 'DISABLE_AUTOUPDATER=1' <<<"$out"
+check "the auto-update switch is passed by value, once" test "$(grep -c '^DISABLE_AUTOUPDATER=' <<<"$out")" = 1
 check "allow-listed settings var is copied" grep -qx 'CLAUDE_CODE_USE_BEDROCK=1' <<<"$out"
 check "allow-listed model var is copied" grep -qx 'ANTHROPIC_DEFAULT_SONNET_MODEL=from-settings-model' <<<"$out"
 check "the parent environment wins over settings" grep -qx 'AWS_REGION=parent-region' <<<"$out"
@@ -167,6 +175,22 @@ W4="$(sed -n 's/^WORK=//p' <<<"$layout4")"; TEMP_PATHS+=("$W4")
 check "CLAUDE_CODE_USE_BEDROCK=0 is still passed by name" grep -q 'provider variables.*CLAUDE_CODE_USE_BEDROCK' <<<"$layout4"
 check "CLAUDE_CODE_USE_BEDROCK=0: overlay is statusLine only" jq -e 'keys == ["statusLine"]' "$W4/settings.json"
 
+# 6b. the session starts on the model the mod will call: on Bedrock the first pinned id, so
+# the banner and the status line name it; off Bedrock the engine's own default, no flag
+session_command() { # $@ = the session's NAME=value words; prints the command string tmux runs
+  bash -c 'source "$1"; shift; WORK=/tmp/pl-demo.CMD; SESSION_ENV=("$@"); claude_command' _ "$SCRIPT" "$@"
+}
+bedrock_cmd="$(session_command HOME=/x CLAUDE_CODE_USE_BEDROCK=1)"
+check "Bedrock: the session starts on the first pinned model id" grep -Eq -- ' --model us[.]anthropic[.]claude-fable-5-1( |$)' <<<"$bedrock_cmd"
+check "Bedrock: only the first pinned id is the session model" test "$(grep -o -- '--model' <<<"$bedrock_cmd" | wc -l | tr -d ' ')" = 1
+check "Bedrock: the session still loads this checkout and the overlay" grep -q -- '--strict-mcp-config --plugin-dir .* --settings /tmp/pl-demo[.]CMD/settings[.]json' <<<"$bedrock_cmd"
+check "Bedrock: the parent-session variables are still unset" grep -q -- '-u CLAUDECODE .*-u CLAUDE_CONFIG_DIR' <<<"$bedrock_cmd"
+plain_cmd="$(session_command HOME=/x AWS_REGION=us-east-1)"
+check "off Bedrock: no --model flag (the engine's default)" bash -c '! grep -q -- "--model" <<<"$1"' _ "$plain_cmd"
+check "off Bedrock: the checkout still loads" grep -q -- '--plugin-dir' <<<"$plain_cmd"
+off_cmd="$(session_command HOME=/x CLAUDE_CODE_USE_BEDROCK=0)"
+check "CLAUDE_CODE_USE_BEDROCK=0: no --model flag" bash -c '! grep -q -- "--model" <<<"$1"' _ "$off_cmd"
+
 # 7. the dry run fails closed on an unpriced chain, so the free run protects the paid take
 STATUS_REST='last call: none yet
 session: 0 presses · $0.000
@@ -177,16 +201,20 @@ static block: 4383 chars · hash 1e1b97d7
 skills 4/4 (included/total)
 instruction files included: /private/tmp/pl-demo.SELFTEST/home/.claude/rules/testing.md (50 tokens)
 instruction files excluded: none'
-dry_run_on() { # $1 = the chain row(s) of a fake status screen; prints the run's output
-  SCREEN="$(printf 'prompt-lift status\n%s\n%s\n' "$1" "$STATUS_REST")" bash -c '
+DRY_IDLE='Fable 5.1
+↥ Ready [ Enhance (e) ] ctrl+x b · or ctrl+x tab, e · prompt-lift: fable 5.1'
+dry_run_on() { # $1 = the chain row(s) of a fake status screen, $2 = the idle screen (default DRY_IDLE); prints the run's output
+  SCREEN="$(printf 'prompt-lift status\n%s\n%s\n' "$1" "$STATUS_REST")" IDLE="${2:-$DRY_IDLE}" bash -c '
     source "$1"
-    pane() { printf "%s\n" "$SCREEN"; }
-    run_status() { :; }
+    pane() { if [ -n "${STATUSED:-}" ]; then printf "%s\n" "$SCREEN"; else printf "%s\n" "$IDLE"; fi; }
+    pane_sgr() { pane; }
+    run_status() { STATUSED=1; }
     sleep() { :; }
     id() { echo selftest-account; }
-    KEEP_WORK=1 WORK=/tmp/pl-demo.SELFTEST OUT_DIR=/tmp/pl-selftest-none
+    KEEP_WORK=1 WORK="$2" OUT_DIR=/tmp/pl-selftest-none
+    mkdir -p "$WORK"
     dry_run
-  ' _ "$SCRIPT" 2>&1
+  ' _ "$SCRIPT" "$DRY_WORK" 2>&1
 }
 priced="$(dry_run_on 'chain: us.anthropic.claude-fable-5-1 → us.anthropic.claude-sonnet-5-5')"
 priced_rc=$?
@@ -199,10 +227,31 @@ check "dry run: an unpriced chain fails" test "$unpriced_rc" != 0
 check "dry run: an unpriced chain says the take would fail after the call" grep -q 'the chain is unpriced here; the paid take would fail after the call' <<<"$unpriced"
 check "dry run: an unpriced chain shows the screen" grep -q 'aliases: unpriced on bedrock' <<<"$unpriced"
 check "dry run: an unpriced chain never reports a pass" bash -c '! grep -q "dry run passed" <<<"$1"' _ "$unpriced"
+# The idle screen as the take records it: the banner's ` · Amazon Bedrock` is blanked by the
+# sanitiser, any other provider text or an update notice fails the free run.
+PRICED_CHAIN='chain: us.anthropic.claude-fable-5-1 → us.anthropic.claude-sonnet-5-5'
+banner_run="$(dry_run_on "$PRICED_CHAIN" "$(printf '%s\n%s' 'Fable 5.1 · Amazon Bedrock' "$DRY_IDLE")")"
+banner_rc=$?
+check "dry run: the banner's ' · Amazon Bedrock' is blanked, not a failure" test "$banner_rc" = 0
+check "dry run: a blanked banner still reports a pass" grep -q 'dry run passed' <<<"$banner_run"
+update_run="$(dry_run_on "$PRICED_CHAIN" "$(printf '%s\n%s' '✔ Update installed · Restart to update' "$DRY_IDLE")")"
+update_rc=$?
+check "dry run: an update banner on the idle screen fails" test "$update_rc" != 0
+check "dry run: an update banner is named" grep -qi 'update installed' <<<"$update_run"
+check "dry run: an update banner never reports a pass" bash -c '! grep -q "dry run passed" <<<"$1"' _ "$update_run"
+provider_run="$(dry_run_on "$PRICED_CHAIN" "$(printf '%s\n%s' 'Fable 5.1 via Bedrock' "$DRY_IDLE")")"
+provider_rc=$?
+check "dry run: provider text the blanking does not cover fails" test "$provider_rc" != 0
+check "dry run: that provider text is named" grep -qi 'bedrock' <<<"$provider_run"
+vertex_run="$(dry_run_on "$PRICED_CHAIN" "$(printf '%s\n%s' 'Fable 5.1 · Vertex AI' "$DRY_IDLE")")"
+vertex_rc=$?
+check "dry run: Vertex on the idle screen fails" test "$vertex_rc" != 0
+check "dry run: Vertex is named" grep -qi 'vertex' <<<"$vertex_run"
 
 # 8. the take reads the band's rows (0.6.0): the done headline carries the cost, the
 # working row carries the counter and the rung strip, and a take that never showed
-# them fails before it is recorded. The screens are the rows the mod draws.
+# them fails before it is recorded. The screens are the rows the mod draws. demo.sh sources
+# the readers from scripts/demo-rows.sh; these checks name that file too.
 DONE_ROW='✓ Enhanced $0.03 [ Enhance (e) ] [ Send (s) ] [ Undo (u) ] fable 5.1 · 1 of 3 · 2.3s · 6.8k cached'
 UNPRICED_ROW='✓ Enhanced $? · (no price) [ Enhance (e) ] [ Send (s) ] [ Undo (u) ] fable 5.1 · 1 of 3'
 RUNNING_ROW='↻ Enhancing 2 of 3 [ Cancel (c) ] fable 5.1 › sonnet 5.5 › haiku 5.5'
@@ -212,10 +261,10 @@ IDLE_ROW='↥ Ready [ Enhance (e) ] ctrl+x b · or ctrl+x tab, e · prompt-lift:
 on_screen() { # $1 = a fake screen, the rest = a demo.sh function; prints its output, returns its status
   local screen="$1"; shift
   SCREEN="$screen" bash -c '
-    source "$1"; shift
+    source "$1"; source "$2"; shift 2
     pane() { printf "%s\n" "$SCREEN"; }
     "$@"
-  ' _ "$SCRIPT" "$@" 2>&1
+  ' _ "$SCRIPT" "$ROWS" "$@" 2>&1
 }
 check "the done headline with its cost settles the press" on_screen "$DONE_ROW" enhance_settled
 unpriced_done="$(on_screen "$UNPRICED_ROW" enhance_settled)"; unpriced_done_rc=$?
@@ -237,7 +286,7 @@ fake_cast="$(mktemp /tmp/pl-selftest-cast.XXXX)"; TEMP_PATHS+=("$fake_cast")
 cast_with() { # $1 = a glyph to leave out; writes a fake cast holding every string check_cast wants
   printf '%s\n' 'Enhance Undo Redo restored your draft $0.03 chain:' ↥ ↻ ✓ ↶ | grep -vF -- "$1" >"$fake_cast"
 }
-cast_ok() { bash -c 'source "$1"; CAST="$2"; check_cast' _ "$SCRIPT" "$fake_cast"; }
+cast_ok() { bash -c 'source "$1"; source "$2"; CAST="$3"; check_cast' _ "$SCRIPT" "$ROWS" "$fake_cast"; }
 cast_with none
 check "a cast that shows every row passes the cast check" cast_ok
 for glyph in ↥ ↻ ✓ ↶; do
@@ -247,5 +296,46 @@ for glyph in ↥ ↻ ✓ ↶; do
   check "a cast without $glyph names it" grep -qF -- "the cast never shows: $glyph" <<<"$cast_out"
 done
 
+# The committed cast is read again as bytes: provider or update text left in it fails the take.
+for notice in 'Amazon Bedrock' 'on Bedrock' 'Vertex AI' 'Update installed' 'update INSTALLED'; do
+  cast_with none
+  printf '%s\n' "$notice" >>"$fake_cast"
+  cast_out="$(cast_ok 2>&1)"; cast_rc=$?
+  check "a cast that shows '$notice' fails the cast check" test "$cast_rc" != 0
+  check "a cast that shows '$notice' says so" grep -qF -- 'the cast shows provider or update text' <<<"$cast_out"
+done
+
+# 9. the sanitiser blanks the engine's ` · Amazon Bedrock` with spaces of the same length and
+# fails closed on any provider or update text left (the way it fails on the account name)
+BLANK=$(printf '%17s' '') # the 17 characters of ` · Amazon Bedrock`
+cast_file() { # $1 = the text of one banner output event; prints the path of a fake .cast holding it
+  local path; path="$(mktemp /tmp/pl-selftest-cast.XXXX)"
+  mv -- "$path" "$path.cast"; path="$path.cast"; TEMP_PATHS+=("$path") # only a .cast path loses its tear-down
+  jq -cn --arg text "$1" '{version: 2, width: 110, height: 30}, [0.5, "o", $text], [1.0, "o", "idle"], [9.9, "o", "bye \u001b[?1049l"]' >"$path"
+  echo "$path"
+}
+sanitize_file() { # $1 = a file; sanitises it under a fake real HOME and account; prints the output
+  HOME="$FAKE" bash -c 'source "$1"; id() { echo selftest-account; }; sanitize "$2"' _ "$SCRIPT" "$1" 2>&1
+}
+banner_cast="$(cast_file $'Fable 5.1 · Amazon Bedrock\r\n')"
+sanitize_file "$banner_cast" >/dev/null; banner_cast_rc=$?
+check "sanitize: a banner with ' · Amazon Bedrock' passes" test "$banner_cast_rc" = 0
+check "sanitize: the 17 characters become 17 spaces, the layout unchanged" jq -es --arg blank "$BLANK" '.[1][2] == ("Fable 5.1" + $blank + "\r\n")' "$banner_cast"
+check "sanitize: the model name stays" grep -q 'Fable 5[.]1' "$banner_cast"
+check "sanitize: no Bedrock is left in the cast" bash -c '! grep -qi bedrock "$1"' _ "$banner_cast"
+check "sanitize: the tear-down event is still dropped" test "$(wc -l <"$banner_cast" | tr -d ' ')" = 3
+banner_txt="$(mktemp /tmp/pl-selftest-cast.XXXX)"; TEMP_PATHS+=("$banner_txt")
+printf 'Fable 5.1 · Amazon Bedrock\nprompt\n' >"$banner_txt"
+sanitize_file "$banner_txt" >/dev/null
+check "sanitize: a plain-text capture is blanked the same way" test "$(head -n 1 "$banner_txt")" = "Fable 5.1$BLANK"
+# the last is a name split by a colour change: the check reads the stream with escapes stripped
+for notice in '✔ Update installed · Restart to update' 'update INSTALLED' 'Claude on Bedrock' 'bedrock' 'Vertex AI' $'Amazon \033[2mBedrock'; do
+  notice_cast="$(cast_file "$notice")"
+  before="$(cat "$notice_cast")"
+  notice_out="$(sanitize_file "$notice_cast")"; notice_rc=$?
+  check "sanitize: '${notice//$'\033'/<esc>}' fails closed" test "$notice_rc" != 0
+  check "sanitize: '${notice//$'\033'/<esc>}' names the file" grep -qF -- "sanitize: $notice_cast still shows" <<<"$notice_out"
+  check "sanitize: '${notice//$'\033'/<esc>}' leaves the refused cast as it was" test "$(cat "$notice_cast")" = "$before"
+done
 echo "---- $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

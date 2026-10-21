@@ -209,8 +209,8 @@ test(
     await ui.press({ key: "undo" });
 
     expect(e.box.text).toBe(DRAFT);
-    expect(verdicts).toEqual([
-      { kind: "refused", text: GUARD_REASON, usd: undefined },
+    expect(verdicts).toStrictEqual([
+      { kind: "refused", text: GUARD_REASON },
       null,
     ]);
     expect(await headlineText(ui)).toBe("↶ Restored");
@@ -225,8 +225,8 @@ test("Enter clears the verdict", async ($, on) => {
   await $.prompt.submit(ENTER);
 
   expect(e.submits).toHaveLength(1);
-  expect(verdicts).toEqual([
-    { kind: "refused", text: GUARD_REASON, usd: undefined },
+  expect(verdicts).toStrictEqual([
+    { kind: "refused", text: GUARD_REASON },
     null,
   ]);
   expect(await headlineText(ui)).toBe("↥ Ready");
@@ -251,8 +251,8 @@ test("any /prompt-lift command clears the verdict", async ($, on) => {
 
   await press($, "status");
 
-  expect(verdicts).toEqual([
-    { kind: "refused", text: GUARD_REASON, usd: undefined },
+  expect(verdicts).toStrictEqual([
+    { kind: "refused", text: GUARD_REASON },
     null,
   ]);
   expect(await headlineText(ui)).toBe("↥ Ready");
@@ -268,8 +268,8 @@ test("session.start clears the verdict", async ($, on) => {
     isInteractive: true,
   } as never);
 
-  expect(verdicts).toEqual([
-    { kind: "refused", text: GUARD_REASON, usd: undefined },
+  expect(verdicts).toStrictEqual([
+    { kind: "refused", text: GUARD_REASON },
     null,
   ]);
   expect(await headlineText(ui)).toBe("↥ Ready");
