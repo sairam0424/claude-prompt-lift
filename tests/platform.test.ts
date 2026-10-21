@@ -162,6 +162,9 @@ test(
  * it stays unpriced like on any other Bedrock session. */
 const PROFILE_ARN =
   "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123";
+/** The same profile shape in another AWS partition (GovCloud; China is `aws-cn`). */
+const GOV_PROFILE_ARN =
+  "arn:aws-us-gov:bedrock:us-gov-west-1:123456789012:application-inference-profile/abc123";
 
 test("platformOf reads the platform off the session's model id", () => {
   const table: [string, Platform][] = [
@@ -169,6 +172,8 @@ test("platformOf reads the platform off the session's model id", () => {
     ["anthropic.claude-haiku-4-5-20251001-v1:0", "bedrock"],
     ["eu.anthropic.claude-fable-5-1", "bedrock"],
     [PROFILE_ARN, "bedrock"],
+    [GOV_PROFILE_ARN, "bedrock"],
+    ["arn:aws-cn:bedrock:cn-north-1:123456789012:application-inference-profile/abc123", "bedrock"],
     ["claude-sonnet-5-5@20251001", "vertex"],
     ["claude-sonnet-5-5", "anthropic"],
     ["sonnet", "anthropic"],

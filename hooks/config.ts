@@ -88,7 +88,7 @@ export function isAlias(model: string): boolean {
 export type Platform = "anthropic" | "bedrock" | "vertex";
 
 const BEDROCK_ID = /(^|\.)anthropic\.claude-/;
-const BEDROCK_ARN = /^arn:aws:bedrock:/;
+const BEDROCK_ARN = /^arn:aws(?:-[a-z]+)*:bedrock:/;
 const BEDROCK_VERSION = /-v\d+:\d+$/;
 const VERTEX_VERSION = /@\d{8}$/;
 const VERTEX_ID = /^claude-[a-z0-9.-]+@/;
