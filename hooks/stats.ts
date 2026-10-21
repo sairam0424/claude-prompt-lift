@@ -66,6 +66,10 @@ export type AnsweredCall = CallRecord & {
   staticBlock: string;
   relevantCount: number;
   hash: string;
+  /** How many rungs the chain had: the row says which one answered (R25). */
+  rungs: number;
+  /** When the press began, by `$.clock.now()`: the record times it from here. */
+  pressedAt: number;
 };
 
 /** What `toLastUsage` records beyond the call's own usage. */
@@ -74,6 +78,8 @@ export type CallFacts = {
   relevantCount: number;
   why: string;
   addedWords: number;
+  rungs: number;
+  elapsedMs: number;
 };
 
 /** What a filled rewrite added; a call that filled nothing has none. */
@@ -138,6 +144,8 @@ export function judgeCall(
     staticBlock: string;
     relevantCount: number;
     platform: Platform;
+    rungs: number;
+    pressedAt: number;
   },
 ): AnsweredCall {
   const { platform, ...judged } = a;
@@ -165,18 +173,24 @@ export async function assessCall(
 /**
  * The writes for an answered call, whatever the rewrite came to: the
  * last-call record (with the rewrite's why and added words once it was
- * filled), the block-0 hash and size, the no-cache streak, and the totals.
+ * filled, and the press's elapsed time), the block-0 hash and size, the
+ * no-cache streak, and the totals.
  */
 export async function recordCall(
   $: EngineInterface,
   call: AnsweredCall,
   rewrite: Rewrite = NO_REWRITE,
 ): Promise<void> {
+  // The press's second clock read (R25): from the press to this record, the
+  // moment the outcome is written down. No tick ever runs between the two.
+  const elapsedMs = (await $.clock.now()) - call.pressedAt;
   const facts: CallFacts = {
     run: call.run,
     relevantCount: call.relevantCount,
     why: rewrite.why,
     addedWords: rewrite.addedWords,
+    rungs: call.rungs,
+    elapsedMs,
   };
   await update($, lastUsage, () =>
     toLastUsage(facts, call.usd, call.hashChanged),
@@ -281,5 +295,7 @@ export function toLastUsage(
     addedWords: a.addedWords,
     skills: a.relevantCount,
     hashChanged,
+    rungs: a.rungs,
+    elapsedMs: a.elapsedMs,
   };
 }

@@ -9,6 +9,7 @@ import {
   FABLE,
   GOOD,
   SONNET,
+  USAGE,
   ZERO_USAGE,
 } from "./engine";
 import {
@@ -20,6 +21,8 @@ import {
   stripRuns,
 } from "./band-helpers";
 import { runningRowText } from "../hooks/band-row";
+import { costText } from "../hooks/chain";
+import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 
 // R25, the working state: while the chain runs, the details are a rung strip
 // built from the chain and the rung running now, and the headline counts the
@@ -34,6 +37,8 @@ const RATE_LIMITED: ModelCompleteResult = {
   status: 429,
   usage: ZERO_USAGE,
 };
+/** What the three-rung press costs: fable's refusal carried no tokens. */
+const SONNET_COST = costText(estimateUsd(USAGE, SONNET, DEFAULT_PRICES));
 
 type Held = {
   /** Resolves once the rung's model call has arrived at the stub. */
@@ -132,12 +137,23 @@ test(
     expect(struckRun?.props.strikethrough).toBe(true);
     expect(struckRun?.props.dimColor).toBe(true);
 
+    // 2.3 s pass before sonnet answers: the press is timed by two clock reads
+    await e.clock.advance(2300);
     sonnet.release();
     await run;
     await ui.drawn();
 
     expect(e.calls).toHaveLength(2);
     expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(SONNET_COST).toMatch(/^\$0\.0\d\d?$/);
+    expect(await headlineText(ui)).toBe(`✓ Enhanced ${SONNET_COST}`);
+    const done = await detailsText(ui);
+    expect(
+      done.startsWith(
+        "sonnet 5.5 · 2 of 3 · 2.3s · 6.8k cached · 1.4k in · 310 out · +",
+      ),
+    ).toBe(true);
+    expect(done).toMatch(/ · \+\d+ words? · \d+ skills?$/);
     expect(await stripRuns(ui)).toEqual([]);
     expect(e.store.model).toBeUndefined();
   },
@@ -165,6 +181,9 @@ test(
 
     e.release();
     await run;
+
+    // the clock did not move: the press took 0.0s
+    expect(await detailsText(ui)).toContain("fable 5.1 · 1 of 1 · 0.0s · ");
   },
 );
 

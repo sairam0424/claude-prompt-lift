@@ -62,7 +62,8 @@ export function tierOf(bodyColumns: number): Tier {
 
 /**
  * What 80 columns and up (`noHint` and above) leave room for: the done row's
- * three token figures and the whole rung strip; narrower, both go first.
+ * three token figures and elapsed time, and the whole rung strip; narrower,
+ * all of these go first.
  */
 function hasRoom(tier: Tier): boolean {
   return tier === "full" || tier === "noHint";
@@ -151,10 +152,28 @@ function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
+/** `N of M`: the rung that answered of the chain's length; nothing on a 0.5.0 row. */
+function rungText(usage: LastUsage): string[] {
+  return usage.rungs === undefined
+    ? []
+    : [`${usage.attempts.length} of ${usage.rungs}`];
+}
+
+/** The press's elapsed time to a tenth of a second (`2.3s`); nothing on a 0.5.0 row. */
+function elapsedText(elapsedMs: number | undefined): string[] {
+  return elapsedMs === undefined ? [] : [`${(elapsedMs / 1000).toFixed(1)}s`];
+}
+
+/** The done headline's figure: the cost as `costText` renders it (R25). */
+export function doneCostText(usage: LastUsage): string {
+  return costText(usage.usd ?? undefined);
+}
+
 /**
- * The done row: the last call's usage (its three token figures down to 80
- * columns), what the rewrite added, then what a cap leaves (R9), tail N
- * (R10); the no-cache hint stays last.
+ * The done row: the last call's model, the rung that answered, the press's
+ * elapsed time and the three token figures (the time and the figures down to
+ * 80 columns), what the rewrite added, then what a cap leaves (R9), tail N
+ * (R10); the no-cache hint stays last. The cost is the headline's.
  */
 export function doneRowText(
   usage: LastUsage,
@@ -165,6 +184,7 @@ export function doneRowText(
 ): string {
   const figures = hasRoom(tier)
     ? [
+        ...elapsedText(usage.elapsedMs),
         `${formatTokens(usage.cached)} cached`,
         `${formatTokens(usage.input + usage.written)} in`,
         `${usage.output} out`,
@@ -172,8 +192,8 @@ export function doneRowText(
     : [];
   return [
     shortModel(usage.model),
+    ...rungText(usage),
     ...figures,
-    costText(usage.usd ?? undefined),
     `+${plural(usage.addedWords, "word")}`,
     plural(usage.skills, "skill"),
     ...(left === undefined ? [] : [left]),

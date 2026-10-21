@@ -11,6 +11,17 @@ export type LastUsage = {
   addedWords: number;
   skills: number;
   hashChanged: boolean;
+  /**
+   * How many rungs the chain had at the press; the one that answered is
+   * `attempts.length`, so the row says `N of M` (R25). Absent on a row a
+   * 0.5.0 session wrote: the row omits it then.
+   */
+  rungs?: number;
+  /**
+   * From the press to the record, in milliseconds: two reads of `$.clock`,
+   * no ticks (R25). Absent on a row a 0.5.0 session wrote: the row omits it.
+   */
+  elapsedMs?: number;
 };
 
 declare module "claude-code" {

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The band's row leads with a headline, one glyph and a state word in a theme colour that follows light and dark themes (`↥ Ready`, `↻ Enhancing`, `✓ Enhanced`, `↶ Restored`), the details stay dim, and the state's main Button (Enhance, Cancel, Send) is drawn as the primary one; the row now reads the band's width and drops parts as it narrows: the key hint goes under 100 columns, the done row's three token figures under 80, the headline's word under 60.
+- While a press runs, the band shows the chain as a rung strip (`fable 5.1 › sonnet 5.5 › haiku 5.5`: failed rungs struck and dim, the running one bold in the headline's colour) and the headline counts the rungs (`↻ Enhancing 2 of 3`); nothing ticks, the strip moves as the chain does. The done row names the rung that answered (`sonnet 5.5 · 2 of 3`) and how long the press took (`2.3s`, from two reads of the clock), and carries the cost in its headline (`✓ Enhanced $0.04`, `✓ Enhanced $? · (no price)`) instead of in the details. Under 80 columns the strip collapses to the running rung and the done row drops the elapsed time with its token figures; under 60 the headline reads `↻ 2/3` and `✓ $0.04`.
 
 ## [0.5.0] - 2026-10-20
 

@@ -68,8 +68,9 @@ const LAST: LastUsage = {
   skills: 1,
   hashChanged: false,
 };
+/** A 0.5.0 row's done text: the cost is the headline's, no rung or time (R25). */
 const DONE_ROW =
-  "fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04 · +12 words · 1 skill";
+  "fable 5.1 · 6.8k cached · 1.4k in · 310 out · +12 words · 1 skill";
 type Band = Mounted<"terminal", "AbovePrompt">;
 
 function caps(sessionCapUsd: number, dayCapUsd: number) {

@@ -10,6 +10,7 @@ import { readTailCount } from "./tail";
 import type { BandState, Strip, StripRung } from "./band-row";
 import {
   counterText,
+  doneCostText,
   doneRowText,
   headline,
   idleRowText,
@@ -203,9 +204,12 @@ async function drawRow(
   const streak = await read($, noCacheStreak);
   const summary =
     usage === null ? "" : doneRowText(usage, streak, left, tail, tier);
+  // The cost leads the done headline (R25), so a squeeze never truncates it;
+  // a record that failed to write leaves the headline without one.
+  const cost = usage === null ? undefined : doneCostText(usage);
   return (
     <Box gap={1}>
-      {headlineNode(undone ? "restored" : "done")}
+      {undone ? headlineNode("restored") : headlineNode("done", cost)}
       {enhanceButton(false)}
       <Button
         key="send"

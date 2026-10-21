@@ -64,7 +64,9 @@ test("done: ✓ Enhanced in success; Send alone is primary", async ($, on) => {
 
   await ui.press({ key: "enhance" });
 
-  await expectHeadline(ui, "✓ Enhanced", "success");
+  // the cost is the headline's (R25 part 2); an alias chain is unpriced on
+  // Bedrock, so it reads as costText renders that (R3)
+  await expectHeadline(ui, "✓ Enhanced $? · (no price)", "success");
   expect(await variantOf(ui, "send")).toBe("primary");
   expect(await variantOf(ui, "enhance")).toBeUndefined();
   expect(await variantOf(ui, "undo")).toBeUndefined();

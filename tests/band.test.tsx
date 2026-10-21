@@ -18,7 +18,7 @@ import {
   runningRowText,
   RESTORED_ROW,
 } from "../hooks/band-row";
-import { formatDollars } from "../hooks/chain";
+import { costText, formatDollars } from "../hooks/chain";
 import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 import type { LastUsage } from "../types";
 import {
@@ -66,7 +66,12 @@ const LAST: LastUsage = {
   addedWords: 12,
   skills: 1,
   hashChanged: false,
+  rungs: 1,
+  elapsedMs: 2300,
 };
+/** A row a 0.5.0 session wrote: no rung count, no elapsed time. */
+const { rungs: _rungs, elapsedMs: _elapsed, ...LEGACY } = LAST;
+const FABLE_COST = costText(estimateUsd(USAGE, FABLE, DEFAULT_PRICES));
 
 // --- pure row text ---
 
@@ -79,21 +84,26 @@ test("idle row names the keys and the first rung", () => {
   );
 });
 
-test("done row shows the usage, the added words and the skills", () => {
+test("done row: the rung, the elapsed time, the usage, the words and the skills", () => {
   expect(doneRowText(LAST, 0)).toBe(
-    "fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04 · +12 words · 1 skill",
+    "fable 5.1 · 1 of 1 · 2.3s · 6.8k cached · 1.4k in · 310 out · +12 words · 1 skill",
   );
-  expect(doneRowText({ ...LAST, skills: 2, addedWords: 1 }, 2)).toBe(
-    "fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04 · +1 word · 2 skills",
+  expect(doneRowText({ ...LAST, skills: 2, addedWords: 1, rungs: 3 }, 2)).toBe(
+    "fable 5.1 · 1 of 3 · 2.3s · 6.8k cached · 1.4k in · 310 out · +1 word · 2 skills",
   );
   expect(doneRowText(LAST, 3)).toBe(
-    `fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04 · +12 words · 1 skill · ${NO_CACHE_HINT}`,
+    `fable 5.1 · 1 of 1 · 2.3s · 6.8k cached · 1.4k in · 310 out · +12 words · 1 skill · ${NO_CACHE_HINT}`,
   );
+  // the cost is the headline's (R25); a 0.5.0 row has no rung or time to show
+  expect(doneRowText(LEGACY, 0)).toBe(
+    "fable 5.1 · 6.8k cached · 1.4k in · 310 out · +12 words · 1 skill",
+  );
+  expect(doneRowText({ ...LAST, elapsedMs: 0 }, 0)).toContain(" · 1 of 1 · 0.0s · ");
 });
 
-test("done row shows $? and (no price) for an unpriced model (R3)", () => {
+test("done row names an unpriced model in full and leaves $? to the headline (R3)", () => {
   expect(doneRowText({ ...LAST, model: OPUS, usd: null }, 0)).toBe(
-    `${OPUS} · 6.8k cached · 1.4k in · 310 out · $? · (no price) · +12 words · 1 skill`,
+    `${OPUS} · 1 of 1 · 2.3s · 6.8k cached · 1.4k in · 310 out · +12 words · 1 skill`,
   );
 });
 
@@ -179,10 +189,11 @@ test(
     expect((await ui.find({ key: "undo" }))?.props.hotkey).toBe("u");
     const row = await rowText(ui);
     expect(
-      row.startsWith("fable 5.1 · 6.8k cached · 1.4k in · 310 out · $"),
+      row.startsWith("fable 5.1 · 1 of 3 · 0.0s · 6.8k cached · 1.4k in · 310 out · +"),
     ).toBe(true);
     expect(row).toContain("words · ");
     expect(row).toContain("skill");
+    expect(await headlineText(ui)).toBe(`✓ Enhanced ${FABLE_COST}`);
 
     await ui.press({ key: "undo" });
 
@@ -338,7 +349,7 @@ test("a cached press ends the no-cache streak", async ($, on) => {
 });
 
 test(
-  "the done row says (no price) after an unpriced press",
+  "the done headline says $? · (no price) after an unpriced press",
   { options: { models: OPUS } },
   async ($, on) => {
     const e = engine(on);
@@ -349,7 +360,8 @@ test(
 
     expect(e.box.text).toBe(BETTER);
     expect(e.calls[0]?.model).toBe(OPUS);
-    expect(await rowText(ui)).toContain(" · 310 out · $? · (no price) · +");
+    expect(await headlineText(ui)).toBe("✓ Enhanced $? · (no price)");
+    expect(await rowText(ui)).toContain(`${OPUS} · 1 of 1 · 0.0s · 6.8k cached · 1.4k in · 310 out · +`);
   },
 );
 

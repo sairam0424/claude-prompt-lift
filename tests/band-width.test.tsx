@@ -1,5 +1,5 @@
 import { expect, test } from "claude-code/testing";
-import { engine, BEDROCK, DRAFT, FABLE } from "./engine";
+import { engine, BEDROCK, DRAFT, FABLE, USAGE } from "./engine";
 import {
   detailsText,
   headlineText,
@@ -9,6 +9,8 @@ import {
   widen,
 } from "./band-helpers";
 import { doneRowText, idleRowText, tierOf } from "../hooks/band-row";
+import { costText } from "../hooks/chain";
+import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 import type { LastUsage } from "../types";
 
 // R25 width tiers, from `e.props.bodyColumns`: at 100 and up the whole row;
@@ -30,9 +32,13 @@ const LAST: LastUsage = {
   addedWords: 12,
   skills: 1,
   hashChanged: false,
+  rungs: 1,
+  elapsedMs: 2300,
 };
 const FULL_DONE =
-  "fable 5.1 · 6.8k cached · 1.4k in · 310 out · $0.04 · +12 words · 1 skill";
+  "fable 5.1 · 1 of 1 · 2.3s · 6.8k cached · 1.4k in · 310 out · +12 words · 1 skill";
+/** What a Fable press on the stub's usage costs, as the done headline shows it. */
+const FABLE_COST = costText(estimateUsd(USAGE, FABLE, DEFAULT_PRICES));
 
 // --- pure tiers ---
 
@@ -62,14 +68,14 @@ test("idle text keeps the key hint at full only; the rest stays", () => {
   );
 });
 
-test("done text drops the three token figures under 80 columns only", () => {
+test("done text drops the token figures and the elapsed time under 80 columns only", () => {
   expect(doneRowText(LAST, 0, undefined, undefined, "full")).toBe(FULL_DONE);
   expect(doneRowText(LAST, 0, undefined, undefined, "noHint")).toBe(FULL_DONE);
   expect(doneRowText(LAST, 0, undefined, undefined, "compact")).toBe(
-    "fable 5.1 · $0.04 · +12 words · 1 skill",
+    "fable 5.1 · 1 of 1 · +12 words · 1 skill",
   );
   expect(doneRowText(LAST, 3, "$0.30 left (day)", 6, "minimal")).toBe(
-    `fable 5.1 · $0.04 · +12 words · 1 skill · $0.30 left (day) · tail 6 · ${NO_CACHE_HINT}`,
+    `fable 5.1 · 1 of 1 · +12 words · 1 skill · $0.30 left (day) · tail 6 · ${NO_CACHE_HINT}`,
   );
 });
 
@@ -101,7 +107,7 @@ test(
 );
 
 test(
-  "done row: the figures at 120 and 90, gone at 70, the glyph alone at 50",
+  "done row: the figures at 120 and 90, gone at 70, the glyph and cost alone at 50",
   { options: BEDROCK },
   async ($, on) => {
     const e = engine(on);
@@ -111,26 +117,27 @@ test(
 
     const full = await detailsText(ui);
     expect(
-      full?.startsWith("fable 5.1 · 6.8k cached · 1.4k in · 310 out · $"),
+      full.startsWith("fable 5.1 · 1 of 3 · 0.0s · 6.8k cached · 1.4k in · 310 out · +"),
     ).toBe(true);
-    expect(await headlineText(ui)).toBe("✓ Enhanced");
+    expect(await headlineText(ui)).toBe(`✓ Enhanced ${FABLE_COST}`);
 
     await widen(ui, 90);
     expect(await detailsText(ui)).toBe(full);
-    expect(await headlineText(ui)).toBe("✓ Enhanced");
+    expect(await headlineText(ui)).toBe(`✓ Enhanced ${FABLE_COST}`);
 
     await widen(ui, 70);
     const compact = await detailsText(ui);
-    expect(compact?.startsWith("fable 5.1 · $")).toBe(true);
+    expect(compact.startsWith("fable 5.1 · 1 of 3 · +")).toBe(true);
     expect(compact).not.toContain(" cached");
     expect(compact).not.toContain(" in · ");
     expect(compact).not.toContain(" out · ");
+    expect(compact).not.toContain("0.0s");
     expect(compact).toContain("words · ");
-    expect(await headlineText(ui)).toBe("✓ Enhanced");
+    expect(await headlineText(ui)).toBe(`✓ Enhanced ${FABLE_COST}`);
 
     await widen(ui, 50);
     expect(await detailsText(ui)).toBe(compact);
-    expect(await headlineText(ui)).toBe("✓");
+    expect(await headlineText(ui)).toBe(`✓ ${FABLE_COST}`);
     expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
   },
 );

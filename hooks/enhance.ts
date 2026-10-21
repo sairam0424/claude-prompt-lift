@@ -108,6 +108,9 @@ export async function enhance(
   // is attempted; a throw before that leaves it to the catch.
   let unrecorded: AnsweredCall | undefined;
   try {
+    // The press's first clock read (R25): the record times the press from it
+    // with one more read, no ticks
+    const pressedAt = await $.clock.now();
     before = await read($, phase);
     const myId = await update($, requestId, (n) => n + 1);
     // A same-value write (over a stale `running`) still redraws the band
@@ -140,6 +143,8 @@ export async function enhance(
       staticBlock: prepared.staticBlock,
       relevantCount: prepared.relevantCount,
       platform,
+      rungs: chain.length,
+      pressedAt,
     });
     const call = await assessCall($, unrecorded);
     unrecorded = call;
