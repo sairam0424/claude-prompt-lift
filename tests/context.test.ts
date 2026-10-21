@@ -45,7 +45,7 @@ test("selectInstructionFiles keeps project and rules files, drops AutoMem and th
     instructionExclude: "~/.claude/CLAUDE.md,~/CLAUDE.md",
   });
 
-  const result = selectInstructionFiles(files, cfg, home);
+  const result = selectInstructionFiles(files, cfg, [home]);
 
   expect(result.map((f) => f.path)).toEqual([
     "/Users/u/Desktop/W/CLAUDE.md",
@@ -203,11 +203,12 @@ test("hashBlock is stable and 8 hex chars", async () => {
 });
 
 test("expandHome replaces leading tilde with home directory", async () => {
-  expect(expandHome("~/Documents/file.txt", "/Users/john")).toBe(
+  const homes = ["/Users/john"];
+  expect(expandHome("~/Documents/file.txt", homes)).toEqual([
     "/Users/john/Documents/file.txt",
-  );
-  expect(expandHome("/absolute/path", "/Users/john")).toBe("/absolute/path");
-  expect(expandHome("relative/path", "/Users/john")).toBe("relative/path");
+  ]);
+  expect(expandHome("/absolute/path", homes)).toEqual(["/absolute/path"]);
+  expect(expandHome("relative/path", homes)).toEqual(["relative/path"]);
 });
 
 test("globMatch handles star wildcard", async () => {

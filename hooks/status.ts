@@ -10,6 +10,7 @@ import {
 import { costText, formatDollars, formatTokens } from "./chain";
 import { selectInstructionFiles, type MemoryFile } from "./context";
 import { resolveChainWithPlatform } from "./gather";
+import { homeSpellings } from "./home";
 import { capsLine, readCapStatus, type CapStatus } from "./caps";
 import { dayOf, dayTotal, type DayStats } from "./ledger";
 import { readTailCount } from "./tail";
@@ -147,9 +148,9 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
   const breakdown = usage.context.breakdown;
   // The engine's own ledger, every tool included: absent where it keeps none
   const total = usage.cost?.usd;
-  const home = (await $.env.get("HOME")) ?? "";
+  const homes = await homeSpellings($);
   const files = breakdown?.memoryFiles ?? [];
-  const included = selectInstructionFiles(files, cfg, home);
+  const included = selectInstructionFiles(files, cfg, homes);
   const includedPaths = new Set(included.map((file) => file.path));
   const { chain, platform } = await resolveChainWithPlatform($, cfg);
   return statusText({

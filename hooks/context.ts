@@ -19,11 +19,15 @@ export type CommandEntry = {
   source: string;
 };
 
-export function expandHome(p: string, home: string): string {
+/**
+ * A `~/` pattern spelled out under every spelling of HOME (R26); any other
+ * pattern as it is. With no spelling of HOME a `~/` pattern spells out nothing.
+ */
+export function expandHome(p: string, homes: readonly string[]): string[] {
   if (p.startsWith("~/")) {
-    return home + p.slice(1);
+    return homes.map((home) => home + p.slice(1));
   }
-  return p;
+  return [p];
 }
 
 export function globMatch(pattern: string, value: string): boolean {
@@ -45,27 +49,27 @@ export function globMatch(pattern: string, value: string): boolean {
   return regex.test(value);
 }
 
+/**
+ * Whether a pattern matches `path` under any spelling of HOME: the engine may
+ * report the path under the resolved spelling, so a match on one is enough.
+ */
 export function isExcluded(
   path: string,
   patterns: readonly string[],
-  home: string,
+  homes: readonly string[],
 ): boolean {
-  for (const pattern of patterns) {
-    const expandedPattern = expandHome(pattern, home);
-    if (globMatch(expandedPattern, path)) {
-      return true;
-    }
-  }
-  return false;
+  return patterns.some((pattern) =>
+    expandHome(pattern, homes).some((expanded) => globMatch(expanded, path)),
+  );
 }
 
 export function selectInstructionFiles(
   files: readonly MemoryFile[],
   cfg: Config,
-  home: string,
+  homes: readonly string[],
 ): MemoryFile[] {
   const result: MemoryFile[] = [];
-  const rulesPrefix = home + "/.claude/rules/";
+  const rulesPrefixes = homes.map((home) => home + "/.claude/rules/");
 
   for (const file of files) {
     // Always drop AutoMem
@@ -79,16 +83,16 @@ export function selectInstructionFiles(
       file.type === "Local" ||
       file.type === "Managed"
     ) {
-      if (!isExcluded(file.path, cfg.instructionExclude, home)) {
+      if (!isExcluded(file.path, cfg.instructionExclude, homes)) {
         result.push(file);
       }
       continue;
     }
 
-    // Keep User only if under ~/.claude/rules/
+    // Keep User only if under ~/.claude/rules/, under any spelling of HOME
     if (file.type === "User") {
-      if (file.path.startsWith(rulesPrefix)) {
-        if (!isExcluded(file.path, cfg.instructionExclude, home)) {
+      if (rulesPrefixes.some((prefix) => file.path.startsWith(prefix))) {
+        if (!isExcluded(file.path, cfg.instructionExclude, homes)) {
           result.push(file);
         }
       }

@@ -9,6 +9,7 @@ import {
   type CommandEntry,
   type MemoryFile,
 } from "./context";
+import { homeSpellings } from "./home";
 import { isFileLike, pathTokens } from "./tokens";
 import { readTailCount } from "./tail";
 
@@ -198,7 +199,7 @@ async function readSubproject(
   draft: string,
   dirs: readonly string[],
   patterns: readonly string[],
-  home: string,
+  homes: readonly string[],
 ): Promise<Document | undefined> {
   const dir = subprojectDir(draft, dirs);
   if (dir === undefined) {
@@ -209,7 +210,7 @@ async function readSubproject(
   // instruction files, decided before any `$.fs` call, so an excluded file is
   // neither probed nor read; the block then shows no subproject section, as
   // for an absent file.
-  if (isExcluded(path, patterns, home)) {
+  if (isExcluded(path, patterns, homes)) {
     $.ui.log(`prompt-lift: subproject ${path} left out by instructionExclude`, {
       to: "debug",
     });
@@ -237,8 +238,12 @@ export async function gatherContext(
 ): Promise<Gathered> {
   const usage = await $.session.usage({ breakdown: "summary" });
   const breakdown = usage.context.breakdown;
-  const home = (await $.env.get("HOME")) ?? "";
-  const files = selectInstructionFiles(breakdown?.memoryFiles ?? [], cfg, home);
+  const homes = await homeSpellings($);
+  const files = selectInstructionFiles(
+    breakdown?.memoryFiles ?? [],
+    cfg,
+    homes,
+  );
   const documents = await readDocuments($, files, cfg.instructionFileMaxChars);
   const skillNames = selectSkillNames(
     breakdown?.skills?.skillFrontmatter ?? [],
@@ -257,7 +262,7 @@ export async function gatherContext(
     draft,
     rootDirs,
     cfg.instructionExclude,
-    home,
+    homes,
   );
   const count = await readTailCount($, cfg);
   const conversation = count > 0 ? conversationTail(rows, count) : undefined;

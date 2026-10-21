@@ -3,7 +3,6 @@ import type { Engine as Harness, MockClock } from "claude-code/testing";
 import type {
   CommandInfo,
   CommandSource,
-  FsEntry,
   ModelCompleteInput,
   ModelCompleteResult,
   ModelUsage,
@@ -12,6 +11,7 @@ import type {
   PromptOrigin,
 } from "claude-code";
 import type { CommandEntry, MemoryFile, SkillEntry } from "../hooks/context";
+import { childEntries, pathExists, statOf } from "./engine-fs";
 
 // Shared stub engine for the prompt-lift tests, in the prompt-polish style:
 // every noun the mod calls is answered from memory and recorded.
@@ -190,30 +190,6 @@ const DEFAULT_COMMANDS: CommandEntry[] = [
   },
 ];
 
-function childEntries(files: Record<string, string>, dir: string): FsEntry[] {
-  const prefix = dir.endsWith("/") ? dir : `${dir}/`;
-  const seen = new Map<string, FsEntry>();
-  for (const path of Object.keys(files)) {
-    if (!path.startsWith(prefix)) {
-      continue;
-    }
-    const rest = path.slice(prefix.length);
-    const slash = rest.indexOf("/");
-    const name = slash === -1 ? rest : rest.slice(0, slash);
-    const kind = slash === -1 ? "file" : "dir";
-    if (!seen.has(name)) {
-      seen.set(name, { name, kind, size: 0, mtimeMs: 0, isLink: false });
-    }
-  }
-  return [...seen.values()];
-}
-
-function pathExists(files: Record<string, string>, path: string): boolean {
-  return (
-    path in files || Object.keys(files).some((p) => p.startsWith(`${path}/`))
-  );
-}
-
 export function engine(on: On, opts: EngineOptions = {}): Engine {
   const box = { text: "" };
   const calls: ModelCompleteInput[] = [];
@@ -316,6 +292,7 @@ export function engine(on: On, opts: EngineOptions = {}): Engine {
     return { value: pathExists(files, e.path) };
   });
   on("fs.list", ($, e) => ({ value: childEntries(files, e.path) }));
+  on("fs.stat", ($, e) => ({ value: statOf(e.path, e.resolve) }));
   on("env.get", ($, e) => ({ value: e.name === "HOME" ? home : undefined }));
   on("ui.toast", ($, e) => {
     toasts.push(e.text);

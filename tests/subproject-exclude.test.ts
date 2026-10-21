@@ -97,10 +97,10 @@ test("isExcluded matches ~-expanded and glob patterns, not a sibling", () => {
   const glob = ["*/Tombstone/*"];
   const defaults = ["~/.claude/CLAUDE.md", "~/CLAUDE.md"];
 
-  expect(isExcluded(TOMB_FILE, tilde, HOME)).toBe(true);
-  expect(isExcluded(TOMB_FILE, glob, HOME)).toBe(true);
-  expect(isExcluded(OTHER_FILE, tilde, HOME)).toBe(false);
-  expect(isExcluded(OTHER_FILE, glob, HOME)).toBe(false);
-  expect(isExcluded(TOMB_FILE, defaults, HOME)).toBe(false);
-  expect(isExcluded(TOMB_FILE, [], HOME)).toBe(false);
+  expect(isExcluded(TOMB_FILE, tilde, [HOME])).toBe(true);
+  expect(isExcluded(TOMB_FILE, glob, [HOME])).toBe(true);
+  expect(isExcluded(OTHER_FILE, tilde, [HOME])).toBe(false);
+  expect(isExcluded(OTHER_FILE, glob, [HOME])).toBe(false);
+  expect(isExcluded(TOMB_FILE, defaults, [HOME])).toBe(false);
+  expect(isExcluded(TOMB_FILE, [], [HOME])).toBe(false);
 });
