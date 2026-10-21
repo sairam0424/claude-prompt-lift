@@ -115,7 +115,7 @@ export async function enhance(
     verdict = verdictOf(
       kind,
       toast,
-      cost === undefined ? 0 : (cost.usd ?? null),
+      cost === undefined ? undefined : (cost.usd ?? null),
     );
     $.ui.toast(
       cost === undefined ? capToast(toast) : withCost(toast, cost.usd),
@@ -209,11 +209,12 @@ export async function enhance(
     // The message is cut where it is composed (R2); capToast makes it one line
     const message = cut(errorMessage(err), ERROR_MAX);
     const toast = capToast(`prompt-lift: enhance failed (${message})`);
-    // Its toast names no cost; the row's figure is what a paid call cost
+    // Its toast names no cost; the row's figure is what a paid call cost,
+    // and with no call to pay for the row shows none
     verdict = verdictOf(
       "failed",
       toast,
-      unrecorded === undefined ? 0 : (unrecorded.usd ?? null),
+      unrecorded === undefined ? undefined : (unrecorded.usd ?? null),
     );
     $.ui.toast(toast);
     $.ui.log(`prompt-lift: enhance failed: ${String(err)}`, { to: "debug" });

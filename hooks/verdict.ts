@@ -22,7 +22,7 @@ type VerdictKind = Verdict["kind"];
  * How a press that fills nothing ends (R25): the toast now, and the verdict
  * for the row. `cost` is given when a call was made and ends the toast with
  * its dollars (`usd` undefined: the model has no price, R3); with none, no
- * call was made and the verdict's dollars are 0.
+ * call was made: the toast names no cost and the verdict carries none.
  */
 export type Stop = (
   kind: VerdictKind,
@@ -30,23 +30,37 @@ export type Stop = (
   cost?: { usd: number | undefined },
 ) => void;
 
+const PLUGIN_LEAD = "prompt-lift: ";
+/** A cancel's own word, which its headline already says (`✗ Cancelled`). */
+const CANCEL_LEAD = "cancelled, ";
+
 /**
- * A toast's lead: the plugin prefix, and a cancel's own word, which the
- * headline already says (`✗ Cancelled`, then `draft unchanged`).
+ * A toast's reason, less its lead: the plugin prefix for every kind, and the
+ * cancel's word only for a cancel, so a refusal or failure whose own reason
+ * begins `cancelled, ` keeps it.
  */
-const LEAD = /^prompt-lift: (?:cancelled, )?/;
+function reasonOf(kind: VerdictKind, toast: string): string {
+  const reason = toast.startsWith(PLUGIN_LEAD)
+    ? toast.slice(PLUGIN_LEAD.length)
+    : toast;
+  return kind === "cancelled" && reason.startsWith(CANCEL_LEAD)
+    ? reason.slice(CANCEL_LEAD.length)
+    : reason;
+}
 
 /**
  * The row's copy of a toast: its reason, one line and capped as the toast is,
  * less the lead and the cost the toast ends with. `usd` is what the press
- * cost: 0 when no call was made, null when the model has no price (R3).
+ * cost: left out when no call was made (the row then shows no cost), null
+ * when the model has no price (R3).
  */
 export function verdictOf(
   kind: VerdictKind,
   toast: string,
-  usd: number | null,
+  usd?: number | null,
 ): Verdict {
-  return { kind, text: capToast(toast.replace(LEAD, "")), usd };
+  const text = capToast(reasonOf(kind, toast));
+  return usd === undefined ? { kind, text } : { kind, text, usd };
 }
 
 /**

@@ -154,13 +154,17 @@ export type Face = { state: BandState; figure?: string; details: string };
 
 /**
  * The verdict row (R25): the headline of the press's kind, then its reason and
- * what the press cost, the toast's own words; the Buttons are the settled
- * phase's, so a refusal after a done press keeps Send and Undo.
+ * what the press cost, the toast's own words; a press that made no model call
+ * (no `usd`) has no cost to show, so the row ends with its reason. The Buttons
+ * are the settled phase's, so a refusal after a done press keeps Send and Undo.
  */
 export function verdictFace(verdict: Verdict): Face {
   return {
     state: verdict.kind,
-    details: `${verdict.text} · ${costText(verdict.usd ?? undefined)}`,
+    details:
+      verdict.usd === undefined
+        ? verdict.text
+        : `${verdict.text} · ${costText(verdict.usd ?? undefined)}`,
   };
 }
 

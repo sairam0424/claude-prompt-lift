@@ -27,13 +27,14 @@ export type LastUsage = {
 /**
  * Why the last press ended without a fill, kept for the band's row until the
  * next action (R25). `text` is the toast's reason less its `prompt-lift: `
- * prefix and its cost; `usd` is what the press cost (0 when no call was
- * made), null when the model has no price.
+ * prefix and its cost; `usd` is what the press cost: absent when it made no
+ * model call (a guard, the cap, no models, an error before any call), so the
+ * row shows no cost; null when the model has no price; else the dollars.
  */
 export type Verdict = {
   kind: "refused" | "failed" | "cancelled";
   text: string;
-  usd: number | null;
+  usd?: number | null;
 };
 
 declare module "claude-code" {

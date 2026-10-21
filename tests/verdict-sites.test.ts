@@ -16,8 +16,8 @@ import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 
 // R25: which of the Enhance flow's toast sites write `lastVerdict`, and what.
 // Every ending that fills nothing and belongs to this press writes one, with
-// the toast's reason (less its prefix and cost) and the press's dollars: 0
-// when no call was made, null when the call has no price. Deliberately
+// the toast's reason (less its prefix and cost) and the press's dollars:
+// absent when no call was made, null when the call has no price. Deliberately
 // without one: the busy refusal (the press under way is not this one), a
 // superseded press (a newer press owns the row), and the success paths,
 // whose toasts follow a fill. The row side is tests/band-verdict.test.tsx.
@@ -26,7 +26,7 @@ const PAID = estimateUsd(USAGE, FABLE, DEFAULT_PRICES);
 const MISSING_PATH_REPLY =
   "Fix the login bug in src/auth.ts where the session expires after sign-in; follow docs/STYLE.md.";
 
-test("a draft the guards refuse is refused before any call, at no cost", async ($, on) => {
+test("a draft the guards refuse is refused before any call, with no cost", async ($, on) => {
   const e = engine(on);
   const verdicts = watch(on, "lastVerdict");
 
@@ -37,13 +37,13 @@ test("a draft the guards refuse is refused before any call, at no cost", async (
     {
       kind: "refused",
       text: "commands and shell lines are sent as typed",
-      usd: 0,
+      usd: undefined,
     },
   ]);
 });
 
 test(
-  "a window at its cap is refused before the call, at no cost",
+  "a window at its cap is refused before the call, with no cost",
   { options: { ...BEDROCK, sessionCapUsd: 0.01 } },
   async ($, on) => {
     const e = engine(on);
@@ -59,7 +59,7 @@ test(
       {
         kind: "refused",
         text: "session cap $0.01 reached · /prompt-lift cap off",
-        usd: 0,
+        usd: undefined,
       },
     ]);
   },
@@ -147,7 +147,7 @@ test(
 );
 
 test(
-  "an empty chain is a failure at no cost",
+  "an empty chain is a failure with no cost",
   { options: { models: "" } },
   async ($, on) => {
     const e = engine(on);
@@ -158,7 +158,7 @@ test(
     expect(e.calls).toHaveLength(0);
     expect(e.toasts).toEqual(["prompt-lift: no models configured"]);
     expect(verdicts).toEqual([
-      { kind: "failed", text: "no models configured", usd: 0 },
+      { kind: "failed", text: "no models configured", usd: undefined },
     ]);
   },
 );
@@ -180,17 +180,17 @@ test(
   },
 );
 
-test("an error before any call is a failure at no cost", async ($, on) => {
+test("an error before any call is a failure with no cost", async ($, on) => {
   engine(on, { denyMessages: "no transcript" });
   const verdicts = watch(on, "lastVerdict");
 
   await press($, DRAFT);
 
   expect(verdicts).toHaveLength(1);
-  const [verdict] = verdicts as { kind: string; text: string; usd: number }[];
+  const [verdict] = verdicts as { kind: string; text: string; usd?: number }[];
   expect(verdict?.kind).toBe("failed");
   expect(verdict?.text.startsWith("enhance failed (")).toBe(true);
-  expect(verdict?.usd).toBe(0);
+  expect(verdict?.usd).toBeUndefined();
 });
 
 test("an unpriced model's refusal carries null, not zero", async ($, on) => {

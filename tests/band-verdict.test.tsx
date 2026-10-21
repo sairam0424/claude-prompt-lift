@@ -32,8 +32,10 @@ import { DEFAULT_PRICES, estimateUsd } from "../hooks/config";
 // unchanged. Nothing times the row out: `settle` writes `lastVerdict`, the
 // band reads it, and the next action writes it away.
 
-const FINE = answered(JSON.stringify({ verdict: "fine" }));
+const FINE_TEXT = JSON.stringify({ verdict: "fine" });
+const FINE = answered(FINE_TEXT);
 const FINE_REASON = "already specific, left as is";
+const CAP_REASON = "session cap $0.10 reached · /prompt-lift cap off";
 const GUARD_REASON = "commands and shell lines are sent as typed";
 const ABORTED: ModelCompleteResult = {
   isAnswered: false,
@@ -49,7 +51,7 @@ const RATE_LIMITED: ModelCompleteResult = {
 };
 const FABLE_USD = estimateUsd(USAGE, FABLE, DEFAULT_PRICES);
 const FABLE_COST = costText(FABLE_USD);
-/** What a press that paid for nothing shows: the bare figure, no "(no price)". */
+/** What a press that called and paid nothing shows: the bare figure, no "(no price)". */
 const FREE = costText(0);
 /** A box line the guards refuse before any call: it starts with a slash. */
 const COMMAND_LINE = "/clear the screen and start over please";
@@ -183,7 +185,7 @@ test(
     expect(e.calls).toHaveLength(1);
     expect(e.toasts.at(-1)).toBe(`prompt-lift: ${GUARD_REASON}`);
     expect(await headlineText(ui)).toBe("✗ Kept as is");
-    expect(await detailsText(ui)).toBe(`${GUARD_REASON} · ${FREE}`);
+    expect(await detailsText(ui)).toBe(GUARD_REASON);
     expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
     expect(await variantOf(ui, "send")).toBe("primary");
   },
@@ -208,7 +210,7 @@ test(
 
     expect(e.box.text).toBe(DRAFT);
     expect(verdicts).toEqual([
-      { kind: "refused", text: GUARD_REASON, usd: 0 },
+      { kind: "refused", text: GUARD_REASON, usd: undefined },
       null,
     ]);
     expect(await headlineText(ui)).toBe("↶ Restored");
@@ -224,7 +226,7 @@ test("Enter clears the verdict", async ($, on) => {
 
   expect(e.submits).toHaveLength(1);
   expect(verdicts).toEqual([
-    { kind: "refused", text: GUARD_REASON, usd: 0 },
+    { kind: "refused", text: GUARD_REASON, usd: undefined },
     null,
   ]);
   expect(await headlineText(ui)).toBe("↥ Ready");
@@ -250,7 +252,7 @@ test("any /prompt-lift command clears the verdict", async ($, on) => {
   await press($, "status");
 
   expect(verdicts).toEqual([
-    { kind: "refused", text: GUARD_REASON, usd: 0 },
+    { kind: "refused", text: GUARD_REASON, usd: undefined },
     null,
   ]);
   expect(await headlineText(ui)).toBe("↥ Ready");
@@ -267,7 +269,7 @@ test("session.start clears the verdict", async ($, on) => {
   } as never);
 
   expect(verdicts).toEqual([
-    { kind: "refused", text: GUARD_REASON, usd: 0 },
+    { kind: "refused", text: GUARD_REASON, usd: undefined },
     null,
   ]);
   expect(await headlineText(ui)).toBe("↥ Ready");
@@ -281,5 +283,53 @@ test("below 60 columns the verdict headline keeps its glyph alone", async ($, on
   await ui.press({ key: "enhance" });
 
   expect(await headlineText(ui)).toBe("✗");
-  expect(await detailsText(ui)).toBe(`${GUARD_REASON} · ${FREE}`);
+  expect(await detailsText(ui)).toBe(GUARD_REASON);
 });
+
+// A press that made no model call has no cost to show: its row carries the
+// reason alone. A press that called and paid nothing shows `$0.000`, and one
+// whose model has no price shows `$? · (no price)`.
+
+/** One answer dear enough to take the $0.10 session cap with it. */
+const DEAR_USAGE = { ...USAGE, input_tokens: 10_000 };
+
+test(
+  "a window at its cap is refused at no cost: the row names the cap and no dollars",
+  { options: { ...BEDROCK, sessionCapUsd: 0.1 } },
+  async ($, on) => {
+    const e = engine(on, { replies: [answered(FINE_TEXT, DEAR_USAGE)] });
+    const verdicts = watch(on, "lastVerdict");
+    e.box.text = DRAFT;
+    const ui = await mount($);
+    await ui.press({ key: "enhance" });
+    expect(e.calls).toHaveLength(1);
+
+    await ui.press({ key: "enhance" });
+
+    expect(e.calls).toHaveLength(1);
+    const kept = verdicts.at(-1);
+    expect(kept).toEqual({ kind: "refused", text: CAP_REASON });
+    expect(kept).not.toHaveProperty("usd");
+    expect(await headlineText(ui)).toBe("✗ Kept as is");
+    expect(await keys(ui)).toEqual(["enhance"]);
+    const details = await detailsText(ui);
+    expect(details).toBe(CAP_REASON);
+    expect(details).not.toContain("$0.000");
+  },
+);
+
+test(
+  "a call whose model has no price still ends its row with $? and (no price)",
+  async ($, on) => {
+    const e = engine(on, { replies: [FINE] });
+    const verdicts = watch(on, "lastVerdict");
+    e.box.text = DRAFT;
+    const ui = await mount($);
+
+    await ui.press({ key: "enhance" });
+
+    expect(e.calls).toHaveLength(1);
+    expect(verdicts).toEqual([{ kind: "refused", text: FINE_REASON, usd: null }]);
+    expect(await detailsText(ui)).toBe(`${FINE_REASON} · $? · (no price)`);
+  },
+);
