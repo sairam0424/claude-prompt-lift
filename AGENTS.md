@@ -8,8 +8,7 @@ Every engine call goes through a wrapper in `hooks/api.ts`; otherwise the valida
 ## Build, Test, and Development Commands
 No build step; the plugin is read live from this folder.
 ```bash
-claude plugin test .                                 # every tests/*.test.ts(x)
-claude plugin test --file "$PWD/tests/band-stack.test.tsx" "$PWD"   # one file, absolute path
+claude plugin test .                                 # every tests/*.test.ts(x); exits 1 on a failure
 claude plugin validate .
 bash scripts/typecheck.sh                            # the type gate
 bash scripts/check-footprint.sh                      # release gate: validator report not cut
@@ -22,7 +21,9 @@ claude plugin eval . --ablation none --no-publish    # three cases, one cheap mo
 No linter or formatter config is committed; match the existing Prettier style: two spaces, double quotes, semicolons, trailing commas, about 80 columns. Hooks files stay under about 400 lines, so split before growing. Band colours are theme keys, never hex. Shell scripts pass shellcheck.
 
 ## Testing Guidelines
-Tests import their kit from `claude-code/testing`. `tests/engine.ts` builds the stub engine and `tests/band-helpers.ts` holds the band scaffolding. Name files `tests/<area>.test.ts(x)`. Tests are hermetic: mocked clock, in-memory files. `--filter` is a no-op.
+Tests import their kit from `claude-code/testing`. `tests/engine.ts` builds the stub engine and `tests/band-helpers.ts` holds the band scaffolding. Name files `tests/<area>.test.ts(x)`. Tests are hermetic: mocked clock, in-memory files.
+
+`claude plugin test .` is the gate: it runs every file and its exit code (1 on a failure) is the verdict. `--filter` is not an option: after the folder it is ignored and every test runs, before it the command exits 1 with `no such plugin folder`. For one file there is an undocumented per-file mode, `claude plugin test --file "$PWD/tests/<area>.test.ts(x)" "$PWD"` (the flag goes before the folder), but it always exits 0, even when an assertion fails or the file does not load. It prints one `claude-plugin-test-report {...}` JSON line, and that line's `failure` or `error` field is the verdict, never the exit code. Finish every change with `claude plugin test .`.
 
 ## Commit & Pull Request Guidelines
 History uses Conventional Commits scoped `prompt-lift`, such as `fix(prompt-lift): a rejected fill in undo redraws the band`, with the why in the body and no `Co-Authored-By` trailer. Each release adds a `CHANGELOG.md` entry, bumps the version only in `.claude-plugin/plugin.json`, and is a `vX.Y.Z` tag on `main`.
