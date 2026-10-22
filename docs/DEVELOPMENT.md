@@ -8,7 +8,7 @@ The plugin is read live from its folder. `claude plugin validate .` reads the ma
 
 Hooks call the engine only through `hooks/api.ts`: one small wrapper per engine function (`getHome`, `fsRead`, `notify`, `kvGet`, ...), each with a short name that is unique across `hooks/`. The one exception is `hooks/register.tsx`, which keeps its own `$.command.register` and `$.ui.log` calls inside the `session.start` hook body.
 
-Why: `claude plugin validate` prints an access report that lists every engine API with the functions that call it, and cuts the `register.tsx calls` line near 1,000 characters, marking the cut `[+N chars]`. A cut report cannot show every engine call, and the catalogue publisher holds a release whose report is cut. 0.6.0 was cut by 106 characters; with every call behind one wrapper the line is 660.
+Why: `claude plugin validate` prints an access report that lists every engine API with the functions that call it, and cuts the `register.tsx calls` line near 1,000 characters, marking the cut `[+N chars]`. A cut report cannot show every engine call, and the catalogue publisher holds a release whose report is cut. 0.6.0 was cut by 106 characters; with every call outside `register.tsx` behind one wrapper the line is 660.
 
 To add an engine call, add a function declaration to `hooks/api.ts` (not an arrow bound to a const: the engine refuses that at load) with a short, unique name, taking `$` first and forwarding the engine's own arguments, and call that from the hook. Do not spell an engine call (any noun) in the `$.<noun>.<fn>(` form anywhere else in `hooks/`, comments included.
 

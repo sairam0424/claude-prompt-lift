@@ -259,7 +259,7 @@ After the call (the toast ends with what the call cost):
 
 ## Development
 
-Tests, type gate, evals and the demo recording script: see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The plugin is read live from its folder; `claude plugin validate .` and `claude plugin test .` are the two gates.
+Tests, type gate, evals and the demo recording script: see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The plugin is read live from its folder; `claude plugin validate .` and `claude plugin test .` are the two gates, and `bash scripts/check-footprint.sh` is the release gate that keeps the validator's access report complete.
 
 ## License
 
