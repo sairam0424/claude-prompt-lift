@@ -4,8 +4,6 @@ A Claude Code mod that turns a vague prompt into a specific one before you send 
 
 ![prompt-lift demo: Enhance rewrites the draft, Undo and Redo swap it back, /prompt-lift status shows the chain](docs/demo.gif)
 
-![prompt-lift launch film: the band above the prompt, one press, the rewrite with its cost, Undo, Redo, status](docs/launch.gif)
-
 <sub>Full film with sound: <a href="https://github.com/sairam0424/claude-prompt-lift/releases/download/v0.4.0/prompt-lift-0.4.0-launch.mp4">MP4 on the v0.4.0 release</a>.</sub>
 
 The band row sits above the prompt and shows where the last press stands: `Enhance (e)` when idle, `Cancel (c)` while a call runs, then `Send (s)` and `Undo (u)` (`Redo (u)` after an Undo) beside the result's cost (see The band, under Using it). Nothing runs while idle: no timers, no per-keystroke hooks.
