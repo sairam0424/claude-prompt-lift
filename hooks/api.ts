@@ -19,6 +19,9 @@ import type { EngineInterface, ResolveInput } from "claude-code";
 // Every wrapper is a function declaration spelling `$.noun.fn(...)` at its call
 // site: the engine follows `$` past an import only into a function declaration
 // (an arrow bound to a const fails the load), and reads the API off that spelling.
+//
+// `getHome` is the one wrapper that forwards no argument: `$.env.get` takes a
+// literal name and refuses a spread, so `getHome` fixes `"HOME"` inside.
 
 /** The slice of `$` a wrapper calls: member `M` of noun `N`. */
 type Slice<

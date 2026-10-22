@@ -4,6 +4,16 @@ Back to the [README](../README.md).
 
 The plugin is read live from its folder. `claude plugin validate .` reads the manifest and the hooks module the way the engine will; `claude plugin test .` runs `tests/*.test.ts(x)`. Neither type-checks, so `bash scripts/typecheck.sh` is the type gate, best-effort: it finds the newest `claude-code.d.ts` Claude Code extracted with its plugin-authoring skill (under `/private/tmp/claude-*/bundled-skills/`, so absent after a reboot until that skill loads again in a session), writes a temporary strict tsconfig (with `noUncheckedIndexedAccess`) over that file plus `hooks/`, `types/` and `tests/`, and runs `tsc --noEmit` through `npx`. It prints the types file it used. With no types file on the machine it says so and exits 0; with only an older cached copy it says STALE, and an error it then reports may be the old build's rather than this code's.
 
+## Engine seam and the footprint gate
+
+Hooks call the engine only through `hooks/api.ts`: one small wrapper per engine function (`getHome`, `fsRead`, `notify`, `kvGet`, ...), each with a short name that is unique across `hooks/`. The one exception is `hooks/register.tsx`, which keeps its own `$.command.register` and `$.ui.log` calls inside the `session.start` hook body.
+
+Why: `claude plugin validate` prints an access report that lists every engine API with the functions that call it, and cuts the `register.tsx calls` line near 1,000 characters, marking the cut `[+N chars]`. A cut report cannot show every engine call, and the catalogue publisher holds a release whose report is cut. 0.6.0 was cut by 106 characters; with every call behind one wrapper the line is 660.
+
+To add an engine call, add a function declaration to `hooks/api.ts` (not an arrow bound to a const: the engine refuses that at load) with a short, unique name, taking `$` first and forwarding the engine's own arguments, and call that from the hook. Do not spell an engine call (any noun) in the `$.<noun>.<fn>(` form anywhere else in `hooks/`, comments included.
+
+The release gate is `bash scripts/check-footprint.sh [plugin-dir]`. It fails on a `[+N chars]` marker in the text or the `--json` report, on a `register.tsx calls` line over 850 characters (it prints the length), and on an engine call in the `$.<noun>.<fn>(` form, for any noun and with or without a `<T>` type-argument list, outside `api.ts` and `register.tsx` (it lists them). Run it, with the suite, `claude plugin validate .` and `bash scripts/typecheck.sh`, before every release.
+
 ## Evals
 
 `evals/` holds three cases for `claude plugin eval`, which loads only this plugin into a throwaway `claude -p` session and matches a regex against that session's trace:
