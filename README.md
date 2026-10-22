@@ -61,7 +61,7 @@ The row leads with a headline (one glyph and a state word, in bold), then the Bu
 - `/prompt-lift cap <usd|off>` — cap this session's spend at `<usd>` (`off` lifts it); `cap` alone prints the caps. See Spend caps under Cost
 - `/prompt-lift tail <on|off|count>` — control the conversation tail for this session; `tail` alone prints the state
 - `/prompt-lift preview <draft>` — print what a press would send: the dynamic block, plus the static block's size and hash (no model call by the mod, no state change; the printed text joins the transcript, so it is capped at 2,000 characters)
-- `/prompt-lift status` — the chain, the last call, session and per-day totals, the caps, the engine's session total, the static block size and hash
+- `/prompt-lift status` — the chain, the last call, session and per-day totals, the caps, the engine's session total, the static block size and hash, and a `home:` row when HOME's real path could not be resolved
 - `/prompt-lift diff` — word-level diff of the last enhancement
 - `/prompt-lift probe` — one tiny call per model in the chain, reporting `ok` or the refusal
 
@@ -95,13 +95,13 @@ The recent conversation is excluded by default (`includeConversation: false`). `
 Outbound data leaves this machine only through `$.model.complete`, called with your own Claude Code model access (Bedrock, API key, or subscription, whichever the session uses). The call carries:
 
 - Your draft
-- The instruction files the session loaded: Project, Local, Managed, and `~/.claude/rules/*`. Not the auto-memory index. Not `~/.claude/CLAUDE.md` or `~/CLAUDE.md` by default.
+- The instruction files the session loaded: Project, Local, Managed, and `~/.claude/rules/*`. Not the auto-memory index. Not `~/.claude/CLAUDE.md` or `~/CLAUDE.md` by default, as long as the mod can match them to HOME: when HOME is reached through a symlink, the engine must be able to resolve it (see `$.fs.stat` below); if it cannot, `/prompt-lift status` says so in a `home:` row and those two files may be sent.
 - The skill names Claude lists (minus `skillExclude`)
 - Up to eight matched skill descriptions
 - A named subproject's `CLAUDE.md` when the draft mentions a top-level directory of the project that has one, unless `instructionExclude` matches it
 - The recent conversation only when `includeConversation` is on
 
-The mod touches the filesystem through `$.fs.read`, `$.fs.list`, `$.fs.exists` and `$.fs.stat`: `$.fs.read` reads those instruction files and a named subproject's `CLAUDE.md`; `$.fs.list` lists the top-level entries of the project root; `$.fs.exists` checks for that `CLAUDE.md` and, after a rewrite, probes any file-looking path the rewrite names that your draft and your `extraRules` did not (the path guard behind `named a file that does not exist`), absolute paths included. The model picks those paths; only existence is read, and the answer never leaves the machine. `$.fs.stat` resolves HOME's real path (the one path it stats, so a HOME that goes through a symlink still matches your rules files and `instructionExclude`); only the comparison uses the answer, which never leaves the machine. `$.env.get` reads only `HOME`. Session facts come from `$.session.usage`, `$.session.messages`, `$.session.model`, `$.session.root`, and `$.command.list`.
+The mod touches the filesystem through `$.fs.read`, `$.fs.list`, `$.fs.exists` and `$.fs.stat`: `$.fs.read` reads those instruction files and a named subproject's `CLAUDE.md`; `$.fs.list` lists the top-level entries of the project root; `$.fs.exists` checks for that `CLAUDE.md` and, after a rewrite, probes any file-looking path the rewrite names that your draft and your `extraRules` did not (the path guard behind `named a file that does not exist`), absolute paths included. The model picks those paths; only existence is read, and the answer never leaves the machine. `$.fs.stat` resolves HOME's real path (the one path it stats, so a HOME that goes through a symlink still matches your rules files and `instructionExclude`); only the comparison uses the answer, which never leaves the machine. When the stat fails or the engine answers no real path (another installed plugin can withhold it), the mod compares HOME's own spelling alone, which on a symlinked HOME can miss the files above; `/prompt-lift status` then adds a `home: <path> unresolved (<reason>)` row before the instruction files, and the debug log has the reason. `$.env.get` reads only `HOME`. Session facts come from `$.session.usage`, `$.session.messages`, `$.session.model`, `$.session.root`, and `$.command.list`.
 
 Writes happen through `$.prompt.fill` (which writes the prompt box) and `$.prompt.submit` (which sends only when you press Send; Enter is the engine's own path). Nothing is sent on a timer or while you type.
 

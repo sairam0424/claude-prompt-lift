@@ -10,7 +10,7 @@ import {
 import { costText, formatDollars, formatTokens } from "./chain";
 import { selectInstructionFiles, type MemoryFile } from "./context";
 import { resolveChainWithPlatform } from "./gather";
-import { homeSpellings } from "./home";
+import { resolveHome, type HomeUnresolved } from "./home";
 import { capsLine, readCapStatus, type CapStatus } from "./caps";
 import { dayOf, dayTotal, type DayStats } from "./ledger";
 import { readTailCount } from "./tail";
@@ -62,6 +62,8 @@ export type StatusInput = {
   excluded: readonly MemoryFile[];
   /** The effective tail count (R10). */
   tail: number;
+  /** Set when the engine could not say where HOME lands; the `~/` matches may miss. */
+  homeUnresolved?: HomeUnresolved;
 };
 
 function cacheWord(last: LastUsage): string {
@@ -117,6 +119,20 @@ function aliasLines(platform: Platform, unpriced: boolean): string[] {
   ];
 }
 
+/**
+ * The row before the instruction files when HOME went unresolved: those files
+ * and the `~/` exclusions are matched against it, so it qualifies both; none
+ * where HOME resolved.
+ */
+function homeLines(unresolved: HomeUnresolved | undefined): string[] {
+  if (unresolved === undefined) {
+    return [];
+  }
+  return [
+    `home: ${unresolved.home} unresolved (${unresolved.reason}); if it goes through a symlink, ~/ exclusions and ~/.claude/rules/ files may not match`,
+  ];
+}
+
 export function statusText(a: StatusInput): string {
   const conversation =
     a.tail === 0
@@ -138,6 +154,7 @@ export function statusText(a: StatusInput): string {
       : [`session total (all tools): ${formatDollars(a.sessionTotal)}`]),
     `static block: ${a.staticChars} chars · hash ${a.blockHash || "none"}`,
     `skills ${a.skills.included}/${a.skills.total} (included/total)`,
+    ...homeLines(a.homeUnresolved),
     `instruction files included: ${filesText(a.included)}`,
     `instruction files excluded: ${filesText(a.excluded)}`,
   ].join("\n");
@@ -148,9 +165,9 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
   const breakdown = usage.context.breakdown;
   // The engine's own ledger, every tool included: absent where it keeps none
   const total = usage.cost?.usd;
-  const homes = await homeSpellings($);
+  const { spellings, unresolved } = await resolveHome($);
   const files = breakdown?.memoryFiles ?? [];
-  const included = selectInstructionFiles(files, cfg, homes);
+  const included = selectInstructionFiles(files, cfg, spellings);
   const includedPaths = new Set(included.map((file) => file.path));
   const { chain, platform } = await resolveChainWithPlatform($, cfg);
   return statusText({
@@ -175,5 +192,6 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
     included,
     excluded: files.filter((file) => !includedPaths.has(file.path)),
     tail: await readTailCount($, cfg),
+    homeUnresolved: unresolved,
   });
 }

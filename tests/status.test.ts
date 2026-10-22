@@ -68,6 +68,38 @@ test("status before any press says so and calls no model", async ($, on) => {
   expect(e.calls).toHaveLength(0);
 });
 
+test("statusText says HOME is unresolved, before the instruction files it qualifies", () => {
+  const a: StatusInput = {
+    chain: [FABLE],
+    platform: "anthropic",
+    last: null,
+    session: { presses: 0, usd: 0, unpriced: 0 },
+    today: { presses: 0, usd: 0, unpriced: 0 },
+    caps: {},
+    staticChars: 0,
+    blockHash: "",
+    skills: { included: 0, total: 0 },
+    included: [{ path: PROJECT_FILE, type: "Project", tokens: 100 }],
+    excluded: [],
+    tail: 0,
+  };
+
+  const lines = statusText({
+    ...a,
+    homeUnresolved: { home: "/tmp/u", reason: "stat failed: ENOENT" },
+  }).split("\n");
+
+  const row = lines.indexOf(
+    "home: /tmp/u unresolved (stat failed: ENOENT); if it goes through a symlink, ~/ exclusions and ~/.claude/rules/ files may not match",
+  );
+  expect(row).toBeGreaterThan(0);
+  expect(lines[row + 1]).toBe(
+    `instruction files included: ${PROJECT_FILE} (100 tokens)`,
+  );
+  // Resolved HOME: no row at all
+  expect(statusText(a)).not.toContain("home:");
+});
+
 test("statusText lays the lines out", () => {
   const a: StatusInput = {
     chain: [FABLE, SONNET],

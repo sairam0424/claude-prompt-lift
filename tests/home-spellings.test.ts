@@ -19,7 +19,7 @@ import {
   selectInstructionFiles,
   type MemoryFile,
 } from "../hooks/context";
-import { homeSpellings } from "../hooks/home";
+import { homeSpellings, resolveHome } from "../hooks/home";
 
 // R26: the engine reports real paths for the memory files while HOME can be a
 // spelling that goes through a symlink (macOS `/tmp` leads to `/private/tmp`).
@@ -134,6 +134,38 @@ test("homeSpellings is empty, and asks nothing, when HOME is unset", async () =>
   }
 });
 
+test("resolveHome says why HOME is unresolved when stat rejects", async () => {
+  const r = await resolveHome(probe(LINK, new Error("ENOENT: no such file")).$);
+
+  expect(r.spellings).toEqual([LINK]);
+  expect(r.unresolved).toEqual({
+    home: LINK,
+    reason: "stat failed: ENOENT: no such file",
+  });
+});
+
+test("resolveHome says why HOME is unresolved when stat answers no realPath", async () => {
+  for (const answer of [{}, { realPath: "" }]) {
+    const r = await resolveHome(probe(LINK, answer).$);
+
+    expect(r.spellings).toEqual([LINK]);
+    expect(r.unresolved).toEqual({
+      home: LINK,
+      reason: "the engine reported no real path",
+    });
+  }
+});
+
+test("resolveHome has nothing unresolved when HOME resolves, to itself or elsewhere, or is unset", async () => {
+  const same = await resolveHome(probe(LINK, { realPath: LINK }).$);
+  const moved = await resolveHome(probe(LINK, { realPath: REAL }).$);
+  const unset = await resolveHome(probe(undefined, { realPath: REAL }).$);
+
+  expect(same).toEqual({ spellings: [LINK] });
+  expect(moved).toEqual({ spellings: BOTH });
+  expect(unset).toEqual({ spellings: [] });
+});
+
 // --- selectInstructionFiles ---
 
 const user = (path: string): MemoryFile => ({ path, type: "User", tokens: 10 });
@@ -222,22 +254,18 @@ test("isExcluded does not over-match an unrelated path", () => {
 function linked(
   on: On,
   opts: EngineOptions,
-  stat: "lands at REAL" | "is refused" = "lands at REAL",
+  stat: "lands at REAL" | "is refused" | "names no path" = "lands at REAL",
 ): { e: Engine; asked: Asked[] } {
   const asked: Asked[] = [];
   on("fs.stat", { path: LINK } as never, ($, e) => {
     asked.push({ path: e.path, resolve: e.resolve });
-    return stat === "is refused"
-      ? { deny: "EACCES" }
-      : ({
-          value: {
-            kind: "dir",
-            size: 0,
-            mtimeMs: 0,
-            isLink: true,
-            realPath: REAL,
-          },
-        } as never);
+    if (stat === "is refused") {
+      return { deny: "EACCES" };
+    }
+    const base = { kind: "dir", size: 0, mtimeMs: 0, isLink: true };
+    return {
+      value: stat === "names no path" ? base : { ...base, realPath: REAL },
+    } as never;
   });
   return { e: engine(on, { home: LINK, ...opts }), asked };
 }
@@ -335,4 +363,47 @@ test("a press whose HOME cannot be resolved still runs, on HOME's own spelling, 
   expect(e.fills).toHaveLength(1);
   expect(block(e, 0, 0)).toContain(PROJECT_TEXT);
   expect(e.logs.filter((l) => l.includes("could not resolve"))).toHaveLength(1);
+});
+
+// --- status says so when HOME cannot be resolved (spec C6: the starred default
+// exclusions ride on HOME; a fallback that stays silent leaves them to miss) ---
+
+/** The `home:` row of a status press, or undefined when it has none. */
+async function homeRow(
+  $: Parameters<typeof press>[0],
+): Promise<string | undefined> {
+  const r = (await press($, "status")) as { text?: string };
+  return (r.text ?? "").split("\n").find((l) => l.startsWith("home:"));
+}
+
+test("status says HOME is unresolved, and why, when the stat is refused", async ($, on) => {
+  linked(on, { memoryFiles: MEMORY, files: FILES }, "is refused");
+
+  const row = await homeRow($);
+
+  expect(row).toContain(LINK);
+  expect(row).toContain("unresolved");
+  expect(row).toContain("stat failed");
+  expect(row).toContain("EACCES");
+  expect(row).toContain("~/ exclusions");
+});
+
+test("status says HOME is unresolved when the stat names no real path", async ($, on) => {
+  linked(on, { memoryFiles: MEMORY, files: FILES }, "names no path");
+
+  const row = await homeRow($);
+
+  expect(row).toContain(LINK);
+  expect(row).toContain("unresolved");
+  expect(row).toContain("the engine reported no real path");
+});
+
+test("status has no home row when HOME resolves, through a symlink or not", async ($, on) => {
+  linked(on, { memoryFiles: MEMORY, files: FILES });
+  expect(await homeRow($)).toBeUndefined();
+});
+
+test("status has no home row on the default HOME", async ($, on) => {
+  engine(on);
+  expect(await homeRow($)).toBeUndefined();
 });
