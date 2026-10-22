@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.6.1] - 2026-10-21
+## [0.6.1] - 2026-10-22
 
 ### Fixed
 - A HOME whose own path goes through a symlink (macOS `/tmp`, a Linux `/home` that leads to `/var/home`) no longer hides your `~/.claude/rules/` files from the rewrite or lets a `~/…` entry of `instructionExclude` miss its file: the engine reports real paths, so the mod now compares both spellings of HOME (when HOME is set, the exclusion list can only widen), and `/prompt-lift status` lists the same files. If you have rules files or a `~/…` exclude entry on such a HOME, the static block changes once (the rules files re-enter it, and a file the old match failed to exclude leaves it), which is one prompt-cache miss. When the engine cannot resolve HOME (the stat fails or answers no real path, which another installed plugin can cause), the mod falls back to HOME's own spelling, which is what 0.6.0 compared; on a symlinked HOME the `~/` matches then still miss, including the default `~/CLAUDE.md` and `~/.claude/CLAUDE.md` exclusions, so `/prompt-lift status` now adds a `home:` row naming the reason before the instruction files (the debug log has it too). It costs one new engine call, `$.fs.stat` on HOME, which the README's Data handling lists.
@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Undo no longer leaves a stale `↶ Undo?` marker when the prompt box rejects the restore: the band redraws, and the error still surfaces.
 - The validator's access report is complete again: `claude plugin validate` cut the `register.tsx calls` line at about 1,000 characters (`[+106 chars]` on 0.6.0), so a listing could not show every engine call. Every engine call outside `register.tsx` now goes through one small module (`hooks/api.ts`) with short names, and the line fits with room to spare (660 characters); `bash scripts/check-footprint.sh` is the release check for it. No behaviour change.
 - Test and demo-script hygiene: four of the selftest's "is not" checks now pass only on a clean exit 1 and fail on a missing command or any other exit, the band tests share one `held()` gate factory, and a selftest take no longer deletes the selftest's shared work dir.
+
+### Documentation
+- New `AGENTS.md`, a short contributor guide: how an Enhance press flows through `hooks/`, the engine-seam rule, the real test, validate, typecheck, footprint, eval and demo commands, the code style, and the commit conventions.
 
 ## [0.6.0] - 2026-10-21
 
