@@ -99,7 +99,7 @@ const VERTEX_ID = /^claude-[a-z0-9.-]+@/;
  * version, or is an inference-profile ARN (`arn:aws:bedrock:…`, a valid
  * `ANTHROPIC_MODEL` there); a Vertex id carries a `@YYYYMMDD` version;
  * anything else, a bare alias included, is the Anthropic API. Pure: a press
- * and `status` read `$.session.model()` once and hand the result on.
+ * and `status` read `$.session.model` once and hand the result on.
  */
 export function platformOf(sessionModelId: string): Platform {
   if (

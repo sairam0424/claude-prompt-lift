@@ -1,6 +1,7 @@
 import { atom, read } from "claude-code";
 import type { EngineInterface } from "claude-code";
 import type { LastUsage } from "../types";
+import { epochMs, usageOf } from "./api";
 import {
   hasUnpricedAlias,
   shortModel,
@@ -161,7 +162,7 @@ export function statusText(a: StatusInput): string {
 }
 
 export async function status($: EngineInterface, cfg: Config): Promise<string> {
-  const usage = await $.session.usage({ breakdown: "summary" });
+  const usage = await usageOf($, { breakdown: "summary" });
   const breakdown = usage.context.breakdown;
   // The engine's own ledger, every tool included: absent where it keeps none
   const total = usage.cost?.usd;
@@ -180,7 +181,7 @@ export async function status($: EngineInterface, cfg: Config): Promise<string> {
       unpriced: await read($, sessionUnpriced),
     },
     // Every session's row for today summed (R24), not this writer's alone
-    today: await dayTotal($, dayOf(await $.clock.now())),
+    today: await dayTotal($, dayOf(await epochMs($))),
     caps: await readCapStatus($, cfg),
     sessionTotal: typeof total === "number" ? total : undefined,
     staticChars: await read($, staticChars),

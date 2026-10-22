@@ -4,6 +4,7 @@ import type {
   PromptFillArgs,
   StateDollar,
 } from "claude-code";
+import { epochMs, fillBox, log, notify, readBox, redraw, submit } from "./api";
 import { armUndo, disarmUndo, undoArmedAt } from "./arm";
 import { capToast } from "./chain";
 import { cancel, TOAST_NOT_TAKEN, type DraftReader } from "./enhance";
@@ -87,19 +88,19 @@ export async function submitDraft(
   $: SendIo,
   box: DraftReader,
 ): Promise<SendStep> {
-  const text = (await box.prompt.read()).text;
+  const text = (await readBox(box)).text;
   const refusal = sendRefusal(text);
   if (refusal !== undefined) {
     return { outcome: "refused", toast: refusal };
   }
-  const entered = await $.prompt.submit({ text, asUser: true });
+  const entered = await submit($, { text, asUser: true });
   if (entered.drop !== undefined) {
     return { outcome: "dropped", reason: entered.drop };
   }
-  if ((await box.prompt.read()).text !== text) {
+  if ((await readBox(box)).text !== text) {
     return { outcome: "sent", box: "changed" };
   }
-  const cleared = await $.prompt.fill({ text: "", mode: "replace" });
+  const cleared = await fillBox($, { text: "", mode: "replace" });
   return { outcome: "sent", box: cleared.isFilled ? "cleared" : "kept" };
 }
 
@@ -107,16 +108,16 @@ export async function submitDraft(
 export async function send($: EngineInterface): Promise<void> {
   const step = await submitDraft($, $);
   if (step.outcome === "refused") {
-    $.ui.toast(step.toast);
+    notify($, step.toast);
     return;
   }
   if (step.outcome === "dropped") {
     // The engine shows a hook's reason itself; the draft stays, Undo with it.
-    $.ui.log(`prompt-lift: send dropped: ${step.reason}`, { to: "debug" });
+    log($, `prompt-lift: send dropped: ${step.reason}`, { to: "debug" });
     return;
   }
   if (step.box === "kept") {
-    $.ui.log("prompt-lift: the box kept the sent text", { to: "debug" });
+    log($, "prompt-lift: the box kept the sent text", { to: "debug" });
   }
   await clearHeld($);
 }
@@ -181,18 +182,18 @@ export function isUndoWindowOpen(
  */
 async function fillOrRedraw($: EngineInterface, args: PromptFillArgs) {
   try {
-    return await $.prompt.fill(args);
+    return await fillBox($, args);
   } catch (err) {
-    $.ui.invalidate("ui.render");
+    redraw($, "ui.render");
     throw err;
   }
 }
 
 /** Undo / Redo (spec §5.3): the band button and `/prompt-lift undo`. */
 export async function undo($: EngineInterface): Promise<void> {
-  const now = await $.clock.now();
+  const now = await epochMs($);
   const decision = decideUndo({
-    boxText: (await $.prompt.read()).text,
+    boxText: (await readBox($)).text,
     original: await read($, original),
     enhanced: await read($, enhanced),
     isUndone: await read($, isUndone),
@@ -200,7 +201,7 @@ export async function undo($: EngineInterface): Promise<void> {
     now,
   });
   if (decision.kind === "nothing") {
-    $.ui.toast(TOAST_NOTHING_TO_UNDO);
+    notify($, TOAST_NOTHING_TO_UNDO);
     return;
   }
   // Undo is the next action: it ends a verdict the row still shows (R25)
@@ -209,8 +210,8 @@ export async function undo($: EngineInterface): Promise<void> {
     armUndo(now);
     // The window is module state, which the band cannot see change: ask for
     // the redraw that draws its marker (R25)
-    $.ui.invalidate("ui.render");
-    $.ui.toast(TOAST_UNDO_ARM);
+    redraw($, "ui.render");
+    notify($, TOAST_UNDO_ARM);
     return;
   }
   disarmUndo();
@@ -225,12 +226,12 @@ export async function undo($: EngineInterface): Promise<void> {
     const cause = filled.refusal ?? "refused";
     // The disarm above is module state too, and no write follows a refused
     // fill: ask for the redraw that drops a stale `↶ Undo?` marker (R25)
-    $.ui.invalidate("ui.render");
-    $.ui.toast(capToast(`${TOAST_NOT_TAKEN} (${cause})`));
+    redraw($, "ui.render");
+    notify($, capToast(`${TOAST_NOT_TAKEN} (${cause})`));
     return;
   }
   await update($, isUndone, () => !isRedo);
-  $.ui.toast(isRedo ? TOAST_REAPPLIED : TOAST_RESTORED);
+  notify($, isRedo ? TOAST_REAPPLIED : TOAST_RESTORED);
 }
 
 /**

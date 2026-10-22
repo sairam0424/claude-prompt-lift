@@ -1,6 +1,7 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, ModelUsage } from "claude-code";
 import type { LastUsage } from "../types";
+import { epochMs, log } from "./api";
 import type { Config, Platform, Price } from "./config";
 import { estimateUsd, priceFor, shortModel } from "./config";
 import type { Attempt, ChainOk } from "./chain";
@@ -68,7 +69,7 @@ export type AnsweredCall = CallRecord & {
   hash: string;
   /** How many rungs the chain had: the row says which one answered (R25). */
   rungs: number;
-  /** When the press began, by `$.clock.now()`: the record times it from here. */
+  /** When the press began, by `$.clock.now`: the record times it from here. */
   pressedAt: number;
 };
 
@@ -127,7 +128,7 @@ export type Spent = { session: number; day: number };
  * session's row summed (R24). An unpriced press adds nothing here.
  */
 export async function spentUsd($: EngineInterface): Promise<Spent> {
-  const today = await dayTotal($, dayOf(await $.clock.now()));
+  const today = await dayTotal($, dayOf(await epochMs($)));
   return { session: await read($, sessionUsd), day: today.usd };
 }
 
@@ -183,7 +184,7 @@ export async function recordCall(
 ): Promise<void> {
   // The press's second clock read (R25): from the press to this record, the
   // moment the outcome is written down. No tick ever runs between the two.
-  const elapsedMs = (await $.clock.now()) - call.pressedAt;
+  const elapsedMs = (await epochMs($)) - call.pressedAt;
   const facts: CallFacts = {
     run: call.run,
     relevantCount: call.relevantCount,
@@ -215,7 +216,7 @@ export async function recordOrLog(
     await recordCall($, call, rewrite);
     return true;
   } catch (err) {
-    $.ui.log(`prompt-lift: recording the cost failed: ${errorMessage(err)}`, {
+    log($, `prompt-lift: recording the cost failed: ${errorMessage(err)}`, {
       to: "debug",
     });
     return false;

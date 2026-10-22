@@ -1,5 +1,6 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, PromptDecoration } from "claude-code";
+import { log, notify } from "./api";
 import { disarmUndo } from "./arm";
 import { capToast, usageText, type ChainOk } from "./chain";
 import { insertionDecorations } from "./diff";
@@ -74,7 +75,7 @@ export async function recordSuccess(
   a: Success,
 ): Promise<void> {
   const toast = await recordOrFail($, a);
-  $.ui.toast(await markDoneOrFail($, toast));
+  notify($, await markDoneOrFail($, toast));
 }
 
 /** `toast` once the phase is `done`, or the failure line when it could not be. */
@@ -86,7 +87,8 @@ async function markDoneOrFail(
     await update($, phase, () => "done");
     return toast;
   } catch (err) {
-    $.ui.log(
+    log(
+      $,
       `prompt-lift: marking the result done failed: ${errorMessage(err)}`,
       { to: "debug" },
     );

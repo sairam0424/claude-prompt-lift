@@ -1,5 +1,6 @@
 import { atom, read, update } from "claude-code";
 import type { CommandRunResult, EngineInterface } from "claude-code";
+import { ask, history, kvDel, kvSet, log, notify } from "./api";
 import { hasUnpricedAlias, type Config } from "./config";
 import { decide } from "./chain";
 import { wordDiffLines } from "./diff";
@@ -112,7 +113,7 @@ export async function runCommand(
       return {};
     }
     if (modelParse.kind === "reset") {
-      await $.store.delete(MODEL_STORE_KEY);
+      await kvDel($, MODEL_STORE_KEY);
       return { text: await chainText($, cfg) };
     }
     // modelParse.kind === "set"
@@ -170,7 +171,7 @@ async function chooseModel(
     return `prompt-lift: first rung ${chain[0] ?? "none"} · ${MODEL_USAGE}`;
   }
   if (choice.toLowerCase() === "reset") {
-    await $.store.delete(MODEL_STORE_KEY);
+    await kvDel($, MODEL_STORE_KEY);
     return chainText($, cfg);
   }
   const ids = await configuredIds($, cfg);
@@ -183,7 +184,7 @@ async function chooseModel(
   if (pinned === undefined) {
     return `prompt-lift: ${choice} is neither a rung of ${ids.join(" → ")} nor a full model id · ${MODEL_USAGE}`;
   }
-  await $.store.set(MODEL_STORE_KEY, pinned);
+  await kvSet($, MODEL_STORE_KEY, pinned);
   return chainText($, cfg);
 }
 
@@ -207,7 +208,8 @@ async function runCap(
     return { text: capsLine(await readCapStatus($, cfg), uncounted) };
   }
   await update($, capOverride, () => arg.usd);
-  $.ui.toast(
+  notify(
+    $,
     arg.usd === 0
       ? "prompt-lift: session cap off for this session"
       : `prompt-lift: session cap ${capDollars(arg.usd)} for this session`,
@@ -261,7 +263,7 @@ async function probeRung(
   index: number,
 ): Promise<string> {
   try {
-    const reply = await $.model.complete({
+    const reply = await ask($, {
       model: id,
       prompt: PROBE_PROMPT,
       maxTokens: PROBE_MAX_TOKENS,
@@ -269,7 +271,7 @@ async function probeRung(
     });
     return decide(reply, undefined, false).outcome;
   } catch (err) {
-    $.ui.log(`prompt-lift: probe ${id}: ${errorMessage(err)}`, {
+    log($, `prompt-lift: probe ${id}: ${errorMessage(err)}`, {
       to: "debug",
     });
     return "refused";
@@ -316,7 +318,7 @@ async function runPreview(
 
   // arg.kind === "show"
   const draft = arg.draft;
-  const rows = await $.session.messages();
+  const rows = await history($);
 
   // Run the same preGuard as enhance does
   const guard = preGuard(draft, cfg, lastAssistantText(rows));

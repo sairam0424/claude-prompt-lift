@@ -263,7 +263,7 @@ export function subprojectDir(
  * `skillExclude` leaves out (R20): what the post-call guards accept as a
  * skill, and what the examples in the static block are rendered against, so
  * the two cannot disagree. A skill the user excluded is unknown to both, even
- * when `$.command.list()` still lists its command.
+ * when `$.command.list` still lists its command.
  */
 export function knownSkillSet(
   ctx: {

@@ -1,4 +1,5 @@
 import type { EngineInterface } from "claude-code";
+import { epochMs, kvDel, kvGet, kvKeys, kvSet, log } from "./api";
 import { errorMessage } from "./gather";
 
 /*
@@ -23,7 +24,7 @@ import { errorMessage } from "./gather";
  *   guarantee at unbounded growth; a key per writer grows with the sessions
  *   of a day (bounded by the pruning below) and sums the same.
  * - The writer id is a nonce made once per loaded module, not
- *   `$.session.id()`: two module instances must never share a key whatever
+ *   `$.session.id`: two module instances must never share a key whatever
  *   the host reports (a hot reload keeps the session id and makes a new
  *   instance; a resumed session may bring its id back; two instances given
  *   one id would overwrite each other as the single row did).
@@ -185,11 +186,11 @@ export async function dayTotal(
   day: string,
 ): Promise<DayStats> {
   const prefix = spendKey(day, "");
-  const keys = (await $.store.keys()).filter((key) => key.startsWith(prefix));
-  const rows = await Promise.all(keys.map((key) => $.store.get(key)));
+  const keys = (await kvKeys($)).filter((key) => key.startsWith(prefix));
+  const rows = await Promise.all(keys.map((key) => kvGet($, key)));
   const unmigrated = keys.includes(spendKey(day, LEGACY_WRITER))
     ? EMPTY_DAY
-    : dayRow(asStats(await $.store.get(STATS_STORE_KEY)), day);
+    : dayRow(asStats(await kvGet($, STATS_STORE_KEY)), day);
   return sumRows([...rows.map(asDayRow), unmigrated]);
 }
 
@@ -204,10 +205,10 @@ async function prune($: EngineInterface, nowMs: number): Promise<void> {
   const cutoff = dayOf(
     new Date(d.getFullYear(), d.getMonth(), d.getDate() - KEPT_DAYS).getTime(),
   );
-  for (const key of await $.store.keys()) {
+  for (const key of await kvKeys($)) {
     const day = dayOfKey(key);
     if (day !== undefined && day < cutoff) {
-      await $.store.delete(key);
+      await kvDel($, key);
     }
   }
 }
@@ -241,16 +242,16 @@ async function migrateOnce(ledger: Ledger, $: EngineInterface): Promise<void> {
   if (ledger.isMigrated) {
     return;
   }
-  const legacy = await $.store.get(STATS_STORE_KEY);
+  const legacy = await kvGet($, STATS_STORE_KEY);
   if (legacy !== undefined) {
     const stats = asStats(legacy);
     for (const day of Object.keys(stats.byDay)) {
       const key = spendKey(day, LEGACY_WRITER);
-      if ((await $.store.get(key)) === undefined) {
-        await $.store.set(key, dayRow(stats, day));
+      if ((await kvGet($, key)) === undefined) {
+        await kvSet($, key, dayRow(stats, day));
       }
     }
-    await $.store.delete(STATS_STORE_KEY);
+    await kvDel($, STATS_STORE_KEY);
   }
   ledger.isMigrated = true;
 }
@@ -267,18 +268,17 @@ export function recordPress(
   usd: number | undefined,
 ): Promise<void> {
   return serialized(ledger, async () => {
-    const now = await $.clock.now();
+    const now = await epochMs($);
     await migrateOnce(ledger, $);
     const key = spendKey(dayOf(now), ledger.writerId);
-    const row = asDayRow(await $.store.get(key));
-    await $.store.set(key, addCall(row, usd));
+    const row = asDayRow(await kvGet($, key));
+    await kvSet($, key, addCall(row, usd));
     try {
       await prune($, now);
     } catch (err) {
-      $.ui.log(
-        `prompt-lift: pruning old day rows failed: ${errorMessage(err)}`,
-        { to: "debug" },
-      );
+      log($, `prompt-lift: pruning old day rows failed: ${errorMessage(err)}`, {
+        to: "debug",
+      });
     }
   });
 }

@@ -1,7 +1,8 @@
 import type { EngineInterface } from "claude-code";
+import { fsStat, getHome, log } from "./api";
 
 // R26: the engine reports real paths for the memory files it loaded, while
-// `$.env.get("HOME")` can be a spelling that goes through a symlink (macOS
+// `$.env.get` of HOME can be a spelling that goes through a symlink (macOS
 // `/tmp`, a Linux `/home` that leads to `/var/home`). A path compared against
 // that HOME alone reads as foreign: the rules files would count as outside
 // `~/.claude/rules/`, and a `~/…` entry of `instructionExclude` would stop
@@ -58,16 +59,16 @@ export type HomeResolution = {
  * debug log alone would never tell the person.
  */
 export async function resolveHome($: EngineInterface): Promise<HomeResolution> {
-  const given = await $.env.get("HOME");
+  const given = await getHome($);
   if (given === undefined || given === "") {
     return { spellings: [] };
   }
   const home = forJoining(given);
   const label = shown(home);
   try {
-    const { realPath } = await $.fs.stat(label, { resolve: true });
+    const { realPath } = await fsStat($, label, { resolve: true });
     if (realPath === undefined || realPath === "") {
-      $.ui.log(`prompt-lift: ${label} has no real path, used as given`, {
+      log($, `prompt-lift: ${label} has no real path, used as given`, {
         to: "debug",
       });
       return {
@@ -78,7 +79,7 @@ export async function resolveHome($: EngineInterface): Promise<HomeResolution> {
     const real = forJoining(realPath);
     return { spellings: real === home ? [home] : [home, real] };
   } catch (err) {
-    $.ui.log(`prompt-lift: could not resolve ${label}: ${String(err)}`, {
+    log($, `prompt-lift: could not resolve ${label}: ${String(err)}`, {
       to: "debug",
     });
     return {

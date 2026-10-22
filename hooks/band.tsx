@@ -1,5 +1,6 @@
 import { atom, read } from "claude-code";
 import type { EngineInterface, RenderElement, RenderInput } from "claude-code";
+import { epochMs, surface } from "./api";
 import type { Config } from "./config";
 import { hasUnpricedAlias } from "./config";
 import { enhance, isCallInFlight } from "./enhance";
@@ -80,7 +81,7 @@ export async function renderBand(
   }
   const below = await next(e);
   const row = await drawRow($, e, cfg);
-  const { Box } = $.ui.resolve(e);
+  const { Box } = surface($, e);
   // The mods beneath share this slot: one blank row keeps the band and their
   // drawing apart; with nothing beneath the gap has no second child to open.
   return (
@@ -122,7 +123,7 @@ async function drawRow(
   e: BandEvent,
   cfg: Config,
 ): Promise<RenderElement> {
-  const { Box, Button, Text } = $.ui.resolve(e);
+  const { Box, Button, Text } = surface($, e);
   // One read of the width per draw (R25); the tiers drop parts as it falls.
   const columns = e.props.bodyColumns ?? DEFAULT_COLUMNS;
   const tier = tierOf(columns);
@@ -237,7 +238,7 @@ async function drawRow(
   // ticks, and a window that has closed drops its marker at this next redraw
   const armedAt = undoArmedAt();
   const isArmed =
-    armedAt !== undefined && isUndoWindowOpen(armedAt, await $.clock.now());
+    armedAt !== undefined && isUndoWindowOpen(armedAt, await epochMs($));
   const face = doneFace({ verdict, isArmed, isUndone: undone, cost, summary });
   return (
     <Box gap={1}>

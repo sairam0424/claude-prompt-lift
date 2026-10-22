@@ -1,4 +1,15 @@
 import type { EngineInterface, SessionMessage } from "claude-code";
+import {
+  cmds,
+  fsHas,
+  fsList,
+  fsRead,
+  kvGet,
+  log,
+  rootDir,
+  sessMod,
+  usageOf,
+} from "./api";
 import { platformOf, type Config, type Platform } from "./config";
 import {
   capText,
@@ -88,7 +99,7 @@ export async function configuredIds(
   cfg: Config,
 ): Promise<string[]> {
   const needsSession = cfg.models.includes(SESSION_MODEL_TOKEN);
-  return withSessionModel(cfg, needsSession ? await $.session.model() : "");
+  return withSessionModel(cfg, needsSession ? await sessMod($) : "");
 }
 
 /**
@@ -124,7 +135,7 @@ async function ledByStored(
   $: EngineInterface,
   ids: readonly string[],
 ): Promise<string[]> {
-  const stored = await $.store.get(MODEL_STORE_KEY);
+  const stored = await kvGet($, MODEL_STORE_KEY);
   if (typeof stored !== "string" || stored === "") {
     return [...new Set(ids)];
   }
@@ -138,7 +149,7 @@ export type ResolvedChain = { chain: string[]; platform: Platform };
 
 /**
  * The chain as `resolveChain` gives it, with the platform the session's
- * model id names (R19). It reads `$.session.model()` once per press or
+ * model id names (R19). It reads `$.session.model` once per press or
  * command, for the platform and, when `models` holds `session`, for that
  * token too: a press prices its rungs by the platform and `status` says
  * where an alias rung is unpriced.
@@ -147,7 +158,7 @@ export async function resolveChainWithPlatform(
   $: EngineInterface,
   cfg: Config,
 ): Promise<ResolvedChain> {
-  const sessionModel = await $.session.model();
+  const sessionModel = await sessMod($);
   return {
     chain: await ledByStored($, withSessionModel(cfg, sessionModel)),
     platform: platformOf(sessionModel),
@@ -162,10 +173,11 @@ async function readDocuments(
   const docs = await Promise.all(
     files.map(async (file): Promise<Document | undefined> => {
       try {
-        const text = await $.fs.read(file.path);
+        const text = await fsRead($, file.path);
         return { path: file.path, text: capText(text, maxChars) };
       } catch (err) {
-        $.ui.log(
+        log(
+          $,
           `prompt-lift: could not read ${file.path}: ${errorMessage(err)}`,
           { to: "debug" },
         );
@@ -181,12 +193,12 @@ async function listRootDirs(
   root: string,
 ): Promise<string[]> {
   try {
-    const entries = await $.fs.list(root);
+    const entries = await fsList($, root);
     return entries
       .filter((entry) => entry.kind === "dir")
       .map((entry) => entry.name);
   } catch (err) {
-    $.ui.log(`prompt-lift: could not list ${root}: ${errorMessage(err)}`, {
+    log($, `prompt-lift: could not list ${root}: ${errorMessage(err)}`, {
       to: "debug",
     });
     return [];
@@ -211,19 +223,19 @@ async function readSubproject(
   // neither probed nor read; the block then shows no subproject section, as
   // for an absent file.
   if (isExcluded(path, patterns, homes)) {
-    $.ui.log(`prompt-lift: subproject ${path} left out by instructionExclude`, {
+    log($, `prompt-lift: subproject ${path} left out by instructionExclude`, {
       to: "debug",
     });
     return undefined;
   }
   try {
-    if (!(await $.fs.exists(path))) {
+    if (!(await fsHas($, path))) {
       return undefined;
     }
-    const text = await $.fs.read(path);
+    const text = await fsRead($, path);
     return { path, text: capText(text, SUBPROJECT_MAX_CHARS) };
   } catch (err) {
-    $.ui.log(`prompt-lift: subproject lookup failed: ${errorMessage(err)}`, {
+    log($, `prompt-lift: subproject lookup failed: ${errorMessage(err)}`, {
       to: "debug",
     });
     return undefined;
@@ -236,7 +248,7 @@ export async function gatherContext(
   draft: string,
   rows: readonly SessionMessage[],
 ): Promise<Gathered> {
-  const usage = await $.session.usage({ breakdown: "summary" });
+  const usage = await usageOf($, { breakdown: "summary" });
   const breakdown = usage.context.breakdown;
   const homes = await homeSpellings($);
   const files = selectInstructionFiles(
@@ -249,12 +261,12 @@ export async function gatherContext(
     breakdown?.skills?.skillFrontmatter ?? [],
     cfg,
   );
-  const commands: CommandEntry[] = (await $.command.list()).map((c) => ({
+  const commands: CommandEntry[] = (await cmds($)).map((c) => ({
     name: c.name,
     description: c.description,
     source: c.source,
   }));
-  const root = await $.session.root();
+  const root = await rootDir($);
   const rootDirs = await listRootDirs($, root);
   const subproject = await readSubproject(
     $,
@@ -303,7 +315,7 @@ export async function namedPathsExist(
   );
   const found = await Promise.all(
     fresh.map((token) =>
-      $.fs.exists(token.startsWith("/") ? token : `${a.root}/${token}`),
+      fsHas($, token.startsWith("/") ? token : `${a.root}/${token}`),
     ),
   );
   return found.every((exists) => exists);

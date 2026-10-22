@@ -1,6 +1,7 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, StateValue } from "claude-code";
 import type { Verdict } from "../types";
+import { ask, epochMs, fillBox, history, log, notify, readBox } from "./api";
 import type { Config, Platform } from "./config";
 import { SYSTEM } from "./rules";
 import { postProcess, preGuard, type PostOk } from "./guards";
@@ -96,7 +97,7 @@ export async function enhance(
   source: EnhanceSource,
 ): Promise<void> {
   if (busy) {
-    $.ui.toast(TOAST_BUSY);
+    notify($, TOAST_BUSY);
     return;
   }
   busy = true;
@@ -117,14 +118,12 @@ export async function enhance(
       toast,
       cost === undefined ? undefined : (cost.usd ?? null),
     );
-    $.ui.toast(
-      cost === undefined ? capToast(toast) : withCost(toast, cost.usd),
-    );
+    notify($, cost === undefined ? capToast(toast) : withCost(toast, cost.usd));
   };
   try {
     // The press's first clock read (R25): the record times the press from it
     // with one more read, no ticks
-    const pressedAt = await $.clock.now();
+    const pressedAt = await epochMs($);
     before = await read($, phase);
     const myId = await update($, requestId, (n) => n + 1);
     // A new press ends the last press's verdict (R25)
@@ -132,7 +131,7 @@ export async function enhance(
     // A same-value write (over a stale `running`) still redraws the band
     await update($, phase, () => "running");
     const draft = await readDraft($, source);
-    const rows = await $.session.messages();
+    const rows = await history($);
     const guard = preGuard(draft, cfg, lastAssistantText(rows));
     if (!guard.ok) {
       stop("refused", guard.toast);
@@ -216,8 +215,8 @@ export async function enhance(
       toast,
       unrecorded === undefined ? undefined : (unrecorded.usd ?? null),
     );
-    $.ui.toast(toast);
-    $.ui.log(`prompt-lift: enhance failed: ${String(err)}`, { to: "debug" });
+    notify($, toast);
+    log($, `prompt-lift: enhance failed: ${String(err)}`, { to: "debug" });
   } finally {
     // In flight until the phase has settled: a command in that window must
     // not reset this press's phase, and a press then is rightly told "busy".
@@ -238,7 +237,7 @@ export async function readDraft(
   $: DraftReader,
   source: EnhanceSource,
 ): Promise<string> {
-  return source.kind === "box" ? (await $.prompt.read()).text : source.text;
+  return source.kind === "box" ? (await readBox($)).text : source.text;
 }
 
 /**
@@ -266,7 +265,7 @@ async function callChain(
 ): Promise<ChainOk | ChainFail> {
   await update($, model, () => chain[0] ?? "");
   return runChain({
-    complete: (req, o) => $.model.complete(req, o),
+    complete: (req, o) => ask($, req, o),
     chain,
     cfg,
     system: SYSTEM,
@@ -285,7 +284,7 @@ function noteRunningModel($: EngineInterface, id: string): void {
   pendingNote = update($, runningModel, () => id)
     .then(() => undefined)
     .catch((err: unknown) => {
-      $.ui.log(`prompt-lift: runningModel: ${errorMessage(err)}`, {
+      log($, `prompt-lift: runningModel: ${errorMessage(err)}`, {
         to: "debug",
       });
     });
@@ -314,7 +313,7 @@ async function reportFailure(
   }
   const trail = run.attempts.map(describeAttempt).join(" → ");
   stop("failed", `prompt-lift: no model answered · ${trail}`, { usd });
-  $.ui.log(`prompt-lift: enhance failed: ${trail}`);
+  log($, `prompt-lift: enhance failed: ${trail}`);
 }
 
 /** Steps 7 and 8: path guard, stale check, box re-read, fill. */
@@ -346,11 +345,11 @@ async function verifyAndFill(
   if ((await read($, requestId)) !== a.myId) {
     return undefined;
   }
-  if ((await $.prompt.read()).text !== expectedBoxText(a.source, a.draft)) {
+  if ((await readBox($)).text !== expectedBoxText(a.source, a.draft)) {
     a.stop("refused", TOAST_DRAFT_CHANGED, { usd: a.usd });
     return undefined;
   }
-  const filled = await $.prompt.fill({
+  const filled = await fillBox($, {
     text: a.post.text,
     mode: "replace",
     decorations: a.post.decorations,
@@ -384,14 +383,14 @@ async function settle(
       await update($, phase, () => (before === "done" ? "done" : "idle"));
     }
   } catch (err) {
-    $.ui.log(`prompt-lift: could not reset the phase: ${errorMessage(err)}`, {
+    log($, `prompt-lift: could not reset the phase: ${errorMessage(err)}`, {
       to: "debug",
     });
   }
   try {
     await update($, runningModel, () => "");
   } catch (err) {
-    $.ui.log(`prompt-lift: could not clear the rung: ${errorMessage(err)}`, {
+    log($, `prompt-lift: could not clear the rung: ${errorMessage(err)}`, {
       to: "debug",
     });
   }

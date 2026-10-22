@@ -1,6 +1,7 @@
 import { atom, read, update } from "claude-code";
 import type { EngineInterface } from "claude-code";
 import type { Verdict } from "../types";
+import { log } from "./api";
 import { capToast } from "./chain";
 import { errorMessage } from "./gather";
 
@@ -77,7 +78,7 @@ export async function keepVerdict(
   try {
     await update($, lastVerdict, () => verdict);
   } catch (err) {
-    $.ui.log(`prompt-lift: could not keep the verdict: ${errorMessage(err)}`, {
+    log($, `prompt-lift: could not keep the verdict: ${errorMessage(err)}`, {
       to: "debug",
     });
   }
@@ -95,7 +96,7 @@ export async function clearVerdict($: EngineInterface): Promise<void> {
       await update($, lastVerdict, () => null);
     }
   } catch (err) {
-    $.ui.log(`prompt-lift: could not clear the verdict: ${errorMessage(err)}`, {
+    log($, `prompt-lift: could not clear the verdict: ${errorMessage(err)}`, {
       to: "debug",
     });
   }
