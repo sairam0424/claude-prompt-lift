@@ -147,7 +147,7 @@ Settings live in `/config` under `pluginConfigs` → `prompt-lift@claude-prompt-
 | `includeConversation` | boolean | false | Include recent conversation history |
 | `conversationMessages` | number | 6 | Number of recent messages to include |
 | `skillPrefixAllow` | string | `""` | Skills allowed as a leading `/name` under `run` (empty for none) |
-| `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Instruction files to leave out (globs, `~` expands; also applies to a named subproject's `CLAUDE.md`) |
+| `instructionExclude` | string | `~/.claude/CLAUDE.md,~/CLAUDE.md` | Instruction files to leave out (globs compared with the real paths the engine reports; `~/` expands under both spellings of HOME; an absolute pattern through a symlink, such as `/tmp/u/CLAUDE.md` for `/private/tmp/u/CLAUDE.md`, is not resolved, so write the real path; also applies to a named subproject's `CLAUDE.md`) |
 | `skillExclude` | string | `""` | Skill name patterns left out of the listing (`*` and `?` wildcards); empty sends every skill Claude lists |
 | `extraRules` | string | `""` | Project preferences appended to the rewrite rules as rule 11 (max 1,000 characters; tag-like markup is neutralised). See Extra rules |
 | `prices` | string | | A JSON **string** (quoted and escaped, not a bare object) mapping a model id fragment to per-1M-token prices, merged over the built-in table; invalid JSON or a malformed entry is ignored with a log line. See Cost for the exact form |
