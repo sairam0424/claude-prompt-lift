@@ -1,5 +1,8 @@
 # prompt-lift
 
+[![reach](https://raw.githubusercontent.com/karanb192/awesome-claude-code-mods/main/badges/sairam0424--claude-prompt-lift--prompt-lift-reach.svg)](https://mods.aidojo.si/mods/sairam0424--claude-prompt-lift--prompt-lift/)
+[![validates](https://raw.githubusercontent.com/karanb192/awesome-claude-code-mods/main/badges/sairam0424--claude-prompt-lift--prompt-lift-validates.svg)](https://mods.aidojo.si/mods/sairam0424--claude-prompt-lift--prompt-lift/)
+
 A Claude Code mod that turns a vague prompt into a specific one before you send it. One press, one model call, rewritten from the `CLAUDE.md` and rules files your session loaded; the inserted words are highlighted in the prompt box, the cost sits on the band, and nothing is sent until you press Send.
 
 ![prompt-lift demo: Enhance rewrites the draft, Undo and Redo swap it back, /prompt-lift status shows the chain](docs/demo.gif)
@@ -17,6 +20,8 @@ The band row sits above the prompt and shows where the last press stands: `Enhan
 Claude Code asks `y` to add the marketplace, then a scope (`user` makes it available in every project). From a shell: `claude plugin marketplace add sairam0424/claude-prompt-lift && claude plugin install prompt-lift@claude-prompt-lift`. From a clone, add the folder as the marketplace instead; the plugin is read live, so edits show up after `/reload-plugins`.
 
 First run: `/reload-plugins`, then `/prompt-lift probe` (one line per model; `ok` means your account can call it). If a model shows `refused`, set `models` to the rungs you have (see Configuration).
+
+prompt-lift is also listed in the [Awesome Claude Code Mods catalogue](https://mods.aidojo.si/mods/sairam0424--claude-prompt-lift--prompt-lift/). The two badges at the top come from that page: the access report its scan recorded and the Claude Code version it validated on.
 
 ## Using it
 

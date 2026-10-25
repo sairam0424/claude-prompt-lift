@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- The README links the mod's listing in the Awesome Claude Code Mods catalogue (seed PR merged 2026-10-25) and shows the two badges the catalogue serves for it: the access report its scan recorded and the Claude Code version it validated on.
+
 ## [0.6.1] - 2026-10-22
 
 ### Fixed
