@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-prompt-lift is a Claude Code mod: an in-process TypeScript hooks module, not a Node app. `hooks/hooks.json` points at `hooks/register.tsx`, which registers the hooks and the `/prompt-lift` command. An Enhance press runs `enhance.ts`: `gather.ts` and `context.ts` read the session, `prepare.ts` builds a cached static block and a dynamic block, `chain.ts` calls the model rungs with fallback, `preguard.ts` and `guards.ts` refuse or post-check, and `record.ts` keeps the pair Undo restores. `band.tsx` draws the one-row band from `band-row.tsx`. Spend lives in `ledger.ts`, `stats.ts` and `caps.ts`, and `types/index.d.ts` declares the state keys.
+prompt-lift is a Claude Code mod: an in-process TypeScript hooks module, not a Node app. `hooks/hooks.json` points at `hooks/register.tsx`, which registers the hooks and the `/prompt-lift` command. An Enhance press runs `enhance.ts`: `gather.ts` and `context.ts` read the session, `prepare.ts` builds a cached static block and a dynamic block (a lens from `lens.ts`, such as Deeper, adds its words to the dynamic block only), `chain.ts` calls the model rungs with fallback, `preguard.ts` and `guards.ts` refuse or post-check, and `record.ts` keeps the pair Undo restores. `band.tsx` draws the one-row band from `band-row.tsx`. Spend lives in `ledger.ts`, `stats.ts` and `caps.ts`, and `types/index.d.ts` declares the state keys.
 
 Engine calls go through a wrapper in `hooks/api.ts` (only `register.tsx` keeps two of its own); otherwise the validator's access report is cut (see `docs/DEVELOPMENT.md`). There are no timers: the band redraws on state writes. `evals/` holds three eval cases; `scripts/` the demo recorder and the gates.
 

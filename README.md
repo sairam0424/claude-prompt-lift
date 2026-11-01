@@ -9,7 +9,7 @@ A Claude Code mod that turns a vague prompt into a specific one before you send 
 
 <sub>Full film with sound: <a href="https://github.com/sairam0424/claude-prompt-lift/releases/download/v0.4.0/prompt-lift-0.4.0-launch.mp4">MP4 on the v0.4.0 release</a>.</sub>
 
-The band row sits above the prompt and shows where the last press stands: `Enhance (e)` when idle, `Cancel (c)` while a call runs, then `Send (s)` and `Undo (u)` (`Redo (u)` after an Undo) beside the result's cost (see The band, under Using it). Nothing runs while idle: no timers, no per-keystroke hooks.
+The band row sits above the prompt and shows where the last press stands: `Enhance (e)` and `Deeper (d)` when idle, `Cancel (c)` while a call runs, then `Send (s)` and `Undo (u)` (`Redo (u)` after an Undo) beside the result's cost (see The band, under Using it). Nothing runs while idle: no timers, no per-keystroke hooks.
 
 ## Install
 
@@ -30,23 +30,26 @@ Three ways to press Enhance:
 - `ctrl+x tab` to focus the band, then `e`
 - `/prompt-lift <your text>`
 
+**Deeper (experimental).** A second way to press Enhance, with the same single model call and the same cached block. It asks the model to name what the draft leaves out: its goal, a check of the result that does not rest on Claude's own judgement, and the assumptions it leaves unsaid, in at most two added sentences and without making the task bigger. Click `Deeper (d)` in the band (`ctrl+x tab`, then `d`) or type `/prompt-lift deeper <your text>`. A draft with nothing missing is left as is (`nothing deeper to add, left as is`). The same guards as Enhance apply to what comes back, the result is Undone the same way, and the headline says `Deepened`. It is an experiment and may change or be removed.
+
 **Send vs Enter.** Both send what is in the box. Send refuses drafts with `@file` mentions or pasted images (`press Enter to send; @files and images only travel with Enter`) because a plugin-submitted prompt does not expand them.
 
 **Undo.** The original is kept until you submit or `/clear`. Undo acts only when the box still holds the enhanced text (or is empty); otherwise it asks for a second press within 10 s. Undo is two-way (Redo).
 
 ### The band
 
-The row leads with a headline (one glyph and a state word, in bold), then the Buttons, then the details in dim text. Every width below is the band's own: the terminal's width less the engine's margin of about five cells, or the transcript column beside a docked pane. These are the rows as the mod draws them at a width that fits them (the done row needs about 150 columns whole; a narrower band cuts its details from the right), on a chain pinned to full model ids (an alias chain on Bedrock or Vertex is unpriced, so the dollars read `$? · (no price)`; see Cost):
+The row leads with a headline (one glyph and a state word, in bold), then the Buttons, then the details in dim text. Every width below is the band's own: the terminal's width less the engine's margin of about five cells, or the transcript column beside a docked pane. These are the rows as the mod draws them at a width that fits them (the done row needs about 160 columns whole; a narrower band cuts its details from the right), on a chain pinned to full model ids (an alias chain on Bedrock or Vertex is unpriced, so the dollars read `$? · (no price)`; see Cost):
 
 | State | Row |
 |-------|-----|
-| Idle | `↥ Ready [ Enhance (e) ] ctrl+x b · or ctrl+x tab, e · prompt-lift: fable 5.1` |
+| Idle | `↥ Ready [ Enhance (e) ] [ Deeper (d) ] ctrl+x b · or ctrl+x tab, e · prompt-lift: fable 5.1` |
 | Enhancing | `↻ Enhancing 1 of 3 [ Cancel (c) ] fable 5.1 › sonnet 5.5 › haiku 5.5` |
-| Done | `✓ Enhanced $0.03 [ Enhance (e) ] [ Send (s) ] [ Undo (u) ] fable 5.1 · 1 of 3 · 2.3s · 6.8k cached · 1.4k in · 310 out · +12 words · 1 skill` |
-| Kept as is, after a call | `✗ Kept as is [ Enhance (e) ] already specific, left as is · $0.03` |
-| Kept as is, before any call | `✗ Kept as is [ Enhance (e) ] session cap $0.10 reached · /prompt-lift cap off` |
-| Undo on a box you edited | `↶ Undo? [ Enhance (e) ] [ Send (s) ] [ Undo (u) ] box edited since Enhance · press Undo again to discard it` |
-| Undone | `↶ Restored [ Enhance (e) ] [ Send (s) ] [ Redo (u) ] restored your draft` |
+| Done | `✓ Enhanced $0.03 [ Enhance (e) ] [ Deeper (d) ] [ Send (s) ] [ Undo (u) ] fable 5.1 · 1 of 3 · 2.3s · 6.8k cached · 1.4k in · 310 out · +12 words · 1 skill` |
+| Done, after Deeper | `✓ Deepened $0.03 [ Enhance (e) ] [ Deeper (d) ] [ Send (s) ] [ Undo (u) ] fable 5.1 · 1 of 3 · 2.3s · …` |
+| Kept as is, after a call | `✗ Kept as is [ Enhance (e) ] [ Deeper (d) ] already specific, left as is · $0.03` |
+| Kept as is, before any call | `✗ Kept as is [ Enhance (e) ] [ Deeper (d) ] session cap $0.10 reached · /prompt-lift cap off` |
+| Undo on a box you edited | `↶ Undo? [ Enhance (e) ] [ Deeper (d) ] [ Send (s) ] [ Undo (u) ] box edited since Enhance · press Undo again to discard it` |
+| Undone | `↶ Restored [ Enhance (e) ] [ Deeper (d) ] [ Send (s) ] [ Redo (u) ] restored your draft` |
 
 **Glyph and colour.** One glyph per state, one cell wide and never an emoji: `↥` ready, `↻` enhancing, `✓` enhanced, `↶` restored or undo, `✗` kept as is, failed or cancelled. The glyph and its word take a key from your theme (`claude` for `Ready`, `success` for `Enhanced`, `error` for `Failed`, `warning` for the rest), never a fixed colour, so they follow a light or dark theme; the primary Button is the state's main action (Enhance when idle, Cancel while enhancing, Send once there is a result).
 
@@ -54,11 +57,12 @@ The row leads with a headline (one glyph and a state word, in bold), then the Bu
 
 **Kept as is, failed, cancelled.** A press that ends without a rewrite leaves its reason in the row, under `✗ Kept as is`, `✗ Failed` or `✗ Cancelled`, until your next action: a press, Enter, any `/prompt-lift` command, a new session or the Undo button. Nothing times it out, and the toast appears as before. The reason ends with what the press cost only when it called a model: `$0.03` for a priced call, `$0.000` for one that cost nothing, `$? · (no price)` for a model without a price; a press that stopped before any call (a guard, a spend cap, no models configured) shows its reason alone. The Buttons stay the phase's own, so a refusal after a result keeps Send and Undo.
 
-**Width.** The row stays on one line and narrows from the least needed part: under 100 columns the idle row drops its key hint (`ctrl+x b · or ctrl+x tab, e`); under 80 the done row drops the elapsed time and the three token figures, and the strip shows the running rung alone, as it does at any width where the rungs' names would not fit beside the headline and Cancel (full model ids are long); under 60 the headline keeps its glyph and drops its word (`↻ 2/3`, `✓ $0.03`). What still does not fit is cut at the end of the details; the headline is never cut.
+**Width.** The row stays on one line and narrows from the least needed part: under 100 columns the idle row drops its key hint (`ctrl+x b · or ctrl+x tab, e`); under 80 the done row drops the elapsed time and the three token figures, and the strip shows the running rung alone, as it does at any width where the rungs' names would not fit beside the headline and Cancel (full model ids are long); under 100 the `Deeper` Button drops its `(d)` (the hotkey still works); under 80 the done family (done, restored, `Undo?`, a refusal after a result) leaves Deeper out, because the engine clips a row that is too wide at its right edge and that edge holds Send and Undo (the idle row keeps Deeper at every width, and `/prompt-lift deeper <text>` always works); under 60 the headline keeps its glyph and drops its word (`↻ 2/3`, `✓ $0.03`). What still does not fit is cut at the end of the details; the headline is never cut.
 
 ### Commands
 
 - `/prompt-lift <text>` — enhance the text
+- `/prompt-lift deeper <text>` — the same press through the Deeper lens (experimental); `deeper` alone prints how to give it text
 - `/prompt-lift undo` — restore the original draft
 - `/prompt-lift model <id|alias|reset>` — put a model first for this machine (`sonnet`, `haiku`, a full id) or `reset` to the configured chain
 - `/prompt-lift cap <usd|off>` — cap this session's spend at `<usd>` (`off` lifts it); `cap` alone prints the caps. See Spend caps under Cost
@@ -68,11 +72,11 @@ The row leads with a headline (one glyph and a state word, in bold), then the Bu
 - `/prompt-lift diff` — word-level diff of the last enhancement
 - `/prompt-lift probe` — one tiny call per model in the chain, reporting `ok` or the refusal
 
-A sub-word is recognised only when it is the whole argument (any case): `/prompt-lift diff the two configs and explain` is a draft to enhance, not the diff. `model`, `cap` and `tail` take exactly one token; `model the auth flow as a state machine` is a draft too. `preview` takes the rest as the draft, so a draft that itself begins with the word `preview` can never be enhanced through the command: start it another way or use the button.
+A sub-word is recognised only when it is the whole argument (any case): `/prompt-lift diff the two configs and explain` is a draft to enhance, not the diff. `model`, `cap` and `tail` take exactly one token; `model the auth flow as a state machine` is a draft too. `preview` and `deeper` take the rest as the draft, so a draft that itself begins with the word `preview` or `deeper` can never be enhanced through the command: start it another way or use the button.
 
 ### Keyboard
 
-The band buttons take hotkeys only while the band has focus. Press `ctrl+x tab` to focus the band, then `e` for Enhance, `s` for Send, `u` for Undo, or `c` for Cancel.
+The band buttons take hotkeys only while the band has focus. Press `ctrl+x tab` to focus the band, then `e` for Enhance, `d` for Deeper, `s` for Send, `u` for Undo, or `c` for Cancel. Only Enhance has a chord from the prompt (below).
 
 From the prompt (without focusing the band first), `ctrl+x b` presses Enhance because the Enhance button carries the engine action `app:cycleDiffBase`. This chord works while the diff panel is closed; with the panel open, it cycles the diff base as the action normally does.
 
@@ -98,6 +102,7 @@ The recent conversation is excluded by default (`includeConversation: false`). `
 Outbound data leaves this machine only through `$.model.complete`, called with your own Claude Code model access (Bedrock, API key, or subscription, whichever the session uses). The call carries:
 
 - Your draft
+- With Deeper, its own fixed instruction (about 700 characters, in the uncached part); Enhance sends none
 - The instruction files the session loaded: Project, Local, Managed, and `~/.claude/rules/*`. Not the auto-memory index. Not `~/.claude/CLAUDE.md` or `~/CLAUDE.md` by default, as long as the mod can match them to HOME: when HOME is reached through a symlink, the engine must be able to resolve it (see `$.fs.stat` below); if it cannot, `/prompt-lift status` says so in a `home:` row and those two files may be sent.
 - The skill names Claude lists (minus `skillExclude`)
 - Up to eight matched skill descriptions

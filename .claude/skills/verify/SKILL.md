@@ -18,7 +18,7 @@ The mod's surface is the Claude Code prompt band. `claude plugin test` is CI; th
 
 ## Drive
 
-- Idle band: `[ Enhance (e) ] ctrl+x b · or ctrl+x tab, e · prompt-lift: <model>`.
+- Idle band: `[ Enhance (e) ] [ Deeper (d) ] ctrl+x b · or ctrl+x tab, e · prompt-lift: <model>`. Deeper (experimental) is `C-x Tab` then `d`, or `/prompt-lift deeper <draft>`; its result's headline says `Deepened`.
 - Type a draft (no Enter), send `C-x b` → `[ Cancel (c) ] Enhancing with …` → ~10 s → done row with cost and the filled box.
 - Band hotkeys need band focus: `C-x Tab` then `u` (Undo/Redo) or `s` (Send).
 - Command path without the band: `/prompt-lift <draft>`, `/prompt-lift undo|status|probe`.
