@@ -8,6 +8,7 @@ import {
   matchSkills,
 } from "./context";
 import { basename, gatherContext } from "./gather";
+import { ENHANCE_LENS, type Lens } from "./lens";
 
 // Step 4 of the Enhance flow (spec §5.3): the two prompt blocks a press sends
 // (§6.1 static, §6.2 dynamic), built from what gatherContext read, together
@@ -32,6 +33,7 @@ export async function prepare(
   cfg: Config,
   draft: string,
   rows: readonly SessionMessage[],
+  lens: Lens = ENHANCE_LENS,
 ): Promise<Prepared> {
   const ctx = await gatherContext($, cfg, draft, rows);
   const knownSkills = knownSkillSet(ctx, cfg.skillExclude);
@@ -48,11 +50,14 @@ export async function prepare(
     new Set(ctx.skillNames),
     cfg.relevantSkills,
   );
+  // The lens joins block 1 only: block 0 is the same for every lens, so the
+  // cache hits and the hash holds whichever Button was pressed
   const dynamicBlock = buildDynamicBlock({
     relevant,
     subproject: ctx.subproject,
     conversation: ctx.conversation,
     draft,
+    lens: lens.text,
   });
   return {
     root: ctx.root,

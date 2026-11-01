@@ -110,7 +110,7 @@ test("done row names an unpriced model in full and leaves $? to the headline (R3
 // --- the drawing ---
 
 test(
-  "idle band shows Enhance only and keeps the lower drawing",
+  "idle band shows Enhance and Deeper and keeps the lower drawing",
   { options: BEDROCK },
   async ($, on) => {
     const e = engine(on);
@@ -118,7 +118,7 @@ test(
     const ui = await mount($);
 
     const found = await ui.findAll({ type: "Button" });
-    expect(found.map((b) => b.key)).toEqual(["enhance"]);
+    expect(found.map((b) => b.key)).toEqual(["enhance", "deeper"]);
     expect(found[0]?.props.label).toBe("Enhance (e)");
     expect(found[0]?.props.hotkey).toBe("e");
     expect(found[0]?.props.action).toBe("app:cycleDiffBase");
@@ -182,7 +182,7 @@ test(
 
     expect(e.box.text).toBe(BETTER);
     expect(e.calls).toHaveLength(1);
-    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
     expect(await label(ui, "send")).toBe("Send (s)");
     expect(await label(ui, "undo")).toBe("Undo (u)");
     expect((await ui.find({ key: "send" }))?.props.hotkey).toBe("s");
@@ -223,7 +223,7 @@ test("the button path leaves a box that changed while enhancing", async ($, on) 
   expect(e.fills).toHaveLength(0);
   expect(e.box.text).toBe(`${DRAFT} and the logout path`);
   expect(e.toasts).toEqual([DRAFT_CHANGED]);
-  expect(await keys(ui)).toEqual(["enhance"]);
+  expect(await keys(ui)).toEqual(["enhance", "deeper"]);
 });
 
 test("two Enhance presses in one tick make one call", async ($, on) => {
@@ -253,7 +253,7 @@ test("Send submits the enhanced text as the user and clears the box", async ($, 
   expect(e.submits[0]?.text).toBe(BETTER);
   expect(e.submits[0]?.asUser).toBe(true);
   expect(e.box.text).toBe("");
-  expect(await keys(ui)).toEqual(["enhance"]);
+  expect(await keys(ui)).toEqual(["enhance", "deeper"]);
 });
 
 test("Send refuses a box with an @file", async ($, on) => {
@@ -267,7 +267,7 @@ test("Send refuses a box with an @file", async ($, on) => {
 
   expect(e.submits).toHaveLength(0);
   expect(e.toasts.at(-1)).toBe(ENTER_TOAST);
-  expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+  expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
 });
 
 test(
@@ -293,7 +293,7 @@ test(
     expect(e.fills).toHaveLength(0);
     expect(e.box.text).toBe(DRAFT);
     expect(e.toasts).toEqual([CANCELLED]);
-    expect(await keys(ui)).toEqual(["enhance"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper"]);
   },
 );
 
@@ -377,7 +377,7 @@ test(
 
     const ui = await mount($);
 
-    expect(await keys(ui)).toEqual(["enhance"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper"]);
     expect(await rowText(ui)).toBe(idleRowText(FABLE));
     expect(e.calls).toHaveLength(0);
   },

@@ -16,7 +16,9 @@ import {
   lastAssistantText,
 } from "./gather";
 import {
-  capPreviewBlock,
+  capPreviewBlockKeepingLens,
+  lensUsage,
+  parseLensArg,
   parseModelArg,
   parseTailArg,
   parsePreviewArg,
@@ -136,6 +138,17 @@ export async function runCommand(
   const previewArg = parsePreviewArg(args);
   if (previewArg.kind !== "prose") {
     return runPreview($, cfg, previewArg);
+  }
+
+  // A lens word (`deeper`) is the first word with text after it, as `preview`
+  // is; the word alone asks for the text, anywhere else it is part of a draft
+  const lensArg = parseLensArg(args);
+  if (lensArg.kind === "usage") {
+    return { text: lensUsage(lensArg.lens) };
+  }
+  if (lensArg.kind === "run") {
+    await enhance($, cfg, { kind: "args", text: lensArg.draft }, lensArg.lens);
+    return {};
   }
 
   switch (args.toLowerCase()) {
@@ -316,8 +329,11 @@ async function runPreview(
     };
   }
 
-  // arg.kind === "show"
-  const draft = arg.draft;
+  // arg.kind === "show". `preview deeper <draft>` previews that lens's press:
+  // the draft without the word, and the lens's words after it
+  const lensArg = parseLensArg(arg.draft);
+  const lens = lensArg.kind === "run" ? lensArg.lens : undefined;
+  const draft = lensArg.kind === "run" ? lensArg.draft : arg.draft;
   const rows = await history($);
 
   // Run the same preGuard as enhance does
@@ -327,7 +343,7 @@ async function runPreview(
   }
 
   // Gather context and prepare exactly as a press would
-  const prepared = await prepare($, cfg, draft, rows);
+  const prepared = await prepare($, cfg, draft, rows, lens);
 
   // Format the output: the dynamic block (cut: this row joins the transcript),
   // then the static block's size and hash
@@ -336,7 +352,7 @@ async function runPreview(
 
   const output = [
     "--- dynamic block (sent uncached) ---",
-    capPreviewBlock(prepared.dynamicBlock),
+    capPreviewBlockKeepingLens(prepared.dynamicBlock, lens?.text ?? ""),
     "",
     `--- static block: ${chars} chars · hash ${hash} ---`,
   ].join("\n");

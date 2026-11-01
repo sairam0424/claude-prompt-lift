@@ -1,5 +1,9 @@
 import type { Config } from "./config";
+import { neutralizeTags } from "./envelope";
 import { examplesText } from "./rules";
+
+// Re-exported: tests and callers have always imported it from here.
+export { neutralizeTags };
 
 export type MemoryFile = {
   path: string;
@@ -143,45 +147,6 @@ export function sanitizeDescription(d: string): string | undefined {
   return d.slice(0, 160);
 }
 
-// Envelope tag names to neutralize
-const ENVELOPE_TAGS = [
-  "enhancer_rules",
-  "examples",
-  "example",
-  "draft",
-  "answer",
-  "project",
-  "documents",
-  "document",
-  "source",
-  "document_content",
-  "skill_names",
-  "relevant_skills",
-  "subproject_instructions",
-  "recent_conversation",
-];
-
-// Precompiled regexes for tag neutralization
-const tagPattern = ENVELOPE_TAGS.join("|");
-const CLOSE_TAG_RE = new RegExp(`</\\s*(${tagPattern})(\\s*)>`, "gi");
-const OPEN_TAG_RE = new RegExp(`<(${tagPattern})((?:\\s[^>]*)?)>`, "gi");
-
-export function neutralizeTags(text: string): string {
-  // Neutralize closing tags first: </name> → <\/name>
-  // Capture tag name and trailing whitespace separately to preserve trailing space
-  let result = text.replace(CLOSE_TAG_RE, (match, tagName, trailingWS) => {
-    return `<\\/${tagName}${trailingWS}>`;
-  });
-
-  // Then neutralize opening tags: <name> or <name attrs> → <\name> or <\name attrs>
-  // Capture tag name and any attributes separately to preserve them
-  result = result.replace(OPEN_TAG_RE, (match, tagName, attrs) => {
-    return `<\\${tagName}${attrs}>`;
-  });
-
-  return result;
-}
-
 export function matchSkills(
   draft: string,
   commands: readonly CommandEntry[],
@@ -323,6 +288,8 @@ export function buildDynamicBlock(a: {
   subproject?: { path: string; text: string };
   conversation?: readonly string[];
   draft: string;
+  /** A lens's own words (hooks/lens.ts): plain prose after the draft. */
+  lens?: string;
 }): string {
   let block = "";
 
@@ -365,7 +332,13 @@ export function buildDynamicBlock(a: {
   // 4. Draft
   block += `<draft>${neutralizeTags(a.draft)}</draft>\n\n`;
 
-  // 5. Final instruction
+  // 5. The lens's words (only if given): plain prose, never inside the draft's
+  // envelope; the lens is the plugin's own constant, so nothing to neutralise
+  if (a.lens !== undefined && a.lens !== "") {
+    block += `${a.lens}\n\n`;
+  }
+
+  // 6. Final instruction
   block += "Answer with the JSON object described in the rules.";
 
   return block;

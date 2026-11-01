@@ -161,7 +161,7 @@ test(
     await widen(ui, 50);
     expect(await detailsText(ui)).toBe("prompt-lift: fable 5.1");
     expect(await headlineText(ui)).toBe("↥");
-    expect(await keys(ui)).toEqual(["enhance"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper"]);
   },
 );
 

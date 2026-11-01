@@ -32,7 +32,7 @@ test("Send is the next action: it clears the verdict a refusal left", async ($, 
   e.box.text = COMMAND_LINE;
   await ui.press({ key: "enhance" });
   expect(await headlineText(ui)).toBe("✗ Kept as is");
-  expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+  expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
   // the box shows the enhanced text again, which Send can take
   e.box.text = BETTER;
 
@@ -44,7 +44,7 @@ test("Send is the next action: it clears the verdict a refusal left", async ($, 
     null,
   ]);
   expect(await headlineText(ui)).toBe("↥ Ready");
-  expect(await keys(ui)).toEqual(["enhance"]);
+  expect(await keys(ui)).toEqual(["enhance", "deeper"]);
 });
 
 test("a /clear (session.end with reason clear) clears the verdict", async ($, on) => {

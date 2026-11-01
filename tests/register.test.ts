@@ -57,6 +57,7 @@ test("the slash menu hint lists every sub-word, tail and preview included", asyn
   expect(hints).toHaveLength(1);
   const hint = hints[0] ?? "";
   for (const word of [
+    "deeper <text>",
     "undo",
     "model <id>",
     "cap <usd|off>",

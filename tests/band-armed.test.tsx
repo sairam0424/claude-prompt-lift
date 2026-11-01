@@ -82,7 +82,7 @@ test(
     expect(head?.props.bold).toBe(true);
     expect(await detailsText(ui)).toBe(ARMED_DETAILS);
     // the done Buttons stay: a second Undo is what the marker asks for
-    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
     expect(await variantOf(ui, "send")).toBe("primary");
   },
 );
@@ -100,7 +100,7 @@ test(
 
     expect(e.box.text).toBe(DRAFT);
     expect(await headlineText(ui)).toBe("↶ Restored");
-    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
   },
 );
 
@@ -119,7 +119,7 @@ test(
     await ui.redraw();
 
     expect(await headlineText(ui)).toBe(DONE);
-    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
     // the window is closed for the Undo press too: it arms again
     await ui.press({ key: "undo" });
     expect(e.box.text).toBe(EDITED);
@@ -206,7 +206,7 @@ test(
     // the disarm asks for its own redraw, since nothing else will
     expect(redraws).toEqual(["ui.render", "ui.render"]);
     expect(await headlineText(ui)).toBe(DONE);
-    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
   },
 );
 

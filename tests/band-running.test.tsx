@@ -174,7 +174,7 @@ test(
     await ui.drawn();
 
     expect(e.calls).toHaveLength(2);
-    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
     expect(SONNET_COST).toMatch(/^\$0\.0\d\d?$/);
     expect(await headlineText(ui)).toBe(`✓ Enhanced ${SONNET_COST}`);
     const done = await detailsText(ui);

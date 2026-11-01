@@ -10,14 +10,17 @@ import { resolveChain, resolveChainWithPlatform } from "./gather";
 import { leftText, readCapStatus } from "./caps";
 import { readTailCount } from "./tail";
 import type { BandState, Face, Strip, StripRung } from "./band-row";
+import { LENSES, lensById, type Lens } from "./lens";
 import {
   CANCEL_LABEL,
   RUNG_SEPARATOR,
+  buttonLabel,
   colorOf,
   counterText,
   doneCostText,
   doneFace,
   doneRowText,
+  hasLensRoom,
   headline,
   idleRowText,
   runningRowText,
@@ -129,8 +132,12 @@ async function drawRow(
   const tier = tierOf(columns);
   // The headline leads in its own non-shrinking Box, so a squeeze lands on
   // the details Text, which truncates: the row stays one line (§5.1).
-  const headlineNode = (state: BandState, figure?: string): RenderElement => {
-    const head = headline(state, tier, figure);
+  const headlineNode = (
+    state: BandState,
+    figure?: string,
+    word?: string,
+  ): RenderElement => {
+    const head = headline(state, tier, figure, word);
     return (
       <Box flexShrink={0}>
         <Text color={head.color} bold>
@@ -207,6 +214,16 @@ async function drawRow(
       onPress={() => enhance($, cfg, { kind: "box" })}
     />
   );
+  // One Button per lens (hooks/lens.ts), beside Enhance wherever it is drawn.
+  // It carries no engine `action`: the Enhance chord stays Enhance's alone.
+  const lensButton = (lens: Lens): RenderElement => (
+    <Button
+      key={lens.id}
+      label={buttonLabel(lens.name, lens.hotkey, tier)}
+      hotkey={lens.hotkey}
+      onPress={() => enhance($, cfg, { kind: "box" }, lens)}
+    />
+  );
   // A press that ended without a fill leaves its reason here until the next
   // action (R25): the headline and details change, the Buttons do not.
   const verdict = await read($, lastVerdict);
@@ -222,6 +239,7 @@ async function drawRow(
       <Box gap={1}>
         {headlineNode(face.state, face.figure)}
         {enhanceButton(true)}
+        {LENSES.map(lensButton)}
         {detailsNode(face.details)}
       </Box>
     );
@@ -239,11 +257,21 @@ async function drawRow(
   const armedAt = undoArmedAt();
   const isArmed =
     armedAt !== undefined && isUndoWindowOpen(armedAt, await epochMs($));
-  const face = doneFace({ verdict, isArmed, isUndone: undone, cost, summary });
+  // A result a lens made says so (`Deepened`); a row without the mark is Enhance
+  const made = usage?.lens === undefined ? undefined : lensById(usage.lens);
+  const face = doneFace({
+    verdict,
+    isArmed,
+    isUndone: undone,
+    cost,
+    summary,
+    ...(made === undefined ? {} : { word: made.doneWord }),
+  });
   return (
     <Box gap={1}>
-      {headlineNode(face.state, face.figure)}
+      {headlineNode(face.state, face.figure, face.word)}
       {enhanceButton(false)}
+      {hasLensRoom(tier) ? LENSES.map(lensButton) : null}
       <Button
         key="send"
         label={e.props.isWorking ? "Send (queues)" : "Send (s)"}

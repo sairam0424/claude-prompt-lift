@@ -14,12 +14,7 @@ import { costText, formatTokens } from "./chain";
  * without a fill, `Verdict["kind"]` (R25).
  */
 export type BandState =
-  | "idle"
-  | "running"
-  | "done"
-  | "restored"
-  | "armed"
-  | Verdict["kind"];
+  "idle" | "running" | "done" | "restored" | "armed" | Verdict["kind"];
 
 /**
  * What the band's width leaves room for (R25 width tiers): `full` keeps the
@@ -98,15 +93,39 @@ export function colorOf(state: BandState): ThemeKey {
 /**
  * The headline for `state`: glyph and word, or the glyph alone when
  * `minimal`; `figure` (the running counter, the done cost) follows either.
+ * `word` names a press's lens (`Deepened`) in place of the state's own word.
  */
 export function headline(
   state: BandState,
   tier: Tier,
   figure?: string,
+  word?: string,
 ): Headline {
-  const { glyph, word, color } = HEADLINES[state];
-  const lead = tier === "minimal" ? glyph : `${glyph} ${word}`;
+  const { glyph, color } = HEADLINES[state];
+  const lead =
+    tier === "minimal" ? glyph : `${glyph} ${word ?? HEADLINES[state].word}`;
   return { text: figure === undefined ? lead : `${lead} ${figure}`, color };
+}
+
+/**
+ * A lens Button's label: `Deeper (d)` at 100 columns and up, the word alone
+ * narrower; the hotkey is the Button's own prop, so only its legend goes. The
+ * other Buttons keep their labels at every width.
+ */
+export function buttonLabel(name: string, hotkey: string, tier: Tier): string {
+  return tier === "full" ? `${name} (${hotkey})` : name;
+}
+
+/**
+ * Whether the done family's row (done, restored, armed, a verdict after a
+ * result) draws the lens Buttons: from 80 columns. The engine clips a row that
+ * is too wide at its right edge, and that edge holds Send and Undo; an
+ * unpriced chain's headline (`✓ Enhanced $? · (no price)`) leaves an 80-column
+ * band 1 cell to spare with the short label and none for a full one. The idle
+ * row is short and always draws them.
+ */
+export function hasLensRoom(tier: Tier): boolean {
+  return hasRoom(tier);
 }
 
 /** How a rung stands in the strip: failed before the active one, pending after. */
@@ -182,8 +201,16 @@ export function counterText(strip: Strip, tier: Tier): string {
     : `${strip.rung} of ${strip.rungs}`;
 }
 
-/** What a settled row leads and speaks with: a headline state and its details. */
-export type Face = { state: BandState; figure?: string; details: string };
+/**
+ * What a settled row leads and speaks with: a headline state and its details;
+ * `word` is the lens's word for a finished result, absent for plain Enhance.
+ */
+export type Face = {
+  state: BandState;
+  figure?: string;
+  details: string;
+  word?: string;
+};
 
 /**
  * The verdict row (R25): the headline of the press's kind, then its reason and
@@ -212,6 +239,8 @@ export function doneFace(a: {
   isUndone: boolean;
   cost: string | undefined;
   summary: string;
+  /** The lens's word for the result (`Deepened`); absent for plain Enhance. */
+  word?: string;
 }): Face {
   if (a.verdict !== null) {
     return verdictFace(a.verdict);
@@ -222,7 +251,12 @@ export function doneFace(a: {
   if (a.isUndone) {
     return { state: "restored", details: RESTORED_ROW };
   }
-  return { state: "done", figure: a.cost, details: a.summary };
+  return {
+    state: "done",
+    figure: a.cost,
+    details: a.summary,
+    ...(a.word === undefined ? {} : { word: a.word }),
+  };
 }
 
 /**

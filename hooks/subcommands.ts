@@ -4,6 +4,8 @@
  * lines.
  */
 
+import { lensById, type Lens } from "./lens";
+
 // Alias pattern: fable, sonnet, haiku, opus (case-insensitive)
 const ALIAS_PATTERN = /^(fable|sonnet|haiku|opus)$/i;
 // Valid model id pattern: starts with letter/digit, then letters/digits/.:_-
@@ -29,6 +31,11 @@ export type TailArg =
 
 export type PreviewArg =
   { kind: "show"; draft: string } | { kind: "empty" } | { kind: "prose" };
+
+export type LensArg =
+  | { kind: "run"; lens: Lens; draft: string }
+  | { kind: "usage"; lens: Lens }
+  | { kind: "prose" };
 
 /**
  * Parse a `/prompt-lift` command to check if it's a model command.
@@ -142,6 +149,29 @@ export function parsePreviewArg(args: string): PreviewArg {
 }
 
 /**
+ * Parse `/prompt-lift <lens> <draft>` (`deeper …`): a lens word as the first
+ * word with text after it runs that lens on the text; the word alone asks for
+ * the text (a command replaces the box, so it cannot read a draft); the word
+ * anywhere else, or inside a longer word, is part of a draft. Like `preview`,
+ * a draft that opens with the word must open with something else instead.
+ */
+export function parseLensArg(args: string): LensArg {
+  const trimmed = args.trim();
+  const word = /^\S+/.exec(trimmed)?.[0] ?? "";
+  const lens = lensById(word);
+  if (lens === undefined) {
+    return { kind: "prose" };
+  }
+  const draft = trimmed.slice(word.length).trim();
+  return draft === "" ? { kind: "usage", lens } : { kind: "run", lens, draft };
+}
+
+/** What the lens word alone prints: how to give it text. */
+export function lensUsage(lens: Lens): string {
+  return `prompt-lift: ${lens.name} (experimental) needs your text: /prompt-lift ${lens.id} <your prompt>, or write a draft in the box and click ${lens.name}`;
+}
+
+/**
  * The most of the dynamic block `preview` prints. A command's output row joins
  * the transcript the next turn reads, so a block that can hold a 12,000
  * character subproject file and a long conversation tail is cut here; the full
@@ -161,4 +191,21 @@ export function capPreviewBlock(block: string): string {
   const shown = chars.slice(0, PREVIEW_MAX_CHARS).join("");
   const more = chars.length - PREVIEW_MAX_CHARS;
   return `${shown}\n… ${more} more characters (${chars.length} total)`;
+}
+
+/**
+ * `capPreviewBlock` for a lens press: a lens's words end the block, where the
+ * cap would cut first, so only what precedes them is cut (the counts then
+ * describe that part) and the lens and the closing line always print. With no
+ * lens words, or none in the block, it is the plain cap.
+ */
+export function capPreviewBlockKeepingLens(
+  block: string,
+  lensText: string,
+): string {
+  const at = lensText === "" ? -1 : block.lastIndexOf(lensText);
+  if (at === -1) {
+    return capPreviewBlock(block);
+  }
+  return capPreviewBlock(block.slice(0, at)) + block.slice(at);
 }

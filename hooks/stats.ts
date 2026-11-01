@@ -71,6 +71,8 @@ export type AnsweredCall = CallRecord & {
   rungs: number;
   /** When the press began, by `$.clock.now`: the record times it from here. */
   pressedAt: number;
+  /** The id of the lens that made the press; absent for plain Enhance. */
+  lens?: string;
 };
 
 /** What `toLastUsage` records beyond the call's own usage. */
@@ -81,6 +83,7 @@ export type CallFacts = {
   addedWords: number;
   rungs: number;
   elapsedMs: number;
+  lens?: string;
 };
 
 /** What a filled rewrite added; a call that filled nothing has none. */
@@ -147,6 +150,7 @@ export function judgeCall(
     platform: Platform;
     rungs: number;
     pressedAt: number;
+    lens?: string;
   },
 ): AnsweredCall {
   const { platform, ...judged } = a;
@@ -192,6 +196,7 @@ export async function recordCall(
     addedWords: rewrite.addedWords,
     rungs: call.rungs,
     elapsedMs,
+    ...(call.lens === undefined ? {} : { lens: call.lens }),
   };
   await update($, lastUsage, () =>
     toLastUsage(facts, call.usd, call.hashChanged),
@@ -298,5 +303,7 @@ export function toLastUsage(
     hashChanged,
     rungs: a.rungs,
     elapsedMs: a.elapsedMs,
+    // Written only when a lens ran, so a plain press's row is as it always was
+    ...(a.lens === undefined ? {} : { lens: a.lens }),
   };
 }

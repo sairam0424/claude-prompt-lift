@@ -2,9 +2,11 @@ import { atom, read, update } from "claude-code";
 import type { EngineInterface, StateValue } from "claude-code";
 import type { Verdict } from "../types";
 import { ask, epochMs, fillBox, history, log, notify, readBox } from "./api";
-import type { Config, Platform } from "./config";
+import type { Config } from "./config";
 import { SYSTEM } from "./rules";
+import { reportFailure } from "./failure";
 import { postProcess, preGuard, type PostOk } from "./guards";
+import { ENHANCE_LENS, type Lens } from "./lens";
 import { prepare, type Prepared } from "./prepare";
 import {
   capToast,
@@ -21,15 +23,7 @@ import {
   namedPathsExist,
   resolveChainWithPlatform,
 } from "./gather";
-import {
-  assessCall,
-  attemptsUsd,
-  describeAttempt,
-  judgeCall,
-  recordOrLog,
-  recordSpend,
-  type AnsweredCall,
-} from "./stats";
+import { assessCall, judgeCall, recordOrLog, type AnsweredCall } from "./stats";
 import { holdPair, recordSuccess } from "./record";
 import { capReachedToast, readCapStatus } from "./caps";
 import { clearVerdict, keepVerdict, verdictOf, type Stop } from "./verdict";
@@ -54,13 +48,10 @@ export const requestId = atom(
 );
 
 const TOAST_BUSY = "prompt-lift: already enhancing";
-const TOAST_FINE = "prompt-lift: already specific, left as is";
 const TOAST_DRAFT_CHANGED =
   "prompt-lift: draft changed while enhancing, left as is";
 const TOAST_MISSING_PATH =
   "prompt-lift: named a file that does not exist, kept your prompt";
-const TOAST_CANCELLED = "prompt-lift: cancelled, draft unchanged";
-const TOAST_NO_MODELS = "prompt-lift: no models configured";
 export const TOAST_NOT_TAKEN =
   "prompt-lift: the prompt box did not take the text";
 
@@ -91,10 +82,16 @@ export function isCallInFlight(): boolean {
   return controller !== undefined;
 }
 
+/**
+ * One press of Enhance. `lens` (hooks/lens.ts) adds its words to the uncached
+ * block, names the press in the record and words the "left as is" toast; the
+ * default lens changes nothing, so every earlier caller is unchanged.
+ */
 export async function enhance(
   $: EngineInterface,
   cfg: Config,
   source: EnhanceSource,
+  lens: Lens = ENHANCE_LENS,
 ): Promise<void> {
   if (busy) {
     notify($, TOAST_BUSY);
@@ -143,7 +140,7 @@ export async function enhance(
       stop("refused", capped);
       return;
     }
-    const prepared = await prepare($, cfg, draft, rows);
+    const prepared = await prepare($, cfg, draft, rows, lens);
     // The platform is read once per press (R19): every rung's price goes by it
     const { chain, platform } = await resolveChainWithPlatform($, cfg);
     const run = await callChain($, cfg, chain, prepared, abort.signal);
@@ -160,6 +157,7 @@ export async function enhance(
       platform,
       rungs: chain.length,
       pressedAt,
+      ...(lens.id === ENHANCE_LENS.id ? {} : { lens: lens.id }),
     });
     const call = await assessCall($, unrecorded);
     unrecorded = call;
@@ -177,7 +175,7 @@ export async function enhance(
     if (!post.ok) {
       unrecorded = undefined;
       await recordOrLog($, call);
-      stop("refused", "fine" in post ? TOAST_FINE : post.toast, {
+      stop("refused", "fine" in post ? lens.fineToast : post.toast, {
         usd: call.usd,
       });
       return;
@@ -288,32 +286,6 @@ function noteRunningModel($: EngineInterface, id: string): void {
         to: "debug",
       });
     });
-}
-
-/**
- * A chain that answered nothing still paid for its rungs (G5): record that,
- * priced on the platform the press ran on (R19), then say so.
- */
-async function reportFailure(
-  $: EngineInterface,
-  cfg: Config,
-  run: ChainFail,
-  platform: Platform,
-  stop: Stop,
-): Promise<void> {
-  if (run.attempts.length === 0) {
-    stop("failed", TOAST_NO_MODELS);
-    return;
-  }
-  const usd = attemptsUsd(run.attempts, cfg.prices, platform);
-  await recordSpend($, usd);
-  if (run.cancelled) {
-    stop("cancelled", TOAST_CANCELLED, { usd });
-    return;
-  }
-  const trail = run.attempts.map(describeAttempt).join(" → ");
-  stop("failed", `prompt-lift: no model answered · ${trail}`, { usd });
-  log($, `prompt-lift: enhance failed: ${trail}`);
 }
 
 /** Steps 7 and 8: path guard, stale check, box re-read, fill. */

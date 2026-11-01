@@ -91,7 +91,7 @@ test(
     expect(head?.props.color).toBe("warning");
     expect(head?.props.bold).toBe(true);
     expect(await detailsText(ui)).toBe(`${FINE_REASON} · ${FABLE_COST}`);
-    expect(await keys(ui)).toEqual(["enhance"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper"]);
     expect(await variantOf(ui, "enhance")).toBe("primary");
 
     // a new press clears it: the phase goes to running, the verdict to null
@@ -134,7 +134,7 @@ test(
     expect(head?.text).toBe("✗ Failed");
     expect(head?.props.color).toBe("error");
     expect(await detailsText(ui)).toBe(words);
-    expect(await keys(ui)).toEqual(["enhance"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper"]);
   },
 );
 
@@ -163,20 +163,20 @@ test(
     expect(head?.text).toBe("✗ Cancelled");
     expect(head?.props.color).toBe("warning");
     expect(await detailsText(ui)).toBe(`draft unchanged · ${FREE}`);
-    expect(await keys(ui)).toEqual(["enhance"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper"]);
     expect(e.box.text).toBe(DRAFT);
   },
 );
 
 test(
-  "a refusal after a done press keeps the three done Buttons",
+  "a refusal after a done press keeps the four done Buttons",
   { options: BEDROCK },
   async ($, on) => {
     const e = engine(on);
     e.box.text = DRAFT;
     const ui = await mount($);
     await ui.press({ key: "enhance" });
-    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
 
     // a second press on the enhanced box, with a line the guards refuse
     e.box.text = COMMAND_LINE;
@@ -186,7 +186,7 @@ test(
     expect(e.toasts.at(-1)).toBe(`prompt-lift: ${GUARD_REASON}`);
     expect(await headlineText(ui)).toBe("✗ Kept as is");
     expect(await detailsText(ui)).toBe(GUARD_REASON);
-    expect(await keys(ui)).toEqual(["enhance", "send", "undo"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper", "send", "undo"]);
     expect(await variantOf(ui, "send")).toBe("primary");
   },
 );
@@ -311,7 +311,7 @@ test(
     expect(kept).toEqual({ kind: "refused", text: CAP_REASON });
     expect(kept).not.toHaveProperty("usd");
     expect(await headlineText(ui)).toBe("✗ Kept as is");
-    expect(await keys(ui)).toEqual(["enhance"]);
+    expect(await keys(ui)).toEqual(["enhance", "deeper"]);
     const details = await detailsText(ui);
     expect(details).toBe(CAP_REASON);
     expect(details).not.toContain("$0.000");

@@ -22,6 +22,14 @@ export type LastUsage = {
    * no ticks (R25). Absent on a row a 0.5.0 session wrote: the row omits it.
    */
   elapsedMs?: number;
+  /**
+   * The id of the lens that made the last answered call (`deeper`), for the
+   * band's headline word (`Deepened`). Like the rest of this row it describes
+   * that call, so a refused lens press that answered leaves its mark here.
+   * Absent for plain Enhance and for a row an earlier version wrote: the row
+   * then says Enhanced.
+   */
+  lens?: string;
 };
 
 /**
