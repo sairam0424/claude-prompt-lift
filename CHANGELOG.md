@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- A rewrite that quotes a payload no longer lands in the prompt box as the raw JSON reply. The model answers with one JSON object, and a rewrite that carries a brace pair in its text (a request body such as `{"name": ""}`, a `{id}` template) made the parser match only the inner pair, fail to parse it and treat the whole reply as the rewrite: the box got `{"verdict":"improve","prompt":"…` instead of the prompt. The parser now scans for a balanced object, skipping string contents (`hooks/json-scan.ts`), and takes the first one that states a verdict, so prose or a code fence around it, or a brace pair in leading prose, no longer hides it. Plain text, malformed JSON and an object with no verdict behave as before. It affects Enhance as well as Deeper.
+
 ### Documentation
 - The README links the mod's listing in the Awesome Claude Code Mods catalogue (seed PR merged 2026-10-25) and shows the two badges the catalogue serves for it: the access report its scan recorded and the Claude Code version it validated on.
 

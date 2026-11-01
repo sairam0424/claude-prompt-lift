@@ -1,6 +1,7 @@
 import type { Config } from "./config";
 import type { PromptDecoration } from "claude-code";
 import { insertionDecorations, wordDiffInsertions } from "./diff";
+import { jsonObjects } from "./json-scan";
 import {
   protectedTokens as _protectedTokens,
   pathTokens as _pathTokens,
@@ -48,29 +49,38 @@ export type Verdict =
   | { verdict: "fine" }
   | { verdict: "improve"; prompt: string; why: string; applied: string[] };
 
+/** The verdict one JSON object states, or undefined when it states none. */
+function verdictOf(json: string): Verdict | undefined {
+  try {
+    const parsed = JSON.parse(json);
+    if (parsed.verdict === "fine") {
+      return { verdict: "fine" };
+    }
+    if (
+      parsed.verdict === "improve" &&
+      typeof parsed.prompt === "string" &&
+      parsed.prompt.trim().length > 0
+    ) {
+      return {
+        verdict: "improve",
+        prompt: parsed.prompt,
+        why: typeof parsed.why === "string" ? parsed.why : "",
+        applied: Array.isArray(parsed.applied) ? parsed.applied : [],
+      };
+    }
+  } catch {
+    // Not JSON, or not an object: the next candidate, then plain text
+  }
+  return undefined;
+}
+
 export function parseVerdict(text: string): Verdict {
-  // Try to find first {...} block
-  const jsonMatch = text.match(/\{[^{}]*\}/);
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (parsed.verdict === "fine") {
-        return { verdict: "fine" };
-      }
-      if (
-        parsed.verdict === "improve" &&
-        typeof parsed.prompt === "string" &&
-        parsed.prompt.trim().length > 0
-      ) {
-        return {
-          verdict: "improve",
-          prompt: parsed.prompt,
-          why: typeof parsed.why === "string" ? parsed.why : "",
-          applied: Array.isArray(parsed.applied) ? parsed.applied : [],
-        };
-      }
-    } catch {
-      // Fall through to plain text handling
+  // The first balanced object that states a verdict; a rewrite that quotes a
+  // payload has brace pairs inside its string (hooks/json-scan.ts)
+  for (const json of jsonObjects(cleanReply(text))) {
+    const verdict = verdictOf(json);
+    if (verdict !== undefined) {
+      return verdict;
     }
   }
 
